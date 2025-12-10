@@ -116,7 +116,7 @@ const StudentLayout = () => {
                 Quick Links
               </p>
               <a
-                href="https://learning.tabsera.com"
+                href="https://cambridge.tabsera.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"

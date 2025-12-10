@@ -21,7 +21,7 @@ const mockEnrolledTracks = [
     coursesCompleted: 4,
     totalCourses: 12,
     nextLesson: 'Mathematics - Algebra Chapter 5',
-    edxUrl: 'https://learning.tabsera.com/courses/igcse-full',
+    edxUrl: 'https://cambridge.tabsera.com/courses/igcse-full',
     lastAccessed: '2 hours ago',
     image: '/courses/igcse.jpg'
   },
@@ -32,7 +32,7 @@ const mockEnrolledTracks = [
     coursesCompleted: 6,
     totalCourses: 8,
     nextLesson: 'Fiqh - Prayer Rulings',
-    edxUrl: 'https://learning.tabsera.com/courses/islamic-studies',
+    edxUrl: 'https://cambridge.tabsera.com/courses/islamic-studies',
     lastAccessed: 'Yesterday',
     image: '/courses/islamic.jpg'
   }

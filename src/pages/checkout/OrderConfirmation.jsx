@@ -253,7 +253,7 @@ function OrderConfirmation() {
             Start Learning
           </Link>
           <a
-            href="https://learning.tabsera.com"
+            href="https://cambridge.tabsera.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

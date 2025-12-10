@@ -22,15 +22,15 @@ const mockEnrolledTracks = [
     expiresDate: 'December 2026',
     status: 'active',
     image: '/tracks/igcse.jpg',
-    edxProgramUrl: 'https://learning.tabsera.com/programs/igcse-full',
+    edxProgramUrl: 'https://cambridge.tabsera.com/programs/igcse-full',
     courses: [
-      { id: 'c1', name: 'IGCSE Mathematics', progress: 78, status: 'in_progress', edxUrl: 'https://learning.tabsera.com/courses/igcse-math', lastAccessed: '2 hours ago' },
-      { id: 'c2', name: 'IGCSE English Language', progress: 65, status: 'in_progress', edxUrl: 'https://learning.tabsera.com/courses/igcse-english', lastAccessed: 'Yesterday' },
-      { id: 'c3', name: 'IGCSE Physics', progress: 52, status: 'in_progress', edxUrl: 'https://learning.tabsera.com/courses/igcse-physics', lastAccessed: '3 days ago' },
-      { id: 'c4', name: 'IGCSE Chemistry', progress: 100, status: 'completed', edxUrl: 'https://learning.tabsera.com/courses/igcse-chemistry', completedDate: 'Dec 15, 2025' },
-      { id: 'c5', name: 'IGCSE Biology', progress: 100, status: 'completed', edxUrl: 'https://learning.tabsera.com/courses/igcse-biology', completedDate: 'Nov 28, 2025' },
-      { id: 'c6', name: 'IGCSE History', progress: 0, status: 'not_started', edxUrl: 'https://learning.tabsera.com/courses/igcse-history' },
-      { id: 'c7', name: 'IGCSE Geography', progress: 0, status: 'not_started', edxUrl: 'https://learning.tabsera.com/courses/igcse-geography' },
+      { id: 'c1', name: 'IGCSE Mathematics', progress: 78, status: 'in_progress', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-math', lastAccessed: '2 hours ago' },
+      { id: 'c2', name: 'IGCSE English Language', progress: 65, status: 'in_progress', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-english', lastAccessed: 'Yesterday' },
+      { id: 'c3', name: 'IGCSE Physics', progress: 52, status: 'in_progress', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-physics', lastAccessed: '3 days ago' },
+      { id: 'c4', name: 'IGCSE Chemistry', progress: 100, status: 'completed', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-chemistry', completedDate: 'Dec 15, 2025' },
+      { id: 'c5', name: 'IGCSE Biology', progress: 100, status: 'completed', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-biology', completedDate: 'Nov 28, 2025' },
+      { id: 'c6', name: 'IGCSE History', progress: 0, status: 'not_started', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-history' },
+      { id: 'c7', name: 'IGCSE Geography', progress: 0, status: 'not_started', edxUrl: 'https://cambridge.tabsera.com/courses/igcse-geography' },
     ]
   },
   {
@@ -42,12 +42,12 @@ const mockEnrolledTracks = [
     expiresDate: 'August 2026',
     status: 'active',
     image: '/tracks/islamic.jpg',
-    edxProgramUrl: 'https://learning.tabsera.com/programs/islamic-studies',
+    edxProgramUrl: 'https://cambridge.tabsera.com/programs/islamic-studies',
     courses: [
-      { id: 'i1', name: 'Quranic Studies & Tajweed', progress: 100, status: 'completed', edxUrl: 'https://learning.tabsera.com/courses/quran-tajweed', completedDate: 'Oct 20, 2025' },
-      { id: 'i2', name: 'Islamic Fiqh Basics', progress: 85, status: 'in_progress', edxUrl: 'https://learning.tabsera.com/courses/fiqh-basics', lastAccessed: 'Today' },
-      { id: 'i3', name: 'Seerah - Life of the Prophet', progress: 100, status: 'completed', edxUrl: 'https://learning.tabsera.com/courses/seerah', completedDate: 'Nov 10, 2025' },
-      { id: 'i4', name: 'Islamic History', progress: 45, status: 'in_progress', edxUrl: 'https://learning.tabsera.com/courses/islamic-history', lastAccessed: '5 days ago' },
+      { id: 'i1', name: 'Quranic Studies & Tajweed', progress: 100, status: 'completed', edxUrl: 'https://cambridge.tabsera.com/courses/quran-tajweed', completedDate: 'Oct 20, 2025' },
+      { id: 'i2', name: 'Islamic Fiqh Basics', progress: 85, status: 'in_progress', edxUrl: 'https://cambridge.tabsera.com/courses/fiqh-basics', lastAccessed: 'Today' },
+      { id: 'i3', name: 'Seerah - Life of the Prophet', progress: 100, status: 'completed', edxUrl: 'https://cambridge.tabsera.com/courses/seerah', completedDate: 'Nov 10, 2025' },
+      { id: 'i4', name: 'Islamic History', progress: 45, status: 'in_progress', edxUrl: 'https://cambridge.tabsera.com/courses/islamic-history', lastAccessed: '5 days ago' },
     ]
   }
 ];
@@ -58,7 +58,7 @@ const mockIndividualCourses = [
     name: 'Arabic for Beginners',
     progress: 30,
     status: 'in_progress',
-    edxUrl: 'https://learning.tabsera.com/courses/arabic-beginners',
+    edxUrl: 'https://cambridge.tabsera.com/courses/arabic-beginners',
     lastAccessed: '1 week ago',
     enrolledDate: 'December 2025'
   }
@@ -128,7 +128,7 @@ function MyLearning() {
           <p className="text-gray-500">Access your enrolled tracks and courses</p>
         </div>
         <a
-          href="https://learning.tabsera.com"
+          href="https://cambridge.tabsera.com"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"

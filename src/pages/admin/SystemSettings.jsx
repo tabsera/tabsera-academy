@@ -52,7 +52,7 @@ function SystemSettings() {
   });
 
   const [edxSettings, setEdxSettings] = useState({
-    edxBaseUrl: 'https://learning.tabsera.com',
+    edxBaseUrl: 'https://cambridge.tabsera.com',
     edxApiKey: 'edx_api_xxxxxxxxxxxxxx',
     enableAutoEnrollment: true,
     enableProgressSync: true,
