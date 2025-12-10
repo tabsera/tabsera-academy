@@ -17,6 +17,10 @@ import ResetPassword from './pages/auth/ResetPassword';
 
 // Public Pages (Student-facing)
 import Home from './pages/public/Home';
+import About from './pages/public/About';
+import Contact from './pages/public/Contact';
+import Privacy from './pages/public/Privacy';
+import Terms from './pages/public/Terms';
 import Courses from './pages/public/Courses';
 import CourseDetail from './pages/public/CourseDetail';
 import LearningCentersListing from './pages/public/LearningCentersListing';
@@ -118,10 +122,10 @@ function App() {
       <Route path="/courses/:id" element={<CourseDetail />} />
       <Route path="/centers" element={<LearningCentersListing />} />
       <Route path="/partner" element={<BecomePartner />} />
-      <Route path="/about" element={<Home />} /> {/* TODO: Create About page */}
-      <Route path="/contact" element={<Home />} /> {/* TODO: Create Contact page */}
-      <Route path="/privacy" element={<Home />} /> {/* TODO: Create Privacy page */}
-      <Route path="/terms" element={<Home />} /> {/* TODO: Create Terms page */}
+      <Route path="/about" element={<About />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* ===================== */}
       {/* CHECKOUT ROUTES */}
