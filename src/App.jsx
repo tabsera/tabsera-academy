@@ -24,6 +24,7 @@ import Terms from './pages/public/Terms';
 import Courses from './pages/public/Courses';
 import CourseDetail from './pages/public/CourseDetail';
 import LearningCentersListing from './pages/public/LearningCentersListing';
+import LearningCenterDetail from './pages/public/LearningCenterDetail';
 import BecomePartner from './pages/public/BecomePartner';
 
 // Admin Pages
@@ -121,6 +122,7 @@ function App() {
       <Route path="/courses" element={<Courses />} />
       <Route path="/courses/:id" element={<CourseDetail />} />
       <Route path="/centers" element={<LearningCentersListing />} />
+      <Route path="/centers/:id" element={<LearningCenterDetail />} />
       <Route path="/partner" element={<BecomePartner />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />

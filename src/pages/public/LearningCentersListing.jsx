@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Layout } from '../../components/Layout';
 import {
-  GraduationCap, Building2, Search, MapPin, Users, Star,
-  ArrowLeft, Filter, Globe, ChevronRight, CheckCircle
+  Building2, Search, MapPin, Users, Star,
+  Globe, ChevronRight, Mail, Phone, Calendar
 } from 'lucide-react';
+import { learningCenters } from '../../utils/mockData';
 
 const LearningCentersListing = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCountry, setFilterCountry] = useState('all');
 
-  const centers = [
-    { id: 'aqoonyahan', name: 'Aqoonyahan School', location: 'Hargeisa, Somalia', country: 'Somalia', flag: '🇸🇴', students: 60, programs: ['IGCSE Full', 'Islamic Studies'], rating: 4.8, featured: true },
-    { id: 'sunrise', name: 'Sunrise International', location: 'Nairobi, Kenya', country: 'Kenya', flag: '🇰🇪', students: 120, programs: ['IGCSE Full', 'Business', 'ESL'], rating: 4.9, featured: true },
-    { id: 'alnoor', name: 'Al-Noor Academy', location: 'Mogadishu, Somalia', country: 'Somalia', flag: '🇸🇴', students: 45, programs: ['IGCSE Full', 'Islamic Studies'], rating: 4.6, featured: false },
-    { id: 'excel', name: 'Excel Academy', location: 'Addis Ababa, Ethiopia', country: 'Ethiopia', flag: '🇪🇹', students: 85, programs: ['IGCSE Full', 'Science', 'Islamic Studies'], rating: 4.5, featured: false },
-    { id: 'kampala', name: 'Kampala IGCSE Center', location: 'Kampala, Uganda', country: 'Uganda', flag: '🇺🇬', students: 70, programs: ['IGCSE Full', 'ESL'], rating: 4.6, featured: false },
-    { id: 'hidaya', name: 'Hidaya Learning Center', location: 'Mombasa, Kenya', country: 'Kenya', flag: '🇰🇪', students: 35, programs: ['IGCSE Full', 'Islamic Studies', 'ESL'], rating: 4.7, featured: false },
-  ];
+  // Use mock data and enhance it
+  const centers = learningCenters.map((center, idx) => ({
+    ...center,
+    programs: idx % 2 === 0
+      ? ['IGCSE Full', 'Islamic Studies']
+      : ['IGCSE Full', 'Business', 'ESL'],
+    featured: idx < 2
+  }));
 
   const filteredCenters = centers.filter(center => {
     const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -25,38 +27,41 @@ const LearningCentersListing = () => {
     return matchesSearch && matchesCountry;
   });
 
+  // Get unique countries for filter
+  const countries = [...new Set(learningCenters.map(c => c.country))];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-lg">
-                <GraduationCap size={28} className="text-white" />
-              </div>
-              <div>
-                <span className="text-xl font-bold block leading-none">TABSERA</span>
-                <span className="text-xs text-blue-200">ACADEMY</span>
-              </div>
-            </Link>
-            <Link to="/" className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20">
-              <ArrowLeft size={18} />
-              Back to Home
-            </Link>
+    <Layout>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Building2 size={32} />
+            <h1 className="text-3xl md:text-4xl font-bold">Our Learning Centers</h1>
           </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <h1 className="text-3xl font-bold mb-4">Our Learning Centers</h1>
-          <p className="text-blue-100 max-w-2xl">
-            Discover TABSERA Academy partner learning centers across East Africa, 
+          <p className="text-blue-100 max-w-2xl text-lg">
+            Discover TABSERA Academy partner learning centers across East Africa,
             offering Cambridge IGCSE programs and Islamic Studies curriculum.
           </p>
+          <div className="mt-6 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+              <Building2 size={18} />
+              <span>{learningCenters.length} Centers</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+              <Globe size={18} />
+              <span>{countries.length} Countries</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+              <Users size={18} />
+              <span>{learningCenters.reduce((sum, c) => sum + c.students, 0)}+ Students</span>
+            </div>
+          </div>
         </div>
-      </header>
+      </section>
 
       {/* Search & Filter */}
-      <div className="max-w-7xl mx-auto px-6 -mt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
         <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col md:flex-row gap-4">
           <div className="flex-1 flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
             <Search size={20} className="text-gray-400" />
@@ -74,16 +79,15 @@ const LearningCentersListing = () => {
             className="px-4 py-2 bg-gray-100 rounded-lg border-none outline-none cursor-pointer"
           >
             <option value="all">All Countries</option>
-            <option value="Somalia">Somalia</option>
-            <option value="Kenya">Kenya</option>
-            <option value="Ethiopia">Ethiopia</option>
-            <option value="Uganda">Uganda</option>
+            {countries.map(country => (
+              <option key={country} value={country}>{country}</option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Centers Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCenters.map((center) => (
             <div
@@ -94,9 +98,20 @@ const LearningCentersListing = () => {
             >
               {center.featured && (
                 <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-center py-1 text-xs font-semibold">
-                  ⭐ Featured Partner
+                  Featured Partner
                 </div>
               )}
+              {/* Center Image */}
+              <div className="h-40 bg-gray-200 overflow-hidden">
+                <img
+                  src={center.image}
+                  alt={center.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -113,9 +128,15 @@ const LearningCentersListing = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Users size={16} className="text-gray-400" />
-                  <span className="text-sm text-gray-600">{center.students} students enrolled</span>
+                <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <Users size={16} className="text-gray-400" />
+                    <span>{center.students} students</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar size={16} className="text-gray-400" />
+                    <span>Since {new Date(center.joinedDate).getFullYear()}</span>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
@@ -126,9 +147,12 @@ const LearningCentersListing = () => {
                   ))}
                 </div>
 
-                <button className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 flex items-center justify-center gap-2">
+                <Link
+                  to={`/centers/${center.id}`}
+                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   Learn More <ChevronRight size={16} />
-                </button>
+                </Link>
               </div>
             </div>
           ))}
@@ -144,27 +168,23 @@ const LearningCentersListing = () => {
       </div>
 
       {/* CTA Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 py-16">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">
+      <section className="bg-gradient-to-r from-blue-900 to-blue-800 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
             Interested in becoming a partner?
           </h2>
-          <p className="text-blue-100 mb-6">
+          <p className="text-blue-100 mb-8 max-w-xl mx-auto">
             Join our network of learning centers and bring Cambridge IGCSE education to your community.
           </p>
-          <Link to="/partner" className="inline-block px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50">
+          <Link
+            to="/partner"
+            className="inline-block px-8 py-4 bg-cyan-500 text-white rounded-xl font-semibold hover:bg-cyan-400 transition-colors"
+          >
             Apply to Partner
           </Link>
         </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p>© 2026 TABSERA Academy. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
+      </section>
+    </Layout>
   );
 };
 
