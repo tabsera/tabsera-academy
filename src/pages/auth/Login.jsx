@@ -243,9 +243,9 @@ function Login() {
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
         <p className="text-sm font-medium text-blue-800 mb-2">Demo Accounts:</p>
         <div className="space-y-1 text-xs text-blue-700">
-          <p><span className="font-medium">Student:</span> student@demo.com / demo123</p>
-          <p><span className="font-medium">Center Admin:</span> center@demo.com / demo123</p>
-          <p><span className="font-medium">TABSERA Admin:</span> admin@demo.com / demo123</p>
+          <p><span className="font-medium">Student:</span> student@tabsera.com / student123</p>
+          <p><span className="font-medium">Center Admin:</span> center@tabsera.com / center123</p>
+          <p><span className="font-medium">TABSERA Admin:</span> admin@tabsera.com / admin123</p>
         </div>
       </div>
     </div>

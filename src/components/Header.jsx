@@ -85,10 +85,14 @@ export function Header() {
               {showPortalMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
                   <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Student</p>
-                  <a href="#" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <Link
+                    to="/login"
+                    onClick={() => setShowPortalMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
                     <User size={16} />
                     Student Login
-                  </a>
+                  </Link>
                   <div className="border-t border-gray-100 my-2"></div>
                   <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Partners</p>
                   <Link 
@@ -139,7 +143,10 @@ export function Header() {
               Become a Partner
             </Link>
             <div className="border-t border-gray-100 my-2 pt-2">
-              <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase">Portals</p>
+              <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase">Account</p>
+              <Link to="/login" className="block px-3 py-3 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                Student Login
+              </Link>
               <Link to="/center/dashboard" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                 Learning Center Portal
               </Link>
