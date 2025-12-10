@@ -223,6 +223,55 @@ function LearningCenterDetail() {
                 ))}
               </div>
             </div>
+
+            {/* Location Map */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <MapPin size={20} />
+                Location
+              </h2>
+              <div className="rounded-xl overflow-hidden border border-gray-200">
+                <iframe
+                  title={`${center.name} Location`}
+                  src={center.coordinates
+                    ? `https://maps.google.com/maps?q=${center.coordinates.lat},${center.coordinates.lng}&z=15&output=embed`
+                    : `https://maps.google.com/maps?q=${encodeURIComponent(center.location)}&z=13&output=embed`
+                  }
+                  width="100%"
+                  height="300"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <a
+                  href={center.coordinates
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${center.coordinates.lat},${center.coordinates.lng}`
+                    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(center.location)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={16} />
+                  Get Directions
+                </a>
+                <a
+                  href={center.coordinates
+                    ? `https://www.google.com/maps?q=${center.coordinates.lat},${center.coordinates.lng}`
+                    : `https://www.google.com/maps?q=${encodeURIComponent(center.location)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Globe size={16} />
+                  View Larger Map
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Sidebar */}

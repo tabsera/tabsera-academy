@@ -242,6 +242,7 @@ export const learningCenters = [
       phone: '+252 63 XXX XXXX',
       address: 'Main Street, Hargeisa'
     },
+    coordinates: { lat: 9.5600, lng: 44.0650 },
     image: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -260,6 +261,7 @@ export const learningCenters = [
       phone: '+254 7XX XXX XXX',
       address: 'Westlands, Nairobi'
     },
+    coordinates: { lat: -1.2635, lng: 36.8030 },
     image: 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -278,6 +280,7 @@ export const learningCenters = [
       phone: '+251 9XX XXX XXX',
       address: 'Bole, Addis Ababa'
     },
+    coordinates: { lat: 8.9806, lng: 38.7578 },
     image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -296,6 +299,7 @@ export const learningCenters = [
       phone: '+256 7XX XXX XXX',
       address: 'Wandegeya, Kampala'
     },
+    coordinates: { lat: 0.3476, lng: 32.5825 },
     image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -314,6 +318,7 @@ export const learningCenters = [
       phone: '+255 7XX XXX XXX',
       address: 'Kariakoo, Dar es Salaam'
     },
+    coordinates: { lat: -6.8160, lng: 39.2803 },
     image: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -332,6 +337,7 @@ export const learningCenters = [
       phone: '+252 61 XXX XXXX',
       address: 'Hodan, Mogadishu'
     },
+    coordinates: { lat: 2.0469, lng: 45.3182 },
     image: 'https://images.unsplash.com/photo-1594312915251-48db9280c8f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -350,6 +356,7 @@ export const learningCenters = [
       phone: '+254 7XX XXX XXX',
       address: 'Old Town, Mombasa'
     },
+    coordinates: { lat: -4.0435, lng: 39.6682 },
     image: 'https://images.unsplash.com/photo-1568792923760-d70635a89fdc?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   },
   {
@@ -368,6 +375,7 @@ export const learningCenters = [
       phone: '+253 77 XX XX XX',
       address: 'Central District, Djibouti'
     },
+    coordinates: { lat: 11.5886, lng: 43.1456 },
     image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
   }
 ];
