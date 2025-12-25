@@ -273,6 +273,43 @@ export const authApi = {
 
     return apiClient.post('/auth/edx-login', { returnUrl });
   },
+
+  /**
+   * Login to edX as admin
+   * @param {string} returnUrl - URL to redirect after edX login
+   * @returns {Promise<{success, edxBaseUrl, sessionId, csrfToken, adminUrl, studioUrl}>}
+   */
+  async edxAdminLogin(returnUrl) {
+    if (useMockApi) {
+      return {
+        success: false,
+        message: 'edX admin login not available in mock mode',
+        edxBaseUrl: 'https://cambridge.tabsera.com',
+        adminUrl: 'https://cambridge.tabsera.com/admin',
+        studioUrl: 'https://studio.cambridge.tabsera.com',
+      };
+    }
+
+    return apiClient.post('/auth/edx-admin-login', { returnUrl });
+  },
+
+  /**
+   * Get edX URLs for admin panel
+   * @returns {Promise<{edxBaseUrl, adminUrl, studioUrl, dashboardUrl}>}
+   */
+  async getEdxUrls() {
+    if (useMockApi) {
+      return {
+        success: true,
+        edxBaseUrl: 'https://cambridge.tabsera.com',
+        adminUrl: 'https://cambridge.tabsera.com/admin',
+        studioUrl: 'https://studio.cambridge.tabsera.com',
+        dashboardUrl: 'https://cambridge.tabsera.com/dashboard',
+      };
+    }
+
+    return apiClient.get('/auth/edx-urls');
+  },
 };
 
 export default authApi;

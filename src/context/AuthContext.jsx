@@ -257,6 +257,47 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Open edX admin/studio with auto-login (for Tabsera admins)
+  const openEdxAdmin = useCallback(async (targetUrl) => {
+    try {
+      // Try to get edX admin session
+      const session = await authApi.edxAdminLogin(targetUrl);
+
+      if (session.success) {
+        // Open the target URL or admin dashboard
+        const url = targetUrl || session.adminUrl || session.edxBaseUrl + '/admin';
+        window.open(url, '_blank');
+        return { success: true, ...session };
+      } else {
+        // Fall back to direct link
+        const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+        window.open(targetUrl || edxBaseUrl + '/admin', '_blank');
+        return { success: false, message: session.message || 'Admin login failed' };
+      }
+    } catch (error) {
+      console.error('Failed to open edX admin:', error);
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      window.open(targetUrl || edxBaseUrl + '/admin', '_blank');
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Get edX URLs for admin panel
+  const getEdxUrls = useCallback(async () => {
+    try {
+      return await authApi.getEdxUrls();
+    } catch (error) {
+      console.error('Failed to get edX URLs:', error);
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      return {
+        edxBaseUrl,
+        adminUrl: edxBaseUrl + '/admin',
+        studioUrl: edxBaseUrl.replace('://cambridge.', '://studio.cambridge.'),
+        dashboardUrl: edxBaseUrl + '/dashboard',
+      };
+    }
+  }, []);
+
   // Check if user has specific role
   const hasRole = useCallback((role) => {
     if (!user) return false;
@@ -296,6 +337,8 @@ export function AuthProvider({ children }) {
     clearError,
     getEdxSession,
     openEdxUrl,
+    openEdxAdmin,
+    getEdxUrls,
     ROLES,
   };
 

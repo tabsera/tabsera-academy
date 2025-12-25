@@ -782,4 +782,72 @@ router.post('/edx-login', authenticate, async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/auth/edx-admin-login
+ * Perform edX admin login for Tabsera admins
+ * Uses configured admin credentials for course management access
+ */
+router.post('/edx-admin-login', authenticate, async (req, res, next) => {
+  try {
+    const { returnUrl } = req.body;
+
+    // Check if user is admin
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { role: true },
+    });
+
+    if (user.role !== 'TABSERA_ADMIN' && user.role !== 'CENTER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required',
+      });
+    }
+
+    // Login with admin credentials
+    const loginResult = await edxService.adminLogin(returnUrl);
+
+    if (loginResult.success) {
+      res.json({
+        success: true,
+        edxBaseUrl: loginResult.edxBaseUrl,
+        sessionId: loginResult.sessionId,
+        csrfToken: loginResult.csrfToken,
+        returnUrl: loginResult.returnUrl,
+        adminUrl: edxService.getAdminUrl(),
+        studioUrl: edxService.getStudioUrl(),
+      });
+    } else {
+      res.json({
+        success: false,
+        message: loginResult.error || 'edX admin login failed',
+        edxBaseUrl: loginResult.edxBaseUrl,
+        loginUrl: loginResult.loginUrl,
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/auth/edx-urls
+ * Get edX URLs for admin panel
+ */
+router.get('/edx-urls', authenticate, async (req, res, next) => {
+  try {
+    const edxBaseUrl = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
+
+    res.json({
+      success: true,
+      edxBaseUrl,
+      adminUrl: edxService.getAdminUrl(),
+      studioUrl: edxService.getStudioUrl(),
+      dashboardUrl: `${edxBaseUrl}/dashboard`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

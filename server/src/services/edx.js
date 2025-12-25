@@ -8,6 +8,8 @@ const crypto = require('crypto');
 const EDX_BASE_URL = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
 const EDX_CLIENT_ID = process.env.EDX_OAUTH_CLIENT_ID;
 const EDX_CLIENT_SECRET = process.env.EDX_OAUTH_CLIENT_SECRET;
+const EDX_ADMIN_USERNAME = process.env.EDX_ADMIN_USERNAME || 'admin';
+const EDX_ADMIN_PASSWORD = process.env.EDX_ADMIN_PASSWORD;
 
 // Encryption key for edX passwords (use JWT_SECRET as base)
 const ENCRYPTION_KEY = crypto.createHash('sha256')
@@ -602,6 +604,61 @@ const createEdxCredentials = (firstName, lastName) => {
   return { password, encryptedPassword };
 };
 
+/**
+ * Login to edX as admin
+ * Uses configured admin credentials from environment
+ * @param {string} returnUrl - URL to redirect after login
+ * @returns {Object} Session info for admin access
+ */
+const adminLogin = async (returnUrl) => {
+  if (!EDX_ADMIN_PASSWORD) {
+    console.error('EDX_ADMIN_PASSWORD not configured');
+    return { success: false, error: 'edX admin credentials not configured' };
+  }
+
+  try {
+    const loginResult = await loginUser({
+      email: EDX_ADMIN_USERNAME,
+      password: EDX_ADMIN_PASSWORD,
+    });
+
+    if (loginResult.success) {
+      return {
+        success: true,
+        edxBaseUrl: EDX_BASE_URL,
+        sessionId: loginResult.sessionId,
+        csrfToken: loginResult.csrfToken,
+        returnUrl: returnUrl || `${EDX_BASE_URL}/admin`,
+      };
+    }
+
+    return {
+      success: false,
+      error: loginResult.error || 'Admin login failed',
+      edxBaseUrl: EDX_BASE_URL,
+      loginUrl: `${EDX_BASE_URL}/login`,
+    };
+  } catch (error) {
+    console.error('edX admin login error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get edX admin dashboard URL
+ */
+const getAdminUrl = () => `${EDX_BASE_URL}/admin`;
+
+/**
+ * Get edX Studio URL for course editing
+ */
+const getStudioUrl = (courseId) => {
+  const studioBase = EDX_BASE_URL.replace('://cambridge.', '://studio.cambridge.');
+  return courseId
+    ? `${studioBase}/course/${courseId}`
+    : studioBase;
+};
+
 module.exports = {
   getAccessToken,
   registerUser,
@@ -619,4 +676,7 @@ module.exports = {
   encryptPassword,
   decryptPassword,
   createEdxCredentials,
+  adminLogin,
+  getAdminUrl,
+  getStudioUrl,
 };

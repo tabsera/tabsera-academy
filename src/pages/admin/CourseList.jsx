@@ -9,11 +9,13 @@ import {
   BookOpen, Search, Plus, MoreVertical, Edit, Trash2,
   Eye, Copy, Archive, ChevronDown, Clock, Users, Star,
   CheckCircle, XCircle, AlertCircle, Play, Pause, Grid, List,
-  Upload, Loader2, ExternalLink
+  Upload, Loader2, ExternalLink, GraduationCap
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
+import { useAuth } from '@/context/AuthContext';
 
 function CourseList() {
+  const { openEdxAdmin } = useAuth();
   const [courses, setCourses] = useState([]);
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,17 @@ function CourseList() {
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
+  const [edxLoading, setEdxLoading] = useState(false);
+
+  // Open edX admin panel with auto-login
+  const handleOpenEdx = async () => {
+    setEdxLoading(true);
+    try {
+      await openEdxAdmin();
+    } finally {
+      setEdxLoading(false);
+    }
+  };
 
   // Fetch courses and tracks on mount
   useEffect(() => {
@@ -194,6 +207,18 @@ function CourseList() {
           <p className="text-gray-500">Create, edit, and manage your courses</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleOpenEdx}
+            disabled={edxLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+          >
+            {edxLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <GraduationCap size={18} />
+            )}
+            Open edX
+          </button>
           <button
             onClick={fetchData}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
