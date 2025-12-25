@@ -1,15 +1,47 @@
 /**
  * Open edX Platform API Service
- * Handles user registration and course enrollment on the Open edX LMS
+ * Handles user registration, login, and course enrollment on the Open edX LMS
  */
+
+const crypto = require('crypto');
 
 const EDX_BASE_URL = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
 const EDX_CLIENT_ID = process.env.EDX_OAUTH_CLIENT_ID;
 const EDX_CLIENT_SECRET = process.env.EDX_OAUTH_CLIENT_SECRET;
 
+// Encryption key for edX passwords (use JWT_SECRET as base)
+const ENCRYPTION_KEY = crypto.createHash('sha256')
+  .update(process.env.JWT_SECRET || 'default-key')
+  .digest();
+const IV_LENGTH = 16;
+
 // Token cache
 let accessToken = null;
 let tokenExpiry = null;
+
+/**
+ * Encrypt edX password for storage
+ */
+const encryptPassword = (password) => {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+};
+
+/**
+ * Decrypt edX password for use
+ */
+const decryptPassword = (encryptedPassword) => {
+  const parts = encryptedPassword.split(':');
+  const iv = Buffer.from(parts[0], 'hex');
+  const encrypted = parts[1];
+  const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+};
 
 /**
  * Get OAuth2 access token using client credentials
@@ -458,6 +490,118 @@ const testConnection = async () => {
   }
 };
 
+/**
+ * Login to edX and get session cookies/token
+ * Returns session info that can be used to auto-login user
+ */
+const loginUser = async ({ email, password }) => {
+  try {
+    // First, get CSRF token from login page
+    const loginPageResponse = await fetch(`${EDX_BASE_URL}/login`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+
+    // Extract CSRF token from cookies
+    const cookies = loginPageResponse.headers.get('set-cookie') || '';
+    const csrfMatch = cookies.match(/csrftoken=([^;]+)/);
+    const csrfToken = csrfMatch ? csrfMatch[1] : null;
+
+    if (!csrfToken) {
+      console.error('Could not get CSRF token from edX');
+      return { success: false, error: 'Could not get CSRF token' };
+    }
+
+    // Attempt login with email/password
+    const loginResponse = await fetch(`${EDX_BASE_URL}/api/user/v1/account/login_session/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+        'Cookie': `csrftoken=${csrfToken}`,
+        'Referer': `${EDX_BASE_URL}/login`,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    if (loginResponse.ok) {
+      // Extract session cookies
+      const sessionCookies = loginResponse.headers.get('set-cookie') || '';
+      const sessionIdMatch = sessionCookies.match(/sessionid=([^;]+)/);
+      const edxSessionMatch = sessionCookies.match(/edx-user-info=([^;]+)/);
+
+      const sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
+      const edxUserInfo = edxSessionMatch ? edxSessionMatch[1] : null;
+
+      console.log(`edX login successful for: ${email}`);
+      return {
+        success: true,
+        sessionId,
+        csrfToken,
+        edxUserInfo,
+        cookies: sessionCookies,
+      };
+    }
+
+    // Login failed
+    const errorData = await loginResponse.json().catch(() => null);
+    console.error('edX login failed:', errorData);
+    return {
+      success: false,
+      error: errorData?.value || 'Login failed',
+      errorCode: loginResponse.status,
+    };
+  } catch (error) {
+    console.error('edX login error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Generate auto-login URL for edX
+ * This creates a URL that will automatically log the user in when visited
+ */
+const generateAutoLoginUrl = async ({ email, encryptedPassword, returnUrl }) => {
+  try {
+    // Decrypt the password
+    const password = decryptPassword(encryptedPassword);
+
+    // Get a fresh login session
+    const loginResult = await loginUser({ email, password });
+
+    if (!loginResult.success) {
+      return { success: false, error: loginResult.error };
+    }
+
+    // Return the session info for the frontend to use
+    return {
+      success: true,
+      edxBaseUrl: EDX_BASE_URL,
+      sessionId: loginResult.sessionId,
+      csrfToken: loginResult.csrfToken,
+      returnUrl: returnUrl || `${EDX_BASE_URL}/dashboard`,
+    };
+  } catch (error) {
+    console.error('edX generateAutoLoginUrl error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Create edX credentials for a user
+ * Returns the password encrypted for storage
+ */
+const createEdxCredentials = (firstName, lastName) => {
+  const password = generateTemporaryPassword();
+  const encryptedPassword = encryptPassword(password);
+  return { password, encryptedPassword };
+};
+
 module.exports = {
   getAccessToken,
   registerUser,
@@ -470,4 +614,9 @@ module.exports = {
   getCourse,
   registerAndEnroll,
   testConnection,
+  loginUser,
+  generateAutoLoginUrl,
+  encryptPassword,
+  decryptPassword,
+  createEdxCredentials,
 };

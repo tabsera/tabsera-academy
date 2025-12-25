@@ -258,8 +258,15 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
       let edxUsername = user.edxUsername;
       if (!user.edxRegistered) {
         try {
+          // Generate edX credentials
+          const { password, encryptedPassword } = edxService.createEdxCredentials(
+            user.firstName,
+            user.lastName
+          );
+
           const edxRegResult = await edxService.registerUser({
             email: user.email,
+            password: password,
             firstName: user.firstName,
             lastName: user.lastName,
           });
@@ -270,6 +277,7 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
               where: { id: user.id },
               data: {
                 edxUsername: edxRegResult.username,
+                edxPassword: encryptedPassword, // Store encrypted password for auto-login
                 edxRegistered: true,
                 edxRegisteredAt: new Date(),
               },

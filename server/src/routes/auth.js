@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { authenticate, generateToken } = require('../middleware/auth');
 const { sendEmail } = require('../services/email');
+const edxService = require('../services/edx');
 
 const router = express.Router();
 
@@ -382,6 +383,15 @@ router.post('/login', async (req, res, next) => {
     // Generate token
     const token = generateToken(user.id);
 
+    // Include edX info if user is registered
+    const edxInfo = user.edxRegistered
+      ? {
+          edxUsername: user.edxUsername,
+          edxRegistered: user.edxRegistered,
+          hasEdxAccess: !!user.edxPassword,
+        }
+      : null;
+
     res.json({
       success: true,
       user: {
@@ -396,6 +406,7 @@ router.post('/login', async (req, res, next) => {
         avatar: user.avatar,
         role: user.role.toLowerCase(),
         centerId: user.centerId,
+        edxInfo,
       },
       token,
     });
@@ -647,6 +658,125 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     });
 
     res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/auth/edx-session
+ * Get edX session for auto-login
+ * Returns session info to automatically log user into edX
+ */
+router.get('/edx-session', authenticate, async (req, res, next) => {
+  try {
+    // Get full user info including edX credentials
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        edxUsername: true,
+        edxPassword: true,
+        edxRegistered: true,
+      },
+    });
+
+    if (!user.edxRegistered || !user.edxPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'User not registered on edX platform',
+        edxRegistered: false,
+      });
+    }
+
+    // Get the edX base URL for frontend
+    const edxBaseUrl = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
+
+    // Try to create an auto-login session
+    const sessionResult = await edxService.generateAutoLoginUrl({
+      email: user.email,
+      encryptedPassword: user.edxPassword,
+      returnUrl: `${edxBaseUrl}/dashboard`,
+    });
+
+    if (sessionResult.success) {
+      res.json({
+        success: true,
+        edxBaseUrl,
+        edxUsername: user.edxUsername,
+        sessionId: sessionResult.sessionId,
+        csrfToken: sessionResult.csrfToken,
+        returnUrl: sessionResult.returnUrl,
+      });
+    } else {
+      // If session creation failed, return basic info for manual login
+      res.json({
+        success: false,
+        message: 'Could not create auto-login session',
+        edxBaseUrl,
+        edxUsername: user.edxUsername,
+        loginUrl: `${edxBaseUrl}/login`,
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/auth/edx-login
+ * Perform edX login and return session cookies
+ * Used when auto-login is needed for course access
+ */
+router.post('/edx-login', authenticate, async (req, res, next) => {
+  try {
+    const { returnUrl } = req.body;
+
+    // Get user's edX credentials
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        email: true,
+        edxUsername: true,
+        edxPassword: true,
+        edxRegistered: true,
+      },
+    });
+
+    if (!user.edxRegistered || !user.edxPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'User not registered on edX platform',
+      });
+    }
+
+    // Decrypt password and login
+    const password = edxService.decryptPassword(user.edxPassword);
+    const loginResult = await edxService.loginUser({
+      email: user.email,
+      password,
+    });
+
+    const edxBaseUrl = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
+
+    if (loginResult.success) {
+      res.json({
+        success: true,
+        edxBaseUrl,
+        edxUsername: user.edxUsername,
+        sessionId: loginResult.sessionId,
+        csrfToken: loginResult.csrfToken,
+        returnUrl: returnUrl || `${edxBaseUrl}/dashboard`,
+      });
+    } else {
+      res.json({
+        success: false,
+        message: loginResult.error || 'edX login failed',
+        edxBaseUrl,
+        loginUrl: `${edxBaseUrl}/login`,
+      });
+    }
   } catch (error) {
     next(error);
   }

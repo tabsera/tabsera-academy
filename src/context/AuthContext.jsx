@@ -215,6 +215,48 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Get edX session for auto-login
+  const getEdxSession = useCallback(async () => {
+    try {
+      const response = await authApi.getEdxSession();
+      return response;
+    } catch (error) {
+      console.error('Failed to get edX session:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Open edX course/dashboard with auto-login
+  const openEdxUrl = useCallback(async (targetUrl) => {
+    try {
+      // Try to get edX session for auto-login
+      const session = await authApi.edxLogin(targetUrl);
+
+      if (session.success && session.sessionId) {
+        // Create a form to submit with session cookies
+        // This approach works around cross-origin cookie restrictions
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = session.returnUrl || targetUrl;
+        form.target = '_blank';
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+        return { success: true };
+      } else {
+        // Fall back to direct link (user may need to login manually)
+        window.open(targetUrl || session.edxBaseUrl + '/dashboard', '_blank');
+        return { success: false, message: 'Auto-login not available', manualLogin: true };
+      }
+    } catch (error) {
+      console.error('Failed to open edX:', error);
+      // Fall back to direct link
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      window.open(targetUrl || edxBaseUrl + '/dashboard', '_blank');
+      return { success: false, error: error.message };
+    }
+  }, []);
+
   // Check if user has specific role
   const hasRole = useCallback((role) => {
     if (!user) return false;
@@ -252,6 +294,8 @@ export function AuthProvider({ children }) {
     hasRole,
     hasAnyRole,
     clearError,
+    getEdxSession,
+    openEdxUrl,
     ROLES,
   };
 

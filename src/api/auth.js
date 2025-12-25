@@ -238,6 +238,41 @@ export const authApi = {
       return false;
     }
   },
+
+  /**
+   * Get edX session for auto-login
+   * @returns {Promise<{success, edxBaseUrl, sessionId, csrfToken, returnUrl}>}
+   */
+  async getEdxSession() {
+    if (useMockApi) {
+      return {
+        success: false,
+        message: 'edX session not available in mock mode',
+        edxBaseUrl: 'https://cambridge.tabsera.com',
+        loginUrl: 'https://cambridge.tabsera.com/login',
+      };
+    }
+
+    return apiClient.get('/auth/edx-session');
+  },
+
+  /**
+   * Login to edX and get session
+   * @param {string} returnUrl - URL to redirect after edX login
+   * @returns {Promise<{success, edxBaseUrl, sessionId, csrfToken, returnUrl}>}
+   */
+  async edxLogin(returnUrl) {
+    if (useMockApi) {
+      return {
+        success: false,
+        message: 'edX login not available in mock mode',
+        edxBaseUrl: 'https://cambridge.tabsera.com',
+        loginUrl: 'https://cambridge.tabsera.com/login',
+      };
+    }
+
+    return apiClient.post('/auth/edx-login', { returnUrl });
+  },
 };
 
 export default authApi;
