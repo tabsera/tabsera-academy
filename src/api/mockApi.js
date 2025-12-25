@@ -499,6 +499,110 @@ export const mockPartnerApi = {
   }
 };
 
+// Mock WaafiPay API
+export const mockWaafiPayApi = {
+  async initiatePurchase(orderData) {
+    await delay(800);
+
+    // In mock mode, we skip HPP redirect and simulate success
+    return {
+      success: true,
+      hppUrl: null, // null triggers mock mode in checkout
+      orderId: `WP-${generateId()}`,
+      referenceId: orderData.referenceId,
+      mock: true
+    };
+  },
+
+  async getTransactionInfo(referenceId) {
+    await delay(400);
+
+    return {
+      success: true,
+      transaction: {
+        transactionId: `TXN-${generateId()}`,
+        referenceId: referenceId,
+        amount: '0.00',
+        currency: 'USD',
+        status: 'APPROVED',
+        paymentMethod: 'MWALLET_ACCOUNT',
+        payerId: '252XXXXXXXXX',
+        transactionDate: new Date().toISOString()
+      }
+    };
+  },
+
+  async processRefund(refundData) {
+    await delay(600);
+
+    return {
+      success: true,
+      transactionId: `REF-${generateId()}`,
+      referenceId: refundData.referenceId,
+      state: 'approved'
+    };
+  }
+};
+
+// Mock Orders API
+export const mockOrdersApi = {
+  orders: {},
+
+  async createOrder(orderData) {
+    await delay(500);
+
+    const referenceId = `ORD-${Date.now().toString(36).toUpperCase()}-${generateId().toUpperCase()}`;
+    const order = {
+      referenceId,
+      ...orderData,
+      status: 'pending_payment',
+      paymentStatus: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.orders[referenceId] = order;
+    return { success: true, order };
+  },
+
+  async getOrder(referenceId) {
+    await delay(300);
+
+    const order = this.orders[referenceId];
+    if (order) {
+      return { success: true, order };
+    }
+    return { success: false, error: 'Order not found' };
+  },
+
+  async updateOrderPayment(referenceId, paymentData) {
+    await delay(400);
+
+    if (this.orders[referenceId]) {
+      this.orders[referenceId] = {
+        ...this.orders[referenceId],
+        ...paymentData,
+        status: paymentData.status === 'approved' ? 'completed' : 'failed',
+        updatedAt: new Date().toISOString()
+      };
+      return { success: true, order: this.orders[referenceId] };
+    }
+    return { success: false, error: 'Order not found' };
+  },
+
+  async getOrders(filters = {}) {
+    await delay(400);
+
+    let orders = Object.values(this.orders);
+    if (filters.status) {
+      orders = orders.filter(o => o.status === filters.status);
+    }
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return { success: true, orders };
+  }
+};
+
 // Export a unified mock API object
 export const mockApi = {
   auth: mockAuthApi,
@@ -509,7 +613,9 @@ export const mockApi = {
   admin: mockAdminApi,
   center: mockCenterApi,
   checkout: mockCheckoutApi,
-  partner: mockPartnerApi
+  partner: mockPartnerApi,
+  waafipay: mockWaafiPayApi,
+  orders: mockOrdersApi
 };
 
 export default mockApi;

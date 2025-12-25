@@ -1,15 +1,35 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   GraduationCap, LayoutDashboard, Users, DollarSign, Receipt,
   Settings, Bell, Menu, LogOut, BookOpen, BarChart3, Clock,
   FileText, UserCheck, Calendar, TrendingUp, Building2
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const CenterLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  // Get user initials
+  const getUserInitials = () => {
+    if (!user) return 'CA';
+    const firstName = user.firstName || user.first_name || '';
+    const lastName = user.lastName || user.last_name || '';
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    }
+    if (firstName) return firstName[0].toUpperCase();
+    return 'CA';
+  };
 
   const isActive = (path) => {
     if (path === '/center/dashboard') {
@@ -104,13 +124,21 @@ const CenterLayout = () => {
           <div className="p-4 border-t border-gray-800">
             <div className="flex items-center gap-3 px-3 py-2">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-semibold">
-                AH
+                {getUserInitials()}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">Ahmed Hassan</p>
-                <p className="text-xs text-gray-400">Center Admin</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user?.firstName || user?.first_name || 'Center'} {user?.lastName || user?.last_name || 'Admin'}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  {user?.role?.replace('_', ' ') || 'Center Admin'}
+                </p>
               </div>
-              <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg">
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
+                title="Logout"
+              >
                 <LogOut size={18} />
               </button>
             </div>

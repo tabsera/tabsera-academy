@@ -66,8 +66,8 @@ class ApiClient {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      // Handle 401 - Unauthorized
-      if (response.status === 401) {
+      // Handle 401 - Unauthorized (but not for login verification required)
+      if (response.status === 401 && !data?.requiresVerification) {
         // Try to refresh token
         const refreshed = await this.refreshToken();
         if (!refreshed) {
@@ -80,6 +80,11 @@ class ApiClient {
         status: response.status,
         message: data?.message || data?.detail || 'An error occurred',
         errors: data?.errors || {},
+        // Pass through verification-related fields
+        requiresVerification: data?.requiresVerification || false,
+        email: data?.email || null,
+        expired: data?.expired || false,
+        alreadyVerified: data?.alreadyVerified || false,
       };
       throw error;
     }

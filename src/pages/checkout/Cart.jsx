@@ -3,15 +3,16 @@
  * View and manage items before checkout
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import Layout from '../../components/Layout';
+import apiClient from '../../api/client';
 import {
   ShoppingCart, Trash2, Tag, ArrowRight, ArrowLeft,
   BookOpen, Clock, Users, X, CheckCircle, AlertCircle,
-  Loader2, ShoppingBag
+  Loader2, ShoppingBag, GraduationCap
 } from 'lucide-react';
 
 function Cart() {
@@ -36,13 +37,34 @@ function Cart() {
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
+  const [suggestedTracks, setSuggestedTracks] = useState([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
+
+  // Fetch suggested tracks when cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      fetchSuggestedTracks();
+    }
+  }, [items.length]);
+
+  const fetchSuggestedTracks = async () => {
+    try {
+      setLoadingTracks(true);
+      const response = await apiClient.get('/tracks');
+      setSuggestedTracks(response.tracks || []);
+    } catch (err) {
+      console.error('Error fetching tracks:', err);
+    } finally {
+      setLoadingTracks(false);
+    }
+  };
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim()) return;
-    
+
     setPromoError('');
     setPromoSuccess('');
-    
+
     const result = await applyPromoCode(promoInput);
     if (result.success) {
       setPromoSuccess(`Promo code applied! ${result.discount}% off`);
@@ -66,6 +88,16 @@ function Cart() {
       currency: 'USD',
     }).format(price);
   };
+
+  // Color classes for track cards
+  const trackColors = [
+    { bg: 'bg-blue-100', text: 'text-blue-600' },
+    { bg: 'bg-emerald-100', text: 'text-emerald-600' },
+    { bg: 'bg-purple-100', text: 'text-purple-600' },
+    { bg: 'bg-orange-100', text: 'text-orange-600' },
+    { bg: 'bg-pink-100', text: 'text-pink-600' },
+    { bg: 'bg-cyan-100', text: 'text-cyan-600' },
+  ];
 
   // Empty cart state
   if (items.length === 0) {
@@ -92,26 +124,39 @@ function Cart() {
           {/* Suggested Tracks */}
           <div className="mt-16">
             <h2 className="text-lg font-bold text-gray-900 mb-6 text-center">Popular Learning Tracks</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-              {[
-                { id: 1, name: 'Cambridge IGCSE Full', price: 80, courses: 12, color: 'blue' },
-                { id: 2, name: 'Islamic Studies', price: 25, courses: 8, color: 'emerald' },
-                { id: 3, name: 'ESL Intensive', price: 45, courses: 6, color: 'purple' },
-              ].map(track => (
-                <Link
-                  key={track.id}
-                  to={`/courses?track=${track.id}`}
-                  className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:border-blue-200 transition-all"
-                >
-                  <div className={`w-12 h-12 bg-${track.color}-100 rounded-xl flex items-center justify-center mb-4`}>
-                    <BookOpen size={24} className={`text-${track.color}-600`} />
-                  </div>
-                  <h3 className="font-bold text-gray-900">{track.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{track.courses} courses</p>
-                  <p className="text-lg font-bold text-blue-600 mt-2">{formatPrice(track.price)}/month</p>
+            {loadingTracks ? (
+              <div className="flex justify-center py-8">
+                <Loader2 size={32} className="animate-spin text-blue-600" />
+              </div>
+            ) : suggestedTracks.length > 0 ? (
+              <div className="grid md:grid-cols-3 gap-6">
+                {suggestedTracks.slice(0, 3).map((track, index) => {
+                  const colors = trackColors[index % trackColors.length];
+                  return (
+                    <Link
+                      key={track.id}
+                      to={`/tracks/${track.slug || track.id}`}
+                      className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:border-blue-200 transition-all"
+                    >
+                      <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center mb-4`}>
+                        <GraduationCap size={24} className={colors.text} />
+                      </div>
+                      <h3 className="font-bold text-gray-900">{track.title}</h3>
+                      <p className="text-sm text-gray-500 mt-1">{track.coursesCount || 0} courses</p>
+                      <p className="text-lg font-bold text-blue-600 mt-2">
+                        {formatPrice(parseFloat(track.price) || 0)}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Link to="/courses" className="text-blue-600 hover:underline">
+                  Browse all courses →
                 </Link>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </Layout>
@@ -146,12 +191,31 @@ function Cart() {
               >
                 <div className="flex gap-4">
                   {/* Item Image/Icon */}
-                  <div className={`w-20 h-20 rounded-xl flex items-center justify-center shrink-0 ${
-                    item.type === ITEM_TYPES.TRACK 
-                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500' 
-                      : 'bg-gradient-to-br from-purple-500 to-pink-500'
-                  }`}>
-                    <BookOpen size={32} className="text-white" />
+                  <div className="w-20 h-20 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-gray-100">
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.classList.add(
+                            item.type === ITEM_TYPES.TRACK
+                              ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                              : 'bg-gradient-to-br from-purple-500 to-pink-500'
+                          );
+                          e.target.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>';
+                        }}
+                      />
+                    ) : (
+                      <div className={`w-full h-full flex items-center justify-center ${
+                        item.type === ITEM_TYPES.TRACK
+                          ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                          : 'bg-gradient-to-br from-purple-500 to-pink-500'
+                      }`}>
+                        <BookOpen size={32} className="text-white" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Item Details */}
@@ -159,14 +223,16 @@ function Cart() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-1 ${
-                          item.type === ITEM_TYPES.TRACK 
-                            ? 'bg-blue-100 text-blue-700' 
+                          item.type === ITEM_TYPES.TRACK
+                            ? 'bg-blue-100 text-blue-700'
                             : 'bg-purple-100 text-purple-700'
                         }`}>
-                          {item.type === ITEM_TYPES.TRACK ? 'Learning Track' : 'Individual Course'}
+                          {item.type === ITEM_TYPES.TRACK ? 'Learning Track' : 'Course'}
                         </span>
                         <h3 className="font-bold text-gray-900">{item.name}</h3>
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+                        {item.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+                        )}
                       </div>
                       <button
                         onClick={() => removeItem(item.id, item.type)}
@@ -192,14 +258,13 @@ function Cart() {
                         )}
                       </div>
                       <div className="text-right">
-                        {item.originalPrice > item.price && (
+                        {item.originalPrice && item.originalPrice > item.price && (
                           <span className="text-sm text-gray-400 line-through mr-2">
                             {formatPrice(item.originalPrice)}
                           </span>
                         )}
                         <span className="text-lg font-bold text-gray-900">
                           {formatPrice(item.price)}
-                          <span className="text-sm font-normal text-gray-500">/month</span>
                         </span>
                       </div>
                     </div>
@@ -293,7 +358,6 @@ function Cart() {
                   <span className="font-bold text-gray-900">Total</span>
                   <div className="text-right">
                     <span className="text-2xl font-bold text-gray-900">{formatPrice(total)}</span>
-                    <span className="text-sm text-gray-500 block">/month</span>
                   </div>
                 </div>
               </div>

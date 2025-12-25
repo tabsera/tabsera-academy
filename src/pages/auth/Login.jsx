@@ -4,16 +4,17 @@
  */
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { 
+import {
   Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
-  ArrowRight, CheckCircle
+  ArrowRight, CheckCircle, RefreshCw
 } from 'lucide-react';
 
 function Login() {
-  const { login, isLoading, error, clearError } = useAuth();
-  
+  const { login, resendVerification, isLoading, error, clearError } = useAuth();
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -21,6 +22,9 @@ function Login() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('idle'); // idle, sending, sent
 
   // Handle input change
   const handleChange = (e) => {
@@ -62,10 +66,32 @@ function Login() {
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
-    await login(formData.email, formData.password, formData.rememberMe);
+    setVerificationRequired(false);
+    const result = await login(formData.email, formData.password, formData.rememberMe);
+
+    if (result.requiresVerification) {
+      setVerificationRequired(true);
+      setVerificationEmail(result.email || formData.email);
+    }
+  };
+
+  // Handle resend verification
+  const handleResendVerification = async () => {
+    setResendStatus('sending');
+    const result = await resendVerification(verificationEmail);
+    if (result.success) {
+      setResendStatus('sent');
+    } else {
+      setResendStatus('idle');
+    }
+  };
+
+  // Handle go to verify email page
+  const handleGoToVerify = () => {
+    navigate('/verify-email');
   };
 
   return (
@@ -76,8 +102,53 @@ function Login() {
         <p className="text-gray-500 mt-1">Sign in to continue your learning journey</p>
       </div>
 
+      {/* Verification Required Alert */}
+      {verificationRequired && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+          <div className="flex items-start gap-3">
+            <Mail className="text-yellow-600 shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <p className="text-yellow-800 font-medium">Email Verification Required</p>
+              <p className="text-yellow-700 text-sm mt-1">
+                Please verify your email address before logging in. Check your inbox for the verification link.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={isLoading || resendStatus === 'sending'}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  {resendStatus === 'sending' ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : resendStatus === 'sent' ? (
+                    <>
+                      <CheckCircle size={14} />
+                      Email Sent!
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={14} />
+                      Resend Email
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleGoToVerify}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-yellow-600 text-yellow-700 text-sm font-medium rounded-lg hover:bg-yellow-100"
+                >
+                  Enter Code Manually
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error Alert */}
-      {error && (
+      {error && !verificationRequired && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
           <div>
@@ -243,9 +314,9 @@ function Login() {
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
         <p className="text-sm font-medium text-blue-800 mb-2">Demo Accounts:</p>
         <div className="space-y-1 text-xs text-blue-700">
-          <p><span className="font-medium">Student:</span> student@tabsera.com / student123</p>
-          <p><span className="font-medium">Center Admin:</span> center@tabsera.com / center123</p>
-          <p><span className="font-medium">TABSERA Admin:</span> admin@tabsera.com / admin123</p>
+          <p><span className="font-medium">Student:</span> student@demo.com / demo123</p>
+          <p><span className="font-medium">Center Admin:</span> center@tabsera.com / demo123</p>
+          <p><span className="font-medium">TABSERA Admin:</span> admin@tabsera.com / demo123</p>
         </div>
       </div>
     </div>

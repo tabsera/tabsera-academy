@@ -1,0 +1,293 @@
+// Prisma schema for Tabsera Academy
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles enum
+enum UserRole {
+  STUDENT
+  CENTER_ADMIN
+  TABSERA_ADMIN
+}
+
+// Order status enum
+enum OrderStatus {
+  PENDING
+  PENDING_PAYMENT
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+// Payment status enum
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  FAILED
+  CANCELLED
+  EXPIRED
+  TIMEOUT
+}
+
+// Payment method enum
+enum PaymentMethod {
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  PAY_AT_CENTER
+}
+
+// User model
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  password                String
+  firstName               String    @map("first_name")
+  lastName                String    @map("last_name")
+  phone                   String?
+  country                 String?
+  avatar                  String?
+  role                    UserRole  @default(STUDENT)
+  centerId                String?   @map("center_id")
+  isActive                Boolean   @default(true) @map("is_active")
+  emailVerified           Boolean   @default(false) @map("email_verified")
+  emailVerificationToken  String?   @map("email_verification_token")
+  emailVerificationExpires DateTime? @map("email_verification_expires")
+  passwordResetToken      String?   @map("password_reset_token")
+  passwordResetExpires    DateTime? @map("password_reset_expires")
+  // edX integration fields
+  edxUsername             String?   @map("edx_username")
+  edxRegistered           Boolean   @default(false) @map("edx_registered")
+  edxRegisteredAt         DateTime? @map("edx_registered_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  center        LearningCenter? @relation(fields: [centerId], references: [id])
+  orders        Order[]
+  enrollments   Enrollment[]
+  payments      Payment[]
+  certificates  Certificate[]
+
+  @@map("users")
+}
+
+// Learning Center model
+model LearningCenter {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  address     String?
+  city        String?
+  country     String?
+  phone       String?
+  email       String?
+  logo        String?
+  coverImage  String?  @map("cover_image")
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users       User[]
+  orders      Order[]
+
+  @@map("learning_centers")
+}
+
+// Track model (e.g., "Web Development", "Data Science")
+model Track {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  duration    String?
+  level       String?
+  image       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  courses     Course[]
+  enrollments Enrollment[]
+  orderItems  OrderItem[]
+
+  @@map("tracks")
+}
+
+// Course model
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  duration    String?
+  level       String?
+  lessons     Int      @default(0)
+  image       String?
+  externalUrl String?  @map("external_url") // EdX or external platform course URL
+  edxCourseId String?  @map("edx_course_id") // Open edX course ID (e.g., "course-v1:TabseraX+CS101+2024")
+  trackId     String?  @map("track_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  track       Track?       @relation(fields: [trackId], references: [id])
+  enrollments Enrollment[]
+  orderItems  OrderItem[]
+
+  @@map("courses")
+}
+
+// Enrollment model
+model Enrollment {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  trackId         String?  @map("track_id")
+  courseId        String?  @map("course_id")
+  progress        Int      @default(0)
+  completedLessons Int     @default(0) @map("completed_lessons")
+  status          String   @default("active")
+  startDate       DateTime @default(now()) @map("start_date")
+  completedAt     DateTime? @map("completed_at")
+  // edX enrollment tracking
+  edxEnrolled     Boolean  @default(false) @map("edx_enrolled")
+  edxEnrolledAt   DateTime? @map("edx_enrolled_at")
+  edxCourseId     String?  @map("edx_course_id")
+  edxEnrollmentMode String? @map("edx_enrollment_mode") @default("honor")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id])
+  track  Track?  @relation(fields: [trackId], references: [id])
+  course Course? @relation(fields: [courseId], references: [id])
+
+  @@map("enrollments")
+}
+
+// Order model
+model Order {
+  id              String        @id @default(uuid())
+  referenceId     String        @unique @map("reference_id")
+  userId          String        @map("user_id")
+  centerId        String?       @map("center_id")
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
+  paymentMethod   PaymentMethod @map("payment_method")
+  subtotal        Decimal       @db.Decimal(10, 2)
+  discount        Decimal       @default(0) @db.Decimal(10, 2)
+  total           Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  promoCode       String?       @map("promo_code")
+  billingFirstName String?      @map("billing_first_name")
+  billingLastName  String?      @map("billing_last_name")
+  billingEmail    String?       @map("billing_email")
+  billingPhone    String?       @map("billing_phone")
+  billingCountry  String?       @map("billing_country")
+  mobileProvider  String?       @map("mobile_provider")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user     User            @relation(fields: [userId], references: [id])
+  center   LearningCenter? @relation(fields: [centerId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@map("orders")
+}
+
+// Order Item model
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String  @map("order_id")
+  trackId   String? @map("track_id")
+  courseId  String? @map("course_id")
+  name      String
+  price     Decimal @db.Decimal(10, 2)
+  quantity  Int     @default(1)
+
+  // Relations
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  track  Track?  @relation(fields: [trackId], references: [id])
+  course Course? @relation(fields: [courseId], references: [id])
+
+  @@map("order_items")
+}
+
+// Payment model
+model Payment {
+  id                  String        @id @default(uuid())
+  orderId             String        @map("order_id")
+  userId              String        @map("user_id")
+  transactionId       String?       @unique @map("transaction_id")
+  issuerTransactionId String?       @map("issuer_transaction_id")
+  waafipayOrderId     String?       @map("waafipay_order_id")
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("USD")
+  status              PaymentStatus @default(PENDING)
+  paymentMethod       PaymentMethod @map("payment_method")
+  payerId             String?       @map("payer_id")
+  errorCode           String?       @map("error_code")
+  errorMessage        String?       @map("error_message")
+  paidAt              DateTime?     @map("paid_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+// Certificate model
+model Certificate {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  trackId      String?  @map("track_id")
+  courseId     String?  @map("course_id")
+  title        String
+  issueDate    DateTime @default(now()) @map("issue_date")
+  certificateId String  @unique @map("certificate_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("certificates")
+}
+
+// Promo Code model
+model PromoCode {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  discountType  String   @map("discount_type") // "percentage" or "fixed"
+  discountValue Decimal  @db.Decimal(10, 2) @map("discount_value")
+  maxUses       Int?     @map("max_uses")
+  usedCount     Int      @default(0) @map("used_count")
+  minPurchase   Decimal? @db.Decimal(10, 2) @map("min_purchase")
+  expiresAt     DateTime? @map("expires_at")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("promo_codes")
+}

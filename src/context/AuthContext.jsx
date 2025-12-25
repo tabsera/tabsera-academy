@@ -79,6 +79,15 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: response.user };
     } catch (error) {
+      // Check if email verification is required
+      if (error.requiresVerification) {
+        return {
+          success: false,
+          requiresVerification: true,
+          email: error.email,
+          error: error.message
+        };
+      }
       setError(error.message || 'Login failed');
       return { success: false, error: error.message };
     } finally {
@@ -150,6 +159,47 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Verify email function
+  const verifyEmail = useCallback(async (token) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await authApi.verifyEmail(token);
+
+      // If verification returns user and token, log them in
+      if (response.user && response.token) {
+        apiClient.setToken(response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        setUser(response.user);
+        setIsAuthenticated(true);
+      }
+
+      return { success: true, message: response.message, user: response.user };
+    } catch (error) {
+      setError(error.message || 'Failed to verify email');
+      return { success: false, error: error.message, expired: error.expired };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Resend verification email function
+  const resendVerification = useCallback(async (email) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await authApi.resendVerification(email);
+      return { success: true, message: response.message };
+    } catch (error) {
+      setError(error.message || 'Failed to send verification email');
+      return { success: false, error: error.message, alreadyVerified: error.alreadyVerified };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Update profile function
   const updateProfile = useCallback(async (data) => {
     setError(null);
@@ -196,6 +246,8 @@ export function AuthProvider({ children }) {
     logout,
     forgotPassword,
     resetPassword,
+    verifyEmail,
+    resendVerification,
     updateProfile,
     hasRole,
     hasAnyRole,

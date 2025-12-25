@@ -1,13 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Hero } from '../../components/Hero';
 import { TrackCard } from '../../components/TrackCard';
 import { CourseCard } from '../../components/CourseCard';
-import { tracks, courses } from '../../utils/mockData';
-import { ArrowRight, Building2, Users, Globe, Award } from 'lucide-react';
+import apiClient from '../../api/client';
+import { ArrowRight, Building2, Users, Globe, Award, Loader2, BookOpen } from 'lucide-react';
 
 function Home() {
+  const [tracks, setTracks] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [stats, setStats] = useState({
+    students: 510,
+    centers: 8,
+    countries: 5,
+    tracks: 0,
+    courses: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const [coursesRes, tracksRes] = await Promise.all([
+        apiClient.get('/courses', { limit: 6 }),
+        apiClient.get('/tracks'),
+      ]);
+
+      const fetchedTracks = tracksRes.tracks || [];
+      const fetchedCourses = coursesRes.courses || [];
+
+      setTracks(fetchedTracks);
+      setCourses(fetchedCourses);
+      setStats(prev => ({
+        ...prev,
+        tracks: fetchedTracks.length,
+        courses: coursesRes.total || fetchedCourses.length,
+      }));
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const featuredCourses = courses.slice(0, 3);
 
   return (
@@ -27,11 +68,22 @@ function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-            {tracks.map(track => (
-              <TrackCard key={track.id} track={track} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 size={32} className="animate-spin text-blue-600" />
+            </div>
+          ) : tracks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {tracks.map(track => (
+                <TrackCard key={track.id} track={track} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <BookOpen size={48} className="mx-auto mb-4 text-gray-400" />
+              <p>No tracks available yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -48,11 +100,22 @@ function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredCourses.map(course => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 size={32} className="animate-spin text-blue-600" />
+            </div>
+          ) : featuredCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredCourses.map(course => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <BookOpen size={48} className="mx-auto mb-4 text-gray-400" />
+              <p>No courses available yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -64,28 +127,28 @@ function Home() {
               <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
                 <Users size={32} />
               </div>
-              <p className="text-4xl font-bold mb-2">510+</p>
+              <p className="text-4xl font-bold mb-2">{stats.students}+</p>
               <p className="text-blue-100">Active Students</p>
             </div>
             <div>
               <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
                 <Building2 size={32} />
               </div>
-              <p className="text-4xl font-bold mb-2">8</p>
+              <p className="text-4xl font-bold mb-2">{stats.centers}</p>
               <p className="text-blue-100">Learning Centers</p>
             </div>
             <div>
               <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-                <Globe size={32} />
+                <BookOpen size={32} />
               </div>
-              <p className="text-4xl font-bold mb-2">5</p>
-              <p className="text-blue-100">Countries</p>
+              <p className="text-4xl font-bold mb-2">{stats.courses}</p>
+              <p className="text-blue-100">Courses</p>
             </div>
             <div>
               <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
                 <Award size={32} />
               </div>
-              <p className="text-4xl font-bold mb-2">6</p>
+              <p className="text-4xl font-bold mb-2">{stats.tracks}</p>
               <p className="text-blue-100">Learning Tracks</p>
             </div>
           </div>
@@ -139,18 +202,18 @@ function Home() {
             Become a TABSERA Academy Learning Center
           </h2>
           <p className="text-blue-100 text-lg max-w-2xl mx-auto mb-10">
-            Join our network of educational excellence. Offer complete TABSERA 
+            Join our network of educational excellence. Offer complete TABSERA
             tracks at your center with ready-made courses, resources, and support.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              to="/partner" 
+            <Link
+              to="/partner"
               className="px-8 py-4 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-lg transition-colors shadow-lg shadow-cyan-900/20"
             >
               Apply to Partner
             </Link>
-            <Link 
-              to="/centers" 
+            <Link
+              to="/centers"
               className="px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
             >
               View Existing Centers <ArrowRight size={18} />

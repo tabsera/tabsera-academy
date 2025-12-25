@@ -14,6 +14,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import VerifyEmail from './pages/auth/VerifyEmail';
 
 // Public Pages (Student-facing)
 import Home from './pages/public/Home';
@@ -26,6 +27,7 @@ import CourseDetail from './pages/public/CourseDetail';
 import LearningCentersListing from './pages/public/LearningCentersListing';
 import LearningCenterDetail from './pages/public/LearningCenterDetail';
 import BecomePartner from './pages/public/BecomePartner';
+import TrackDetail from './pages/public/TrackDetail';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -65,6 +67,7 @@ import StudentProfile from './pages/student/StudentProfile';
 import Cart from './pages/checkout/Cart';
 import Checkout from './pages/checkout/Checkout';
 import OrderConfirmation from './pages/checkout/OrderConfirmation';
+import PaymentCallback from './pages/checkout/PaymentCallback';
 
 // Role constants
 const ROLES = {
@@ -104,13 +107,17 @@ function App() {
             </PublicRoute>
           } 
         />
-        <Route 
-          path="/reset-password" 
+        <Route
+          path="/reset-password"
           element={
             <PublicRoute>
               <ResetPassword />
             </PublicRoute>
-          } 
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={<VerifyEmail />}
         />
       </Route>
 
@@ -121,6 +128,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/courses" element={<Courses />} />
       <Route path="/courses/:id" element={<CourseDetail />} />
+      <Route path="/tracks/:slug" element={<TrackDetail />} />
       <Route path="/centers" element={<LearningCentersListing />} />
       <Route path="/centers/:id" element={<LearningCenterDetail />} />
       <Route path="/partner" element={<BecomePartner />} />
@@ -133,15 +141,22 @@ function App() {
       {/* CHECKOUT ROUTES */}
       {/* ===================== */}
       <Route path="/cart" element={<Cart />} />
-      <Route 
-        path="/checkout" 
+      <Route
+        path="/checkout"
         element={
           <ProtectedRoute roles={[ROLES.STUDENT]}>
             <Checkout />
           </ProtectedRoute>
-        } 
+        }
       />
       <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+
+      {/* ===================== */}
+      {/* PAYMENT CALLBACK ROUTES */}
+      {/* WaafiPay HPP redirects */}
+      {/* ===================== */}
+      <Route path="/payment/success" element={<PaymentCallback />} />
+      <Route path="/payment/failure" element={<PaymentCallback />} />
 
       {/* ===================== */}
       {/* ADMIN PORTAL ROUTES */}

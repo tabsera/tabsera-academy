@@ -42,9 +42,10 @@ export const authApi = {
       remember_me: rememberMe,
     }, false);
 
-    // Store tokens
-    if (response.access_token) {
-      apiClient.setToken(response.access_token);
+    // Store tokens (backend returns 'token', normalize to access_token)
+    const accessToken = response.access_token || response.token;
+    if (accessToken) {
+      apiClient.setToken(accessToken);
     }
     if (response.refresh_token) {
       apiClient.setRefreshToken(response.refresh_token);
@@ -53,7 +54,7 @@ export const authApi = {
       localStorage.setItem('user', JSON.stringify(response.user));
     }
 
-    return response;
+    return { ...response, access_token: accessToken };
   },
 
   /**
@@ -74,13 +75,13 @@ export const authApi = {
     }
 
     return apiClient.post('/auth/register', {
-      first_name: data.firstName,
-      last_name: data.lastName,
+      firstName: data.firstName,
+      lastName: data.lastName,
       email: data.email,
       password: data.password,
       phone: data.phone,
       country: data.country,
-      center_id: data.centerId || null,
+      centerId: data.centerId || null,
     }, false);
   },
 

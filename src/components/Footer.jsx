@@ -1,8 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import apiClient from '../api/client';
 
 export function Footer() {
+  const [tracks, setTracks] = useState([]);
+
+  useEffect(() => {
+    fetchTracks();
+  }, []);
+
+  const fetchTracks = async () => {
+    try {
+      const response = await apiClient.get('/tracks');
+      setTracks(response.tracks || []);
+    } catch (err) {
+      console.error('Error fetching tracks for footer:', err);
+    }
+  };
+
   return (
     <footer className="bg-[#1a2332] text-white pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -10,9 +26,9 @@ export function Footer() {
           {/* Brand Column */}
           <div className="space-y-6">
             <Link to="/" className="flex items-center gap-3">
-              <img 
-                src="/logo.png" 
-                alt="TABSERA Academy" 
+              <img
+                src="/logo.png"
+                alt="TABSERA Academy"
                 className="h-12 w-auto"
               />
               <div className="flex flex-col">
@@ -21,7 +37,7 @@ export function Footer() {
               </div>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Empowering learners across East Africa with Cambridge IGCSE programs, 
+              Empowering learners across East Africa with Cambridge IGCSE programs,
               Islamic Studies, and professional development courses.
             </p>
             <div className="flex space-x-4">
@@ -76,31 +92,34 @@ export function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-6">Learning Tracks</h3>
             <ul className="space-y-4">
-              <li>
-                <Link to="/courses?track=1" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  Cambridge IGCSE
-                </Link>
-              </li>
-              <li>
-                <Link to="/courses?track=2" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  Islamic Studies
-                </Link>
-              </li>
-              <li>
-                <Link to="/courses?track=3" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  Business Track
-                </Link>
-              </li>
-              <li>
-                <Link to="/courses?track=4" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  ESL Intensive
-                </Link>
-              </li>
-              <li>
-                <Link to="/courses?track=6" className="text-gray-400 hover:text-white transition-colors text-sm">
-                  Arabic Language
-                </Link>
-              </li>
+              {tracks.length > 0 ? (
+                tracks.slice(0, 5).map(track => (
+                  <li key={track.id}>
+                    <Link
+                      to={`/tracks/${track.slug || track.id}`}
+                      className="text-gray-400 hover:text-white transition-colors text-sm"
+                    >
+                      {track.title}
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                // Fallback while loading
+                <>
+                  <li>
+                    <Link to="/courses" className="text-gray-400 hover:text-white transition-colors text-sm">
+                      Browse All Tracks
+                    </Link>
+                  </li>
+                </>
+              )}
+              {tracks.length > 5 && (
+                <li>
+                  <Link to="/courses" className="text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium">
+                    View All Tracks →
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 
