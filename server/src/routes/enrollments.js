@@ -112,6 +112,152 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/enrollments/my-learning
+ * Get comprehensive learning data for the student dashboard
+ */
+router.get('/my-learning', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all enrollments with full details
+    const allEnrollments = await req.prisma.enrollment.findMany({
+      where: { userId },
+      include: {
+        track: {
+          include: {
+            courses: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+        course: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Separate track enrollments and individual course enrollments
+    const trackEnrollments = allEnrollments.filter(e => e.trackId && e.track);
+    const courseOnlyEnrollments = allEnrollments.filter(e => e.courseId && !e.trackId && e.course);
+
+    // Build enrolled tracks with their courses and progress
+    const enrolledTracks = [];
+    const processedTrackIds = new Set();
+
+    for (const enrollment of trackEnrollments) {
+      if (processedTrackIds.has(enrollment.trackId)) continue;
+      processedTrackIds.add(enrollment.trackId);
+
+      const track = enrollment.track;
+
+      // Get course-level enrollments for this track's courses
+      const courseEnrollments = await req.prisma.enrollment.findMany({
+        where: {
+          userId,
+          courseId: { in: track.courses.map(c => c.id) },
+        },
+      });
+
+      // Map course enrollments by courseId
+      const courseEnrollmentMap = {};
+      courseEnrollments.forEach(ce => {
+        courseEnrollmentMap[ce.courseId] = ce;
+      });
+
+      // Calculate track progress
+      const coursesWithProgress = track.courses.map(course => {
+        const courseEnrollment = courseEnrollmentMap[course.id];
+        return {
+          id: course.id,
+          title: course.title,
+          slug: course.slug,
+          image: course.image,
+          duration: course.duration,
+          lessons: course.lessons,
+          externalUrl: course.externalUrl,
+          edxCourseId: course.edxCourseId,
+          progress: courseEnrollment?.progress || 0,
+          completedLessons: courseEnrollment?.completedLessons || 0,
+          status: courseEnrollment?.completedAt ? 'completed' :
+                  (courseEnrollment?.progress > 0 ? 'in_progress' : 'not_started'),
+          startDate: courseEnrollment?.startDate,
+          completedAt: courseEnrollment?.completedAt,
+          edxEnrolled: courseEnrollment?.edxEnrolled || false,
+        };
+      });
+
+      const completedCourses = coursesWithProgress.filter(c => c.status === 'completed').length;
+      const totalProgress = coursesWithProgress.length > 0
+        ? Math.round(coursesWithProgress.reduce((sum, c) => sum + c.progress, 0) / coursesWithProgress.length)
+        : 0;
+
+      enrolledTracks.push({
+        id: track.id,
+        title: track.title,
+        slug: track.slug,
+        description: track.description,
+        image: track.image,
+        duration: track.duration,
+        level: track.level,
+        enrollmentId: enrollment.id,
+        enrolledAt: enrollment.startDate,
+        status: enrollment.status,
+        progress: totalProgress,
+        completedCourses,
+        totalCourses: track.courses.length,
+        courses: coursesWithProgress,
+      });
+    }
+
+    // Build individual courses list
+    const individualCourses = courseOnlyEnrollments.map(enrollment => ({
+      id: enrollment.course.id,
+      title: enrollment.course.title,
+      slug: enrollment.course.slug,
+      description: enrollment.course.description,
+      image: enrollment.course.image,
+      duration: enrollment.course.duration,
+      lessons: enrollment.course.lessons,
+      externalUrl: enrollment.course.externalUrl,
+      edxCourseId: enrollment.course.edxCourseId,
+      enrollmentId: enrollment.id,
+      enrolledAt: enrollment.startDate,
+      progress: enrollment.progress,
+      completedLessons: enrollment.completedLessons,
+      status: enrollment.completedAt ? 'completed' :
+              (enrollment.progress > 0 ? 'in_progress' : 'not_started'),
+      completedAt: enrollment.completedAt,
+      edxEnrolled: enrollment.edxEnrolled,
+    }));
+
+    // Calculate stats
+    const allCourses = [
+      ...enrolledTracks.flatMap(t => t.courses),
+      ...individualCourses,
+    ];
+
+    const stats = {
+      totalTracks: enrolledTracks.length,
+      totalCourses: allCourses.length,
+      completedCourses: allCourses.filter(c => c.status === 'completed').length,
+      inProgressCourses: allCourses.filter(c => c.status === 'in_progress').length,
+      overallProgress: allCourses.length > 0
+        ? Math.round(allCourses.reduce((sum, c) => sum + c.progress, 0) / allCourses.length)
+        : 0,
+    };
+
+    res.json({
+      success: true,
+      tracks: enrolledTracks,
+      courses: individualCourses,
+      stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/enrollments/:id
  * Get specific enrollment
  */
