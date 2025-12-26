@@ -96,9 +96,9 @@ export function AuthProvider({ children }) {
   }, [navigate, location.state]);
 
   // Register function
+  // Note: We don't set global isLoading here to avoid unmounting the Register component
   const register = useCallback(async (data) => {
     setError(null);
-    setIsLoading(true);
 
     try {
       const response = await authApi.register(data);
@@ -106,8 +106,6 @@ export function AuthProvider({ children }) {
     } catch (error) {
       setError(error.message || 'Registration failed');
       return { success: false, error: error.message, errors: error.errors };
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

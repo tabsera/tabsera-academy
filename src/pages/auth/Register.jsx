@@ -32,11 +32,12 @@ const LEARNING_CENTERS = [
 ];
 
 function Register() {
-  const { register, isLoading, error, clearError } = useAuth();
+  const { register, error, clearError } = useAuth();
   const navigate = useNavigate();
-  
+
   const [step, setStep] = useState(1);
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -135,23 +136,29 @@ function Register() {
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateStep2()) return;
 
-    const result = await register({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      country: formData.country,
-      centerId: formData.centerId === 'none' ? null : formData.centerId,
-      password: formData.password,
-    });
+    setIsSubmitting(true);
 
-    if (result.success) {
-      setSuccess(true);
-    } else if (result.errors) {
-      setFormErrors(result.errors);
+    try {
+      const result = await register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        country: formData.country,
+        centerId: formData.centerId === 'none' ? null : formData.centerId,
+        password: formData.password,
+      });
+
+      if (result.success) {
+        setSuccess(true);
+      } else if (result.errors) {
+        setFormErrors(result.errors);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -532,10 +539,10 @@ function Register() {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
                   Creating...
