@@ -55,18 +55,16 @@ const getAccessToken = async () => {
   }
 
   try {
-    const credentials = Buffer.from(`${EDX_CLIENT_ID}:${EDX_CLIENT_SECRET}`).toString('base64');
-
     const response = await fetch(`${EDX_BASE_URL}/oauth2/access_token`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cache-Control': 'no-cache',
       },
       body: new URLSearchParams({
         grant_type: 'client_credentials',
-        token_type: 'jwt',
+        client_id: EDX_CLIENT_ID,
+        client_secret: EDX_CLIENT_SECRET,
       }),
     });
 
@@ -97,7 +95,7 @@ const edxRequest = async (endpoint, options = {}) => {
 
   const url = `${EDX_BASE_URL}${endpoint}`;
   const headers = {
-    'Authorization': `JWT ${token}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
     ...options.headers,
   };
@@ -503,20 +501,39 @@ const loginUser = async ({ email, password }) => {
       method: 'GET',
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': 'Tabsera-Academy/1.0',
       },
     });
 
-    // Extract CSRF token from cookies
-    const cookies = loginPageResponse.headers.get('set-cookie') || '';
-    const csrfMatch = cookies.match(/csrftoken=([^;]+)/);
-    const csrfToken = csrfMatch ? csrfMatch[1] : null;
+    // Extract CSRF token from cookies - handle both single header and array
+    let csrfToken = null;
+    const setCookieHeader = loginPageResponse.headers.get('set-cookie');
+
+    if (setCookieHeader) {
+      const csrfMatch = setCookieHeader.match(/csrftoken=([^;]+)/);
+      csrfToken = csrfMatch ? csrfMatch[1] : null;
+    }
+
+    // Try getSetCookie() for Node.js 18+ which returns an array
+    if (!csrfToken && loginPageResponse.headers.getSetCookie) {
+      const cookies = loginPageResponse.headers.getSetCookie();
+      for (const cookie of cookies) {
+        const match = cookie.match(/csrftoken=([^;]+)/);
+        if (match) {
+          csrfToken = match[1];
+          break;
+        }
+      }
+    }
 
     if (!csrfToken) {
       console.error('Could not get CSRF token from edX');
       return { success: false, error: 'Could not get CSRF token' };
     }
 
-    // Attempt login with email/password
+    console.log('Got CSRF token from edX:', csrfToken.substring(0, 10) + '...');
+
+    // Attempt login with email_or_username (supports both email and username)
     const loginResponse = await fetch(`${EDX_BASE_URL}/api/user/v1/account/login_session/`, {
       method: 'POST',
       headers: {
@@ -524,22 +541,41 @@ const loginUser = async ({ email, password }) => {
         'X-CSRFToken': csrfToken,
         'Cookie': `csrftoken=${csrfToken}`,
         'Referer': `${EDX_BASE_URL}/login`,
+        'User-Agent': 'Tabsera-Academy/1.0',
       },
       body: JSON.stringify({
-        email,
+        email_or_username: email,
         password,
       }),
     });
 
-    if (loginResponse.ok) {
-      // Extract session cookies
-      const sessionCookies = loginResponse.headers.get('set-cookie') || '';
-      const sessionIdMatch = sessionCookies.match(/sessionid=([^;]+)/);
-      const edxSessionMatch = sessionCookies.match(/edx-user-info=([^;]+)/);
+    // Extract session cookies from response
+    let sessionId = null;
+    let edxUserInfo = null;
+    let sessionCookies = '';
 
-      const sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
-      const edxUserInfo = edxSessionMatch ? edxSessionMatch[1] : null;
+    const respSetCookie = loginResponse.headers.get('set-cookie');
+    if (respSetCookie) {
+      sessionCookies = respSetCookie;
+      const sessionIdMatch = respSetCookie.match(/sessionid=([^;]+)/);
+      const edxSessionMatch = respSetCookie.match(/edx-user-info=([^;]+)/);
+      sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
+      edxUserInfo = edxSessionMatch ? edxSessionMatch[1] : null;
+    }
 
+    // Try getSetCookie() for Node.js 18+
+    if (loginResponse.headers.getSetCookie) {
+      const cookies = loginResponse.headers.getSetCookie();
+      sessionCookies = cookies.join('; ');
+      for (const cookie of cookies) {
+        const sessionIdMatch = cookie.match(/sessionid=([^;]+)/);
+        const edxSessionMatch = cookie.match(/edx-user-info=([^;]+)/);
+        if (sessionIdMatch) sessionId = sessionIdMatch[1];
+        if (edxSessionMatch) edxUserInfo = edxSessionMatch[1];
+      }
+    }
+
+    if (loginResponse.ok || sessionId) {
       console.log(`edX login successful for: ${email}`);
       return {
         success: true,

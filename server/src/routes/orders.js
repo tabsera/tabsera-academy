@@ -6,6 +6,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticate } = require('../middleware/auth');
 const edxService = require('../services/edx');
+const { sendTemplatedEmail } = require('../services/email');
 
 const router = express.Router();
 
@@ -256,6 +257,9 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
 
       // Ensure user is registered on edX
       let edxUsername = user.edxUsername;
+      let edxPlainPassword = null; // Keep track to send via email
+      let isNewEdxRegistration = false;
+
       if (!user.edxRegistered) {
         try {
           // Generate edX credentials
@@ -263,6 +267,7 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
             user.firstName,
             user.lastName
           );
+          edxPlainPassword = password; // Save for email
 
           const edxRegResult = await edxService.registerUser({
             email: user.email,
@@ -273,11 +278,12 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
 
           if (edxRegResult.success) {
             edxUsername = edxRegResult.username;
+            isNewEdxRegistration = !edxRegResult.alreadyExists;
             await req.prisma.user.update({
               where: { id: user.id },
               data: {
                 edxUsername: edxRegResult.username,
-                edxPassword: encryptedPassword, // Store encrypted password for auto-login
+                edxPassword: encryptedPassword, // Store encrypted password
                 edxRegistered: true,
                 edxRegisteredAt: new Date(),
               },
@@ -287,6 +293,9 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
           console.error('edX registration failed:', edxError);
         }
       }
+
+      // Collect enrolled courses for email
+      const enrolledCourses = [];
 
       // Process each order item
       for (const item of orderItems) {
@@ -303,6 +312,8 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
 
           // Enroll in each course of the track
           for (const course of item.track.courses || []) {
+            enrolledCourses.push({ title: course.title, edxCourseId: course.edxCourseId });
+
             const enrollment = await req.prisma.enrollment.create({
               data: {
                 userId: req.user.id,
@@ -341,6 +352,8 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
 
         // If it's a single course
         if (item.courseId && item.course) {
+          enrolledCourses.push({ title: item.course.title, edxCourseId: item.course.edxCourseId });
+
           const enrollment = await req.prisma.enrollment.create({
             data: {
               userId: req.user.id,
@@ -374,6 +387,23 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
               console.error(`edX enrollment failed for course ${item.courseId}:`, edxError);
             }
           }
+        }
+      }
+
+      // Send edX credentials email if new registration
+      if (isNewEdxRegistration && edxUsername && edxPlainPassword && enrolledCourses.length > 0) {
+        try {
+          const edxBaseUrl = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
+          await sendTemplatedEmail('edxCredentials', user.email, {
+            ...user,
+            edxUsername,
+            edxPassword: edxPlainPassword,
+            courses: enrolledCourses,
+            edxBaseUrl,
+          });
+          console.log(`edX credentials email sent to: ${user.email}`);
+        } catch (emailError) {
+          console.error('Failed to send edX credentials email:', emailError);
         }
       }
     }

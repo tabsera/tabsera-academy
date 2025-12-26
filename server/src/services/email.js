@@ -180,6 +180,64 @@ const templates = {
     `,
   }),
 
+  // edX Learning Platform Credentials
+  edxCredentials: (user, { edxUsername, edxPassword, courses, edxBaseUrl }) => ({
+    subject: 'Your Learning Platform Access - Tabsera Academy',
+    text: `Hi ${user.firstName},\n\nYour learning platform account has been created!\n\nLogin URL: ${edxBaseUrl}/login\nUsername: ${edxUsername}\nPassword: ${edxPassword}\n\nYou have been enrolled in the following courses:\n${courses.map(c => `- ${c.title}`).join('\n')}\n\nPlease change your password after first login.\n\nBest regards,\nTabsera Academy Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #2563eb, #0ea5e9); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Your Learning Platform Access</h1>
+        </div>
+        <div style="padding: 30px; background: #f9fafb;">
+          <p style="font-size: 16px; color: #374151;">Hi ${user.firstName},</p>
+          <p style="font-size: 16px; color: #374151;">Your learning platform account has been created! Use the credentials below to access your courses.</p>
+
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+            <h3 style="margin: 0 0 15px 0; color: #111827;">Login Credentials</h3>
+            <p style="margin: 8px 0; font-size: 14px;">
+              <strong style="color: #6b7280;">Platform URL:</strong>
+              <a href="${edxBaseUrl}/login" style="color: #2563eb;">${edxBaseUrl}/login</a>
+            </p>
+            <p style="margin: 8px 0; font-size: 14px;">
+              <strong style="color: #6b7280;">Username:</strong>
+              <span style="color: #111827; font-family: monospace; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${edxUsername}</span>
+            </p>
+            <p style="margin: 8px 0; font-size: 14px;">
+              <strong style="color: #6b7280;">Password:</strong>
+              <span style="color: #111827; font-family: monospace; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${edxPassword}</span>
+            </p>
+          </div>
+
+          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #92400e;">
+              <strong>⚠️ Important:</strong> Please change your password after your first login for security.
+            </p>
+          </div>
+
+          ${courses.length > 0 ? `
+          <div style="margin: 20px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #111827;">Enrolled Courses</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #374151;">
+              ${courses.map(c => `<li style="margin: 8px 0;">${c.title}</li>`).join('')}
+            </ul>
+          </div>
+          ` : ''}
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${edxBaseUrl}/login" style="background: #2563eb; color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Login to Start Learning</a>
+          </div>
+
+          <p style="font-size: 14px; color: #6b7280;">If you have any questions, please contact our support team.</p>
+          <p style="font-size: 14px; color: #6b7280;">Best regards,<br>Tabsera Academy Team</p>
+        </div>
+        <div style="padding: 20px; text-align: center; font-size: 12px; color: #9ca3af; background: #f3f4f6;">
+          <p>Tabsera Academy - Quality Education for Everyone</p>
+        </div>
+      </div>
+    `,
+  }),
+
   // Custom announcement/newsletter
   announcement: (user, { title, content, ctaText, ctaUrl }) => ({
     subject: title,
