@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
-import { 
+import {
   Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
   ArrowRight, User, Phone, MapPin, Building2, CheckCircle
 } from 'lucide-react';
@@ -32,12 +33,13 @@ const LEARNING_CENTERS = [
 ];
 
 function Register() {
-  const { register, error, clearError } = useAuth();
+  const { register, googleLogin, error, clearError } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -210,6 +212,50 @@ function Register() {
       <div className="text-center lg:text-left">
         <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
         <p className="text-gray-500 mt-1">Start your learning journey today</p>
+      </div>
+
+      {/* Quick Sign Up with Google */}
+      <div className="space-y-4">
+        {googleLoading ? (
+          <div className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-200 rounded-xl text-gray-700 font-medium bg-gray-50">
+            <Loader2 size={20} className="animate-spin" />
+            Creating account with Google...
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                setGoogleLoading(true);
+                clearError();
+                try {
+                  await googleLogin(credentialResponse.credential);
+                } catch (err) {
+                  console.error('Google signup error:', err);
+                } finally {
+                  setGoogleLoading(false);
+                }
+              }}
+              onError={() => {
+                console.error('Google signup failed');
+                setGoogleLoading(false);
+              }}
+              theme="outline"
+              size="large"
+              width="100%"
+              text="signup_with"
+            />
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-gray-50 text-gray-500">or register with email</span>
+          </div>
+        </div>
       </div>
 
       {/* Progress Steps */}

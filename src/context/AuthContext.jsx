@@ -95,6 +95,30 @@ export function AuthProvider({ children }) {
     }
   }, [navigate, location.state]);
 
+  // Google login function
+  const googleLogin = useCallback(async (credential) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await authApi.googleLogin(credential);
+      setUser(response.user);
+      setIsAuthenticated(true);
+
+      // Redirect based on role
+      const role = response.user.role;
+      const redirectPath = location.state?.from?.pathname || ROLE_REDIRECTS[role] || '/';
+      navigate(redirectPath, { replace: true });
+
+      return { success: true, user: response.user };
+    } catch (error) {
+      setError(error.message || 'Google login failed');
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate, location.state]);
+
   // Register function
   // Note: We don't set global isLoading here to avoid unmounting the Register component
   const register = useCallback(async (data) => {
@@ -317,6 +341,7 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     error,
     login,
+    googleLogin,
     register,
     logout,
     forgotPassword,

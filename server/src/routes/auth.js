@@ -5,11 +5,15 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const { authenticate, generateToken } = require('../middleware/auth');
 const { sendEmail } = require('../services/email');
 const edxService = require('../services/edx');
 
 const router = express.Router();
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
  * Generate a secure random token
@@ -411,6 +415,122 @@ router.post('/login', async (req, res, next) => {
       token,
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/auth/google
+ * Sign in with Google OAuth
+ */
+router.post('/google', async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ message: 'Google credential is required' });
+    }
+
+    // Verify the Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, given_name, family_name, picture, email_verified } = payload;
+
+    if (!email_verified) {
+      return res.status(400).json({ message: 'Google email not verified' });
+    }
+
+    // Check if user exists
+    let user = await req.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (user) {
+      // User exists - log them in
+      if (!user.isActive) {
+        return res.status(401).json({ message: 'Account is deactivated' });
+      }
+
+      // Update avatar if not set
+      if (!user.avatar && picture) {
+        await req.prisma.user.update({
+          where: { id: user.id },
+          data: { avatar: picture },
+        });
+        user.avatar = picture;
+      }
+
+      // Mark email as verified if not already (since Google verified it)
+      if (!user.emailVerified) {
+        await req.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailVerified: true,
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+          },
+        });
+        user.emailVerified = true;
+      }
+    } else {
+      // New user - create account
+      // Generate a random password (user won't use it, they'll always sign in with Google)
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await req.prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          firstName: given_name || 'User',
+          lastName: family_name || '',
+          avatar: picture || null,
+          role: 'STUDENT',
+          emailVerified: true, // Google already verified the email
+          googleId: payload.sub, // Store Google user ID for future reference
+        },
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user.id);
+
+    // Include edX info if user is registered
+    const edxInfo = user.edxRegistered
+      ? {
+          edxUsername: user.edxUsername,
+          edxRegistered: user.edxRegistered,
+          hasEdxAccess: !!user.edxPassword,
+        }
+      : null;
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        phone: user.phone,
+        country: user.country,
+        avatar: user.avatar,
+        role: user.role.toLowerCase(),
+        centerId: user.centerId,
+        edxInfo,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    if (error.message?.includes('Token used too late') || error.message?.includes('Invalid token')) {
+      return res.status(401).json({ message: 'Google authentication failed. Please try again.' });
+    }
     next(error);
   }
 });

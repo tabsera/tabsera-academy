@@ -69,6 +69,8 @@ model User {
   edxPassword             String?   @map("edx_password") // Encrypted edX password for auto-login
   edxRegistered           Boolean   @default(false) @map("edx_registered")
   edxRegisteredAt         DateTime? @map("edx_registered_at")
+  // OAuth fields
+  googleId                String?   @unique @map("google_id")
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 

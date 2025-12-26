@@ -58,6 +58,33 @@ export const authApi = {
   },
 
   /**
+   * Login with Google OAuth
+   * @param {string} credential - Google credential token
+   * @returns {Promise<{user, access_token}>}
+   */
+  async googleLogin(credential) {
+    if (useMockApi) {
+      throw new Error('Google login not available in mock mode');
+    }
+
+    const response = await apiClient.post('/auth/google', { credential }, false);
+
+    // Store tokens
+    const accessToken = response.access_token || response.token;
+    if (accessToken) {
+      apiClient.setToken(accessToken);
+    }
+    if (response.refresh_token) {
+      apiClient.setRefreshToken(response.refresh_token);
+    }
+    if (response.user) {
+      localStorage.setItem('user', JSON.stringify(response.user));
+    }
+
+    return { ...response, access_token: accessToken };
+  },
+
+  /**
    * Register new user (student self-registration)
    * @param {Object} data - Registration data
    * @returns {Promise<{user, message}>}
