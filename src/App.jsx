@@ -47,6 +47,7 @@ import CourseList from './pages/admin/CourseList';
 import CourseEditor from './pages/admin/CourseEditor';
 import CurriculumBuilder from './pages/admin/CurriculumBuilder';
 import TrackManagement from './pages/admin/TrackManagement';
+import OrderManagement from './pages/admin/OrderManagement';
 
 // Center Pages
 import CenterDashboard from './pages/center/CenterDashboard';
@@ -190,6 +191,7 @@ function App() {
         <Route path="students" element={<StudentRegistration />} />
         <Route path="students/enroll" element={<TrackEnrollment />} />
         <Route path="password-reset" element={<PasswordResetCenter />} />
+        <Route path="orders" element={<OrderManagement />} />
       </Route>
 
       {/* ===================== */}

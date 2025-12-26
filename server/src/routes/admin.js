@@ -1702,4 +1702,486 @@ router.get('/centers', async (req, res, next) => {
   }
 });
 
+// ============================================
+// ORDERS MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/orders
+ * Get all orders with filtering and pagination
+ */
+router.get('/orders', async (req, res, next) => {
+  try {
+    const {
+      status,
+      paymentStatus,
+      paymentMethod,
+      centerId,
+      search,
+      startDate,
+      endDate,
+      limit = 50,
+      offset = 0,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const where = {
+      ...(status && { status }),
+      ...(paymentStatus && { paymentStatus }),
+      ...(paymentMethod && { paymentMethod }),
+      ...(centerId && { centerId }),
+      ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+      ...(endDate && { createdAt: { ...where?.createdAt, lte: new Date(endDate) } }),
+      ...(search && {
+        OR: [
+          { referenceId: { contains: search, mode: 'insensitive' } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { user: { firstName: { contains: search, mode: 'insensitive' } } },
+          { user: { lastName: { contains: search, mode: 'insensitive' } } },
+        ],
+      }),
+    };
+
+    const [orders, total] = await Promise.all([
+      req.prisma.order.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          items: {
+            include: {
+              track: { select: { id: true, title: true } },
+              course: { select: { id: true, title: true } },
+            },
+          },
+          center: {
+            select: { id: true, name: true },
+          },
+          payments: {
+            select: {
+              id: true,
+              status: true,
+              amount: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        take: parseInt(limit),
+        skip: parseInt(offset),
+      }),
+      req.prisma.order.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      orders,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/orders/stats
+ * Get order statistics
+ */
+router.get('/orders/stats', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const dateFilter = {
+      ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+      ...(endDate && { createdAt: { lte: new Date(endDate) } }),
+    };
+
+    const [
+      totalOrders,
+      completedOrders,
+      pendingOrders,
+      failedOrders,
+      totalRevenue,
+      ordersByMethod,
+    ] = await Promise.all([
+      req.prisma.order.count({ where: dateFilter }),
+      req.prisma.order.count({ where: { ...dateFilter, status: 'COMPLETED' } }),
+      req.prisma.order.count({ where: { ...dateFilter, status: 'PENDING_PAYMENT' } }),
+      req.prisma.order.count({ where: { ...dateFilter, status: { in: ['FAILED', 'CANCELLED'] } } }),
+      req.prisma.order.aggregate({
+        where: { ...dateFilter, status: 'COMPLETED' },
+        _sum: { total: true },
+      }),
+      req.prisma.order.groupBy({
+        by: ['paymentMethod'],
+        where: { ...dateFilter, status: 'COMPLETED' },
+        _count: true,
+        _sum: { total: true },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalOrders,
+        completedOrders,
+        pendingOrders,
+        failedOrders,
+        totalRevenue: totalRevenue._sum.total || 0,
+        ordersByMethod: ordersByMethod.map(m => ({
+          method: m.paymentMethod,
+          count: m._count,
+          revenue: m._sum.total || 0,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/orders/:id
+ * Get single order details
+ */
+router.get('/orders/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const order = await req.prisma.order.findFirst({
+      where: { OR: [{ id }, { referenceId: id }] },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        },
+        items: {
+          include: {
+            track: true,
+            course: true,
+          },
+        },
+        center: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json({ success: true, order });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/orders/:id/status
+ * Update order status
+ */
+router.patch('/orders/:id/status', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, paymentStatus, notes } = req.body;
+
+    const order = await req.prisma.order.findFirst({
+      where: { OR: [{ id }, { referenceId: id }] },
+      include: {
+        items: {
+          include: {
+            track: { include: { courses: true } },
+            course: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const updateData = {
+      ...(status && { status }),
+      ...(paymentStatus && { paymentStatus }),
+      ...(notes && { notes }),
+    };
+
+    // If marking as completed, process enrollments
+    if (status === 'COMPLETED' && order.status !== 'COMPLETED') {
+      // Create enrollments for each item
+      for (const item of order.items) {
+        if (item.track) {
+          // Enroll in track
+          const existingTrackEnrollment = await req.prisma.enrollment.findFirst({
+            where: { userId: order.userId, trackId: item.trackId },
+          });
+
+          if (!existingTrackEnrollment) {
+            await req.prisma.enrollment.create({
+              data: {
+                userId: order.userId,
+                trackId: item.trackId,
+                status: 'active',
+              },
+            });
+          }
+
+          // Enroll in all courses in track
+          for (const course of item.track.courses) {
+            const existingCourseEnrollment = await req.prisma.enrollment.findFirst({
+              where: { userId: order.userId, courseId: course.id },
+            });
+
+            if (!existingCourseEnrollment) {
+              await req.prisma.enrollment.create({
+                data: {
+                  userId: order.userId,
+                  courseId: course.id,
+                  status: 'active',
+                  edxCourseId: course.edxCourseId,
+                },
+              });
+            }
+          }
+        } else if (item.course) {
+          // Enroll in individual course
+          const existingEnrollment = await req.prisma.enrollment.findFirst({
+            where: { userId: order.userId, courseId: item.courseId },
+          });
+
+          if (!existingEnrollment) {
+            await req.prisma.enrollment.create({
+              data: {
+                userId: order.userId,
+                courseId: item.courseId,
+                status: 'active',
+                edxCourseId: item.course.edxCourseId,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    const updatedOrder = await req.prisma.order.update({
+      where: { id: order.id },
+      data: updateData,
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        items: {
+          include: {
+            track: { select: { id: true, title: true } },
+            course: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Order updated successfully',
+      order: updatedOrder,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/orders/:id/refund
+ * Process refund for an order
+ */
+router.post('/orders/:id/refund', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+
+    const order = await req.prisma.order.findFirst({
+      where: { OR: [{ id }, { referenceId: id }] },
+      include: { payments: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    if (order.status !== 'COMPLETED') {
+      return res.status(400).json({ message: 'Can only refund completed orders' });
+    }
+
+    const refundAmount = amount || order.total;
+
+    // Create refund payment record
+    const payment = await req.prisma.payment.create({
+      data: {
+        orderId: order.id,
+        userId: order.userId,
+        amount: -refundAmount,
+        status: 'REFUNDED',
+        paymentMethod: order.paymentMethod,
+        notes: reason || 'Admin refund',
+      },
+    });
+
+    // Update order status
+    await req.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'REFUNDED',
+        paymentStatus: 'REFUNDED',
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Refund processed successfully',
+      payment,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PAYMENTS MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/payments
+ * Get all payments with filtering
+ */
+router.get('/payments', async (req, res, next) => {
+  try {
+    const {
+      status,
+      paymentMethod,
+      search,
+      startDate,
+      endDate,
+      limit = 50,
+      offset = 0,
+    } = req.query;
+
+    const where = {
+      ...(status && { status }),
+      ...(paymentMethod && { paymentMethod }),
+      ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+      ...(endDate && { createdAt: { lte: new Date(endDate) } }),
+      ...(search && {
+        OR: [
+          { order: { referenceId: { contains: search, mode: 'insensitive' } } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { waafipayOrderId: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [payments, total] = await Promise.all([
+      req.prisma.payment.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, email: true, firstName: true, lastName: true },
+          },
+          order: {
+            select: { id: true, referenceId: true, status: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset),
+      }),
+      req.prisma.payment.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      payments,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/payments/stats
+ * Get payment statistics
+ */
+router.get('/payments/stats', async (req, res, next) => {
+  try {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+
+    const [
+      totalPayments,
+      approvedPayments,
+      monthlyRevenue,
+      yearlyRevenue,
+      recentPayments,
+    ] = await Promise.all([
+      req.prisma.payment.count(),
+      req.prisma.payment.count({ where: { status: 'APPROVED' } }),
+      req.prisma.payment.aggregate({
+        where: {
+          status: 'APPROVED',
+          createdAt: { gte: startOfMonth },
+        },
+        _sum: { amount: true },
+      }),
+      req.prisma.payment.aggregate({
+        where: {
+          status: 'APPROVED',
+          createdAt: { gte: startOfYear },
+        },
+        _sum: { amount: true },
+      }),
+      req.prisma.payment.findMany({
+        where: { status: 'APPROVED' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          user: { select: { email: true, firstName: true, lastName: true } },
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalPayments,
+        approvedPayments,
+        monthlyRevenue: monthlyRevenue._sum.amount || 0,
+        yearlyRevenue: yearlyRevenue._sum.amount || 0,
+        recentPayments,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

@@ -48,6 +48,7 @@ const adminRoutes = require('./routes/admin');
 const enrollmentsRoutes = require('./routes/enrollments');
 const edxRoutes = require('./routes/edx');
 const uploadRoutes = require('./routes/upload');
+const centersRoutes = require('./routes/centers');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -59,6 +60,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/enrollments', enrollmentsRoutes);
 app.use('/api/edx', edxRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/centers', centersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

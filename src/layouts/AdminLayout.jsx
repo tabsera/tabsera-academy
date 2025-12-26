@@ -58,6 +58,7 @@ const AdminLayout = () => {
       { path: '/admin/password-reset', icon: KeyRound, label: 'Password Reset' },
     ]},
     { section: 'Finance', items: [
+      { path: '/admin/orders', icon: Receipt, label: 'Orders' },
       { path: '/admin/settlements', icon: Receipt, label: 'Settlements', badge: 4 },
       { path: '/admin/settlements/process', icon: FileCheck, label: 'Process Settlement' },
       { path: '/admin/revenue', icon: CircleDollarSign, label: 'Revenue' },
