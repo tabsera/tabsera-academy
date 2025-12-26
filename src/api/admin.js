@@ -162,6 +162,121 @@ export const adminApi = {
   async deleteImage(url) {
     return apiClient.delete('/upload/image', { url });
   },
+
+  // ============================================
+  // USERS
+  // ============================================
+
+  /**
+   * Get all users (admin view)
+   */
+  async getUsers(params = {}) {
+    const { role, status, centerId, search, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+    return apiClient.get('/admin/users', {
+      role,
+      status,
+      centerId,
+      search,
+      limit,
+      offset,
+      sortBy,
+      sortOrder,
+    });
+  },
+
+  /**
+   * Get single user by ID
+   */
+  async getUser(id) {
+    return apiClient.get(`/admin/users/${id}`);
+  },
+
+  /**
+   * Create a new user
+   */
+  async createUser(data) {
+    return apiClient.post('/admin/users', data);
+  },
+
+  /**
+   * Update a user
+   */
+  async updateUser(id, data) {
+    return apiClient.put(`/admin/users/${id}`, data);
+  },
+
+  /**
+   * Delete a user
+   */
+  async deleteUser(id) {
+    return apiClient.delete(`/admin/users/${id}`);
+  },
+
+  /**
+   * Send password reset email to user
+   */
+  async resetUserPassword(id) {
+    return apiClient.post(`/admin/users/${id}/reset-password`);
+  },
+
+  /**
+   * Send password reset emails to multiple users
+   */
+  async bulkResetPasswords(userIds) {
+    return apiClient.post('/admin/users/bulk-reset-password', { userIds });
+  },
+
+  // ============================================
+  // ENROLLMENTS
+  // ============================================
+
+  /**
+   * Get all enrollments
+   */
+  async getEnrollments(params = {}) {
+    const { userId, trackId, courseId, status, search, limit = 50, offset = 0 } = params;
+    return apiClient.get('/admin/enrollments', {
+      userId,
+      trackId,
+      courseId,
+      status,
+      search,
+      limit,
+      offset,
+    });
+  },
+
+  /**
+   * Create an enrollment
+   */
+  async createEnrollment(data) {
+    return apiClient.post('/admin/enrollments', data);
+  },
+
+  /**
+   * Bulk enroll students
+   */
+  async bulkEnroll(data) {
+    return apiClient.post('/admin/enrollments/bulk', data);
+  },
+
+  /**
+   * Delete an enrollment
+   */
+  async deleteEnrollment(id) {
+    return apiClient.delete(`/admin/enrollments/${id}`);
+  },
+
+  // ============================================
+  // LEARNING CENTERS
+  // ============================================
+
+  /**
+   * Get all learning centers
+   */
+  async getCenters() {
+    return apiClient.get('/admin/centers');
+  },
 };
 
 export default adminApi;
