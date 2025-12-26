@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import ImageUpload from '@/components/ImageUpload';
+import RichTextEditor from '@/components/RichTextEditor';
 
 function CourseEditor() {
   const { id } = useParams();
@@ -303,12 +304,10 @@ function CourseEditor() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
-              <textarea
+              <RichTextEditor
                 value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                rows={4}
+                onChange={(value) => handleChange('description', value)}
                 placeholder="Describe what students will learn in this course..."
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 

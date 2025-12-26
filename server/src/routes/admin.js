@@ -5,6 +5,7 @@
 
 const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { sanitizeDescription } = require('../utils/sanitize');
 
 const router = express.Router();
 
@@ -165,7 +166,7 @@ router.post('/courses', async (req, res, next) => {
       data: {
         title,
         slug,
-        description,
+        description: sanitizeDescription(description),
         price,
         duration,
         level,
@@ -240,7 +241,7 @@ router.put('/courses/:id', async (req, res, next) => {
       data: {
         ...(title !== undefined && { title }),
         ...(slug !== undefined && { slug }),
-        ...(description !== undefined && { description }),
+        ...(description !== undefined && { description: sanitizeDescription(description) }),
         ...(price !== undefined && { price }),
         ...(duration !== undefined && { duration }),
         ...(level !== undefined && { level }),
@@ -562,7 +563,7 @@ router.post('/tracks', async (req, res, next) => {
       data: {
         title,
         slug,
-        description,
+        description: sanitizeDescription(description),
         price,
         duration,
         level,
@@ -635,7 +636,7 @@ router.put('/tracks/:id', async (req, res, next) => {
       data: {
         ...(title !== undefined && { title }),
         ...(slug !== undefined && { slug }),
-        ...(description !== undefined && { description }),
+        ...(description !== undefined && { description: sanitizeDescription(description) }),
         ...(price !== undefined && { price }),
         ...(duration !== undefined && { duration }),
         ...(level !== undefined && { level }),

@@ -8,6 +8,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { useCart } from '../../context/CartContext';
 import apiClient from '../../api/client';
+import SafeHTML from '../../components/SafeHTML';
 import {
   BookOpen, Clock, Users, CheckCircle, Award,
   ShoppingCart, Loader2, AlertCircle, ArrowLeft,
@@ -140,7 +141,7 @@ function TrackDetail() {
                 Learning Track
               </div>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">{track.title}</h1>
-              <p className="text-xl text-blue-100 mb-8">{track.description}</p>
+              <SafeHTML html={track.description} className="text-xl text-blue-100 mb-8" />
 
               <div className="flex flex-wrap items-center gap-6 text-blue-100">
                 <div className="flex items-center gap-2">
@@ -212,9 +213,11 @@ function TrackDetail() {
                           >
                             {course.title}
                           </Link>
-                          <p className="text-gray-600 text-sm mt-1 line-clamp-2">
-                            {course.description}
-                          </p>
+                          <SafeHTML
+                            html={course.description}
+                            className="text-gray-600 text-sm mt-1"
+                            truncate
+                          />
                           <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-500">
                             {course.lessons > 0 && (
                               <span className="flex items-center gap-1">

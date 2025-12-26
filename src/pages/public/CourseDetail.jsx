@@ -4,6 +4,7 @@ import { Layout } from '../../components/Layout';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/client';
+import SafeHTML from '../../components/SafeHTML';
 import {
   Star, Clock, BookOpen, Users, CheckCircle, Globe, Award,
   PlayCircle, ChevronDown, ShoppingCart, Building2, X, Check,
@@ -173,7 +174,7 @@ function CourseDetail() {
                 )}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{course.title}</h1>
-              <p className="text-xl text-gray-600 mb-6">{course.description}</p>
+              <SafeHTML html={course.description} className="text-xl text-gray-600 mb-6" />
 
               <div className="flex flex-wrap items-center gap-6 text-sm text-gray-600">
                 {course.duration && (

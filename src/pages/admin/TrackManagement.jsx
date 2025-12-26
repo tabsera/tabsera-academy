@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import ImageUpload from '@/components/ImageUpload';
+import RichTextEditor from '@/components/RichTextEditor';
 
 function TrackManagement() {
   const [tracks, setTracks] = useState([]);
@@ -570,12 +571,10 @@ function TrackManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
+                <RichTextEditor
                   value={trackForm.description}
-                  onChange={(e) => setTrackForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3}
+                  onChange={(value) => setTrackForm(f => ({ ...f, description: value }))}
                   placeholder="Describe what students will learn..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 

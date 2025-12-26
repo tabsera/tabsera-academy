@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Clock, BookOpen, Users, GraduationCap } from 'lucide-react';
+import SafeHTML from './SafeHTML';
 
 export function CourseCard({ course }) {
   // Handle both mock data format and API format
@@ -52,9 +53,11 @@ export function CourseCard({ course }) {
         </h3>
 
         {course.description && (
-          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
-            {course.description}
-          </p>
+          <SafeHTML
+            html={course.description}
+            className="text-sm text-gray-500 mb-3"
+            truncate
+          />
         )}
 
         <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
