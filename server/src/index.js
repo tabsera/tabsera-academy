@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 
 // Initialize Prisma
@@ -20,6 +21,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// Static file serving for uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Request logging
 app.use((req, res, next) => {
@@ -43,6 +47,7 @@ const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const enrollmentsRoutes = require('./routes/enrollments');
 const edxRoutes = require('./routes/edx');
+const uploadRoutes = require('./routes/upload');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -53,6 +58,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/enrollments', enrollmentsRoutes);
 app.use('/api/edx', edxRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -139,6 +139,29 @@ export const adminApi = {
   async getStats() {
     return apiClient.get('/admin/stats');
   },
+
+  // ============================================
+  // UPLOADS
+  // ============================================
+
+  /**
+   * Upload an image
+   * @param {File} file - The file to upload
+   * @param {string} folder - The folder to upload to (tracks, courses)
+   */
+  async uploadImage(file, folder = 'general') {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('folder', folder);
+    return apiClient.upload('/upload/image', formData);
+  },
+
+  /**
+   * Delete an uploaded image
+   */
+  async deleteImage(url) {
+    return apiClient.delete('/upload/image', { url });
+  },
 };
 
 export default adminApi;

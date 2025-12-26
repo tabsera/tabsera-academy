@@ -11,6 +11,7 @@ import {
   Clock, ExternalLink, ChevronDown
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
+import ImageUpload from '@/components/ImageUpload';
 
 function CourseEditor() {
   const { id } = useParams();
@@ -350,25 +351,13 @@ function CourseEditor() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Course Image URL
+                Course Image
               </label>
-              <input
-                type="text"
+              <ImageUpload
                 value={formData.image}
-                onChange={(e) => handleChange('image', e.target.value)}
-                placeholder="https://..."
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(url) => handleChange('image', url)}
+                folder="courses"
               />
-              {formData.image && (
-                <div className="mt-4">
-                  <img
-                    src={formData.image}
-                    alt="Course thumbnail"
-                    className="w-48 h-32 object-cover rounded-xl"
-                    onError={(e) => e.target.style.display = 'none'}
-                  />
-                </div>
-              )}
             </div>
 
             <div>

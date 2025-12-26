@@ -11,6 +11,7 @@ import {
   CheckCircle, XCircle, Star, Copy, ExternalLink, Loader2, Play, Pause
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
+import ImageUpload from '@/components/ImageUpload';
 
 function TrackManagement() {
   const [tracks, setTracks] = useState([]);
@@ -629,13 +630,11 @@ function TrackManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-2">Track Image</label>
+                <ImageUpload
                   value={trackForm.image}
-                  onChange={(e) => setTrackForm(f => ({ ...f, image: e.target.value }))}
-                  placeholder="https://..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                  onChange={(url) => setTrackForm(f => ({ ...f, image: url }))}
+                  folder="tracks"
                 />
               </div>
 
