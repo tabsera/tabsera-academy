@@ -3,34 +3,114 @@
  * Shows order details after successful checkout
  */
 
-import React from 'react';
-import { Link, useParams, useLocation, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
+import { ordersApi } from '../../api/orders';
 import {
   CheckCircle, Download, Mail, Calendar, CreditCard,
   BookOpen, ArrowRight, ExternalLink, Clock, MapPin,
-  Share2, Printer, Home
+  Share2, Printer, Home, Loader2, AlertCircle
 } from 'lucide-react';
 
 function OrderConfirmation() {
   const { orderId } = useParams();
   const location = useLocation();
-  const orderDetails = location.state?.orderDetails;
+  const [orderDetails, setOrderDetails] = useState(location.state?.orderDetails || null);
+  const [loading, setLoading] = useState(!orderDetails);
+  const [error, setError] = useState(null);
 
-  // If no order details, redirect to home
-  if (!orderDetails) {
-    return <Navigate to="/" replace />;
+  useEffect(() => {
+    // If no order details from navigation state, fetch from API
+    if (!orderDetails && orderId) {
+      fetchOrderDetails();
+    }
+  }, [orderId]);
+
+  const fetchOrderDetails = async () => {
+    try {
+      setLoading(true);
+      const result = await ordersApi.getOrder(orderId);
+      if (result.success && result.order) {
+        // Map API response to expected format
+        const order = result.order;
+        setOrderDetails({
+          referenceId: order.referenceId,
+          items: order.items?.map(item => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            price: parseFloat(item.price),
+            coursesCount: item.coursesCount,
+          })) || [],
+          total: parseFloat(order.total),
+          subtotal: parseFloat(order.subtotal),
+          discount: parseFloat(order.discount || 0),
+          promoCode: order.promoCode,
+          billingInfo: {
+            firstName: order.user?.firstName || order.billingFirstName || 'Customer',
+            lastName: order.user?.lastName || order.billingLastName || '',
+            email: order.user?.email || order.billingEmail || '',
+            phone: order.user?.phone || order.billingPhone || '',
+          },
+          paymentMethod: order.paymentMethod,
+          paymentStatus: order.paymentStatus,
+          createdAt: order.createdAt,
+        });
+      } else {
+        setError('Order not found');
+      }
+    } catch (err) {
+      console.error('Error fetching order:', err);
+      setError(err.message || 'Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <Loader2 size={40} className="animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading order details...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error || !orderDetails) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={40} className="text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Order Not Found</h1>
+          <p className="text-gray-500 mb-8">{error || 'We could not find this order.'}</p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
+          >
+            <Home size={18} />
+            Go to Homepage
+          </Link>
+        </div>
+      </Layout>
+    );
   }
 
   const {
-    items,
-    total,
-    subtotal,
-    discount,
+    items = [],
+    total = 0,
+    subtotal = 0,
+    discount = 0,
     promoCode,
-    billingInfo,
+    billingInfo = {},
     paymentMethod,
-    mobileProvider,
+    paymentStatus,
     selectedCenter,
     createdAt,
   } = orderDetails;
