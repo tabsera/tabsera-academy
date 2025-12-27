@@ -67,6 +67,27 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// WaafiPay HPP callback handler (POST to /payment/callback)
+// This handles POST requests from WaafiPay and redirects to frontend
+app.post('/payment/callback', (req, res) => {
+  console.log('WaafiPay HPP callback received:', req.body);
+  console.log('Query params:', req.query);
+
+  // Get status and reference from query or body
+  const status = req.query.status || req.body.status || 'unknown';
+  const ref = req.query.ref || req.body.referenceId || req.body.ref || '';
+
+  // Build redirect URL with all query params preserved
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const queryString = new URLSearchParams(req.query).toString();
+  const redirectUrl = `${frontendUrl}/payment/callback?${queryString}`;
+
+  console.log('Redirecting to:', redirectUrl);
+
+  // Redirect to frontend (302 redirect changes POST to GET)
+  res.redirect(302, redirectUrl);
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
