@@ -133,9 +133,11 @@ const initiatePurchase = async ({
     serviceParams.storeId = parseInt(config.storeId);
   }
 
-  // Add subscriptionId for mobile money (directly in serviceParams, not payerInfo)
+  // Add payerInfo with subscriptionId for mobile money (pre-fills phone on HPP page)
   if (subscriptionId) {
-    serviceParams.subscriptionId = subscriptionId;
+    serviceParams.payerInfo = {
+      subscriptionId: subscriptionId,
+    };
   }
 
   // For HPP, we don't add merchantUid to base params since it's in serviceParams
