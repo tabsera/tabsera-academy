@@ -49,7 +49,6 @@ function Checkout() {
     ITEM_TYPES,
   } = useCart();
 
-  const [step, setStep] = useState(1); // 1: Billing, 2: Payment, 3: Review
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,6 +61,10 @@ function Checkout() {
     country: user?.country || 'SO',
     learningCenter: '',
   });
+
+  // Check if billing info is complete (skip step 1 if so)
+  const hasBillingInfo = billingInfo.firstName && billingInfo.lastName && billingInfo.email && billingInfo.phone;
+  const [step, setStep] = useState(hasBillingInfo ? 2 : 1); // Start at step 2 if billing info exists
 
   const [paymentMethod, setPaymentMethod] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -114,6 +117,21 @@ function Checkout() {
     }
   };
 
+  // Save billing info to user profile
+  const saveBillingInfo = async () => {
+    try {
+      await apiClient.put('/users/profile', {
+        firstName: billingInfo.firstName,
+        lastName: billingInfo.lastName,
+        phone: billingInfo.phone,
+        country: billingInfo.country,
+      });
+    } catch (err) {
+      console.error('Failed to save billing info:', err);
+      // Don't block checkout if this fails
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!agreeTerms) {
       setError('Please agree to the terms and conditions');
@@ -124,6 +142,9 @@ function Checkout() {
     setError('');
 
     try {
+      // Save billing info to user profile for future use
+      await saveBillingInfo();
+
       // Create order first
       const orderResult = await ordersApi.createOrder({
         items,

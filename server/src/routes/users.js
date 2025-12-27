@@ -50,6 +50,66 @@ router.get('/certificates', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/users/profile
+ * Get current user's profile
+ */
+router.get('/profile', authenticate, async (req, res, next) => {
+  try {
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        country: true,
+        avatar: true,
+        role: true,
+      },
+    });
+
+    res.json({ success: true, user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/users/profile
+ * Update current user's profile (including billing info)
+ */
+router.put('/profile', authenticate, async (req, res, next) => {
+  try {
+    const { firstName, lastName, phone, country } = req.body;
+
+    const updatedUser = await req.prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(phone && { phone }),
+        ...(country && { country }),
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        country: true,
+        avatar: true,
+        role: true,
+      },
+    });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * PUT /api/users/enrollments/:id/progress
  * Update enrollment progress
  */
