@@ -156,6 +156,7 @@ function App() {
       {/* PAYMENT CALLBACK ROUTES */}
       {/* WaafiPay HPP redirects */}
       {/* ===================== */}
+      <Route path="/payment/callback" element={<PaymentCallback />} />
       <Route path="/payment/success" element={<PaymentCallback />} />
       <Route path="/payment/failure" element={<PaymentCallback />} />
 

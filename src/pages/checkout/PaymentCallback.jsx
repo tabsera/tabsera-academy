@@ -34,14 +34,37 @@ function PaymentCallback() {
 
   const processCallback = async () => {
     try {
-      // Get reference ID from URL params or session storage
+      // Get callback status and reference from URL params
+      const callbackStatus = searchParams.get('status');
       const referenceId = searchParams.get('ref') ||
         searchParams.get('referenceId') ||
         sessionStorage.getItem('pending_order_reference');
 
+      console.log('Payment callback:', { callbackStatus, referenceId, params: Object.fromEntries(searchParams) });
+
       if (!referenceId) {
         setStatus('error');
         setMessage('Order reference not found. Please contact support.');
+        return;
+      }
+
+      // Check if WaafiPay indicated failure in the callback URL
+      if (callbackStatus === 'failure' || callbackStatus === 'failed') {
+        const errorCode = searchParams.get('errorCode');
+        const errorMsg = searchParams.get('errorMessage') || searchParams.get('responseMsg');
+
+        setStatus('failed');
+        setMessage(errorMsg || getErrorMessage(errorCode) || 'Payment was not completed.');
+
+        // Still try to get order details for display
+        try {
+          const verifyResult = await paymentsApi.verifyPayment(referenceId);
+          if (verifyResult.order) {
+            setOrderDetails(verifyResult.order);
+          }
+        } catch (e) {
+          console.error('Failed to fetch order details:', e);
+        }
         return;
       }
 
@@ -64,12 +87,18 @@ function PaymentCallback() {
           setStatus('success');
           setMessage('Your payment was successful!');
         } else if (verifyResult.status === 'PENDING') {
-          // Payment still pending
-          setStatus('loading');
-          setMessage('Payment is being processed. Please wait...');
-
-          // Poll for status update
-          setTimeout(() => processCallback(), 3000);
+          // Payment still pending - if callback says success, trust it
+          if (callbackStatus === 'success') {
+            clearCart();
+            sessionStorage.removeItem('pending_order_reference');
+            setStatus('success');
+            setMessage('Your payment was successful! It may take a moment to reflect in your account.');
+          } else {
+            setStatus('loading');
+            setMessage('Payment is being processed. Please wait...');
+            // Poll for status update
+            setTimeout(() => processCallback(), 3000);
+          }
         } else {
           // Payment failed
           const errorMessage = getErrorMessage(verifyResult.status);
@@ -77,14 +106,31 @@ function PaymentCallback() {
           setMessage(errorMessage);
         }
       } else {
-        // Couldn't verify - show error
-        setStatus('error');
-        setMessage(verifyResult.errorMessage || 'Could not verify payment. Please contact support.');
+        // Couldn't verify - if callback says success, show success with note
+        if (callbackStatus === 'success') {
+          clearCart();
+          sessionStorage.removeItem('pending_order_reference');
+          setOrderDetails({ referenceId });
+          setStatus('success');
+          setMessage('Your payment was received! Processing your enrollment...');
+        } else {
+          setStatus('error');
+          setMessage(verifyResult.errorMessage || 'Could not verify payment. Please contact support.');
+        }
       }
     } catch (error) {
       console.error('Payment callback error:', error);
-      setStatus('error');
-      setMessage('An unexpected error occurred. Please contact support.');
+      // If callback indicated success, show success despite error
+      const callbackStatus = searchParams.get('status');
+      if (callbackStatus === 'success') {
+        clearCart();
+        sessionStorage.removeItem('pending_order_reference');
+        setStatus('success');
+        setMessage('Your payment was received! If you have any issues, please contact support.');
+      } else {
+        setStatus('error');
+        setMessage('An unexpected error occurred. Please contact support.');
+      }
     }
   };
 
