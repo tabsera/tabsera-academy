@@ -634,7 +634,8 @@ router.get('/tracks', async (req, res, next) => {
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
-        courses: undefined,
+        // Keep course IDs for editing (map to full objects for consistency)
+        courses: track.courses.map(c => ({ id: c.id })),
         _count: undefined,
       };
     });
