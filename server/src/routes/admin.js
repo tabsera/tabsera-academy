@@ -420,6 +420,146 @@ router.post('/courses/bulk-action', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/admin/courses/sync-edx
+ * Sync missing courses from edX platform
+ */
+router.post('/courses/sync-edx', async (req, res, next) => {
+  try {
+    const EDX_BASE_URL = process.env.EDX_BASE_URL || 'https://cambridge.tabsera.com';
+    const EDX_CLIENT_ID = process.env.EDX_OAUTH_CLIENT_ID;
+    const EDX_CLIENT_SECRET = process.env.EDX_OAUTH_CLIENT_SECRET;
+
+    if (!EDX_CLIENT_ID || !EDX_CLIENT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: 'edX OAuth credentials not configured',
+      });
+    }
+
+    // Get OAuth token
+    const tokenResponse = await fetch(`${EDX_BASE_URL}/oauth2/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: EDX_CLIENT_ID,
+        client_secret: EDX_CLIENT_SECRET,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text();
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to authenticate with edX platform',
+        error,
+      });
+    }
+
+    const { access_token } = await tokenResponse.json();
+
+    // Fetch courses from edX
+    let allCourses = [];
+    let nextUrl = `${EDX_BASE_URL}/api/courses/v1/courses/?page_size=100`;
+
+    while (nextUrl) {
+      const coursesResponse = await fetch(nextUrl, {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!coursesResponse.ok) {
+        break;
+      }
+
+      const data = await coursesResponse.json();
+      const courses = data.results || data;
+
+      if (Array.isArray(courses)) {
+        allCourses = allCourses.concat(courses);
+      }
+
+      nextUrl = data.pagination?.next || data.next || null;
+    }
+
+    // Sync only missing courses
+    const results = { created: 0, skipped: 0, courses: [] };
+
+    for (const edxCourse of allCourses) {
+      const courseId = edxCourse.id || edxCourse.course_id;
+      const title = edxCourse.name || edxCourse.title || 'Untitled Course';
+
+      // Check if course already exists
+      const existing = await req.prisma.course.findFirst({
+        where: { edxCourseId: courseId },
+      });
+
+      if (existing) {
+        results.skipped++;
+        continue;
+      }
+
+      // Generate slug
+      const keyMatch = courseId?.match(/\+([^+]+)\+/);
+      const keySuffix = keyMatch ? keyMatch[1].toLowerCase() : '';
+      let baseSlug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50);
+      let slug = keySuffix ? `${baseSlug}-${keySuffix}` : baseSlug;
+
+      // Ensure unique slug
+      let counter = 1;
+      while (await req.prisma.course.findUnique({ where: { slug } })) {
+        slug = `${baseSlug}-${counter++}`;
+      }
+
+      // Determine level
+      const name = title.toLowerCase();
+      let level = 'All Levels';
+      if (name.includes('advanced') || name.includes('expert')) level = 'Advanced';
+      else if (name.includes('intermediate')) level = 'Intermediate';
+      else if (name.includes('beginner') || name.includes('introduction')) level = 'Beginner';
+
+      // Create course
+      const course = await req.prisma.course.create({
+        data: {
+          title,
+          slug,
+          description: edxCourse.short_description || edxCourse.overview || '',
+          price: 0,
+          duration: edxCourse.effort || 'Self-paced',
+          level,
+          lessons: edxCourse.blocks_count || 0,
+          image: edxCourse.media?.image?.large || edxCourse.media?.course_image?.uri || null,
+          externalUrl: `${EDX_BASE_URL}/courses/${courseId}/about`,
+          edxCourseId: courseId,
+          isActive: true,
+        },
+      });
+
+      results.created++;
+      results.courses.push({ id: course.id, title: course.title, edxCourseId: courseId });
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${results.created} new courses from edX. ${results.skipped} courses already exist.`,
+      totalFromEdx: allCourses.length,
+      created: results.created,
+      skipped: results.skipped,
+      newCourses: results.courses,
+    });
+  } catch (error) {
+    console.error('edX sync error:', error);
+    next(error);
+  }
+});
+
 // ============================================
 // TRACKS MANAGEMENT
 // ============================================

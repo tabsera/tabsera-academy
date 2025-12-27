@@ -9,7 +9,7 @@ import {
   BookOpen, Search, Plus, MoreVertical, Edit, Trash2,
   Eye, Copy, Archive, ChevronDown, Clock, Users, Star,
   CheckCircle, XCircle, AlertCircle, Play, Pause, Grid, List,
-  Upload, Loader2, ExternalLink, GraduationCap
+  Upload, Loader2, ExternalLink, GraduationCap, RefreshCw
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import { useAuth } from '@/context/AuthContext';
@@ -28,6 +28,33 @@ function CourseList() {
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
   const [edxLoading, setEdxLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+
+  // Sync courses from edX platform
+  const handleSyncEdx = async () => {
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const result = await adminApi.syncEdxCourses();
+      setSyncResult({
+        type: 'success',
+        message: result.message,
+        created: result.created,
+        skipped: result.skipped,
+      });
+      if (result.created > 0) {
+        await fetchData();
+      }
+    } catch (err) {
+      setSyncResult({
+        type: 'error',
+        message: err.message || 'Failed to sync courses from edX',
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   // Open edX admin panel with auto-login
   const handleOpenEdx = async () => {
@@ -208,6 +235,18 @@ function CourseList() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleSyncEdx}
+            disabled={syncLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+          >
+            {syncLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <RefreshCw size={18} />
+            )}
+            Sync edX
+          </button>
+          <button
             onClick={handleOpenEdx}
             disabled={edxLoading}
             className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
@@ -235,6 +274,41 @@ function CourseList() {
           </Link>
         </div>
       </div>
+
+      {/* Sync Result Notification */}
+      {syncResult && (
+        <div className={`mb-6 p-4 rounded-xl flex items-center justify-between ${
+          syncResult.type === 'success'
+            ? 'bg-green-50 border border-green-200'
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {syncResult.type === 'success' ? (
+              <CheckCircle size={20} className="text-green-600" />
+            ) : (
+              <XCircle size={20} className="text-red-600" />
+            )}
+            <div>
+              <p className={`font-medium ${syncResult.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                {syncResult.message}
+              </p>
+              {syncResult.type === 'success' && (
+                <p className="text-sm text-green-600">
+                  {syncResult.created} new courses imported, {syncResult.skipped} already exist
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setSyncResult(null)}
+            className={`p-1 rounded-lg ${
+              syncResult.type === 'success' ? 'hover:bg-green-100' : 'hover:bg-red-100'
+            }`}
+          >
+            <XCircle size={18} className={syncResult.type === 'success' ? 'text-green-600' : 'text-red-600'} />
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

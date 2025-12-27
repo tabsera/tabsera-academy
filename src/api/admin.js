@@ -68,6 +68,14 @@ export const adminApi = {
     return apiClient.post('/admin/courses/bulk-action', { action, courseIds });
   },
 
+  /**
+   * Sync courses from edX platform
+   * Only imports missing courses (skips existing)
+   */
+  async syncEdxCourses() {
+    return apiClient.post('/admin/courses/sync-edx');
+  },
+
   // ============================================
   // TRACKS
   // ============================================
