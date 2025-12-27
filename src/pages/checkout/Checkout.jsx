@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import Layout from '../../components/Layout';
-import { waafipayClient, WAAFIPAY_PAYMENT_METHODS, formatPhoneNumber } from '../../api/waafipay';
+import { paymentsApi } from '../../api/payments';
 import { ordersApi } from '../../api/orders';
 import {
   CreditCard, Smartphone, Building2, MapPin, User,
@@ -25,12 +25,6 @@ const PAYMENT_METHODS = {
   PAY_AT_CENTER: 'pay_at_center',
 };
 
-// Mobile money providers (WaafiPay supported)
-const MOBILE_PROVIDERS = [
-  { id: 'zaad', name: 'Zaad', logo: '📱', country: 'Somalia', prefix: '252' },
-  { id: 'evc', name: 'EVC Plus', logo: '📱', country: 'Somalia', prefix: '252' },
-  { id: 'sahal', name: 'Sahal', logo: '📱', country: 'Somalia', prefix: '252' },
-];
 
 // Learning centers for pay at center
 const LEARNING_CENTERS = [
@@ -70,7 +64,6 @@ function Checkout() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [mobileProvider, setMobileProvider] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [selectedCenter, setSelectedCenter] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -101,8 +94,8 @@ function Checkout() {
       setError('Please select a payment method');
       return false;
     }
-    if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY && (!mobileProvider || !mobileNumber)) {
-      setError('Please select a provider and enter your mobile number');
+    if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY && !mobileNumber) {
+      setError('Please enter your mobile number');
       return false;
     }
     if (paymentMethod === PAYMENT_METHODS.PAY_AT_CENTER && !selectedCenter) {
@@ -136,7 +129,6 @@ function Checkout() {
         items,
         billingInfo,
         paymentMethod,
-        mobileProvider,
         selectedCenter,
         subtotal,
         discount: discountAmount,
@@ -150,38 +142,25 @@ function Checkout() {
 
       const order = orderResult.order;
 
-      // Handle Mobile Money payments (Direct API)
+      // Handle Mobile Money payments (via backend API)
       if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY) {
-        // Check if WaafiPay is configured
-        if (!waafipayClient.isDirectApiConfigured()) {
-          // Mock mode: simulate successful payment
-          if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
-            clearCart();
-            navigate(`/order-confirmation/${order.referenceId}`, {
-              state: { orderDetails: { ...order, paymentStatus: 'approved' } }
-            });
-            return;
-          }
-          throw new Error('Payment gateway not configured');
+        // Mock mode: simulate successful payment
+        if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
+          clearCart();
+          navigate(`/order-confirmation/${order.referenceId}`, {
+            state: { orderDetails: { ...order, paymentStatus: 'approved' } }
+          });
+          return;
         }
 
-        // Use direct API for mobile money (in-app PIN verification)
-        const paymentResult = await waafipayClient.purchaseMobileMoney({
-          referenceId: order.referenceId,
-          amount: order.total,
-          currency: 'USD',
-          description: `Tabsera Academy - ${items.length} item(s)`,
-          customerPhone: mobileNumber || billingInfo.phone,
+        // Use backend API for mobile money payment
+        const paymentResult = await paymentsApi.initiateMobileMoneyPayment({
+          orderReferenceId: order.referenceId,
+          payerPhone: mobileNumber || billingInfo.phone,
         });
 
-        if (paymentResult.success) {
-          // Payment approved! Update order and go to confirmation
-          await ordersApi.updateOrderPayment(order.referenceId, {
-            status: 'approved',
-            transactionId: paymentResult.transactionId,
-            issuerTransactionId: paymentResult.issuerTransactionId,
-          });
-
+        if (paymentResult.success && paymentResult.status === 'approved') {
+          // Payment approved! Go to confirmation
           clearCart();
           navigate(`/order-confirmation/${order.referenceId}`, {
             state: {
@@ -192,35 +171,41 @@ function Checkout() {
               }
             }
           });
+        } else if (paymentResult.success && paymentResult.status === 'pending') {
+          // Payment pending - user needs to approve on phone
+          clearCart();
+          navigate(`/order-confirmation/${order.referenceId}`, {
+            state: {
+              orderDetails: {
+                ...order,
+                paymentStatus: 'pending',
+                message: paymentResult.message || 'Please approve the payment on your phone',
+              }
+            }
+          });
         } else {
           // Payment failed or was declined
           throw new Error(paymentResult.errorMessage || 'Payment was not approved');
         }
       }
-      // Handle Card payments (HPP redirect)
+      // Handle Card payments (HPP redirect via backend)
       else if (paymentMethod === PAYMENT_METHODS.CARD) {
-        if (!waafipayClient.isHppConfigured()) {
-          // Mock mode or HPP not configured
-          if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
-            clearCart();
-            navigate(`/order-confirmation/${order.referenceId}`, {
-              state: { orderDetails: { ...order, paymentStatus: 'approved' } }
-            });
-            return;
-          }
-          throw new Error('Card payments are not configured. Please use mobile money.');
+        // Mock mode
+        if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
+          clearCart();
+          navigate(`/order-confirmation/${order.referenceId}`, {
+            state: { orderDetails: { ...order, paymentStatus: 'approved' } }
+          });
+          return;
         }
 
         // Store order reference for callback
         sessionStorage.setItem('pending_order_reference', order.referenceId);
 
-        // Initiate HPP for card payment
-        const hppResult = await waafipayClient.initiateCardPayment({
-          referenceId: order.referenceId,
-          amount: order.total,
-          currency: 'USD',
-          description: `Tabsera Academy - ${items.length} item(s)`,
-          customerPhone: billingInfo.phone,
+        // Initiate HPP via backend
+        const hppResult = await paymentsApi.initiateCardPayment({
+          orderReferenceId: order.referenceId,
+          payerPhone: billingInfo.phone,
         });
 
         if (hppResult.success && hppResult.hppUrl) {
@@ -482,44 +467,20 @@ function Checkout() {
                     </div>
 
                     {paymentMethod === PAYMENT_METHODS.MOBILE_MONEY && (
-                      <div className="mt-4 pl-9 space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Select Provider
-                          </label>
-                          <div className="grid grid-cols-3 gap-3">
-                            {MOBILE_PROVIDERS.map(provider => (
-                              <button
-                                key={provider.id}
-                                type="button"
-                                onClick={() => setMobileProvider(provider.id)}
-                                className={`p-3 border-2 rounded-xl text-center transition-colors ${
-                                  mobileProvider === provider.id
-                                    ? 'border-blue-600 bg-blue-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <span className="text-xl block mb-1">{provider.logo}</span>
-                                <span className="font-medium text-sm">{provider.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mobile Number
-                          </label>
-                          <input
-                            type="tel"
-                            value={mobileNumber}
-                            onChange={(e) => setMobileNumber(e.target.value)}
-                            placeholder="+252 61 234 5678"
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            You'll receive a payment request on your phone
-                          </p>
-                        </div>
+                      <div className="mt-4 pl-9">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Mobile Number
+                        </label>
+                        <input
+                          type="tel"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value)}
+                          placeholder="+252 61 234 5678"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter your Zaad, EVC Plus, or Sahal number. You'll receive a payment request on your phone.
+                        </p>
                       </div>
                     )}
                   </label>

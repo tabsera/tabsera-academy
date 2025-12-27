@@ -4,11 +4,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { useCart } from '../../context/CartContext';
-import { waafipayClient } from '../../api/waafipay';
-import { ordersApi, PAYMENT_STATUS } from '../../api/orders';
+import { paymentsApi } from '../../api/payments';
 import {
   CheckCircle,
   XCircle,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 
 function PaymentCallback() {
-  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
@@ -30,20 +28,15 @@ function PaymentCallback() {
   const [orderDetails, setOrderDetails] = useState(null);
   const [transactionDetails, setTransactionDetails] = useState(null);
 
-  // Determine if this is a success or failure callback
-  const isSuccess = location.pathname.includes('/success');
-
   useEffect(() => {
     processCallback();
   }, []);
 
   const processCallback = async () => {
     try {
-      // Parse callback data from URL params or POST body
-      const callbackData = waafipayClient.parseCallbackData(searchParams);
-
-      // Get reference ID from callback or session storage
-      const referenceId = callbackData.referenceId ||
+      // Get reference ID from URL params or session storage
+      const referenceId = searchParams.get('ref') ||
+        searchParams.get('referenceId') ||
         sessionStorage.getItem('pending_order_reference');
 
       if (!referenceId) {
@@ -52,29 +45,16 @@ function PaymentCallback() {
         return;
       }
 
-      // Fetch order details
-      const orderResult = await ordersApi.getOrder(referenceId);
-      if (!orderResult.success) {
-        setStatus('error');
-        setMessage('Could not find your order. Please contact support.');
-        return;
-      }
+      // Verify payment via backend API (handles WaafiPay verification internally)
+      const verifyResult = await paymentsApi.verifyPayment(referenceId);
 
-      setOrderDetails(orderResult.order);
+      if (verifyResult.success) {
+        setOrderDetails(verifyResult.order);
 
-      if (isSuccess) {
-        // Verify transaction with WaafiPay
-        const verifyResult = await waafipayClient.getTransactionInfo(referenceId);
-
-        if (verifyResult.success) {
-          setTransactionDetails(verifyResult.transaction);
-
-          // Update order with payment info
-          await ordersApi.updateOrderPayment(referenceId, {
-            status: PAYMENT_STATUS.APPROVED,
-            transactionId: verifyResult.transaction.transactionId || callbackData.transactionId,
-            orderId: callbackData.orderId,
-            payerId: verifyResult.transaction.payerId,
+        if (verifyResult.verified || verifyResult.status === 'APPROVED') {
+          // Payment verified successfully
+          setTransactionDetails({
+            transactionId: verifyResult.order?.payments?.[0]?.transactionId,
           });
 
           // Clear cart and pending order reference
@@ -83,58 +63,29 @@ function PaymentCallback() {
 
           setStatus('success');
           setMessage('Your payment was successful!');
+        } else if (verifyResult.status === 'PENDING') {
+          // Payment still pending
+          setStatus('loading');
+          setMessage('Payment is being processed. Please wait...');
+
+          // Poll for status update
+          setTimeout(() => processCallback(), 3000);
         } else {
-          // Verification failed but callback said success - check callback data
-          if (callbackData.status?.toLowerCase() === 'approved' ||
-              callbackData.status?.toLowerCase() === 'success') {
-            await ordersApi.updateOrderPayment(referenceId, {
-              status: PAYMENT_STATUS.APPROVED,
-              transactionId: callbackData.transactionId,
-              orderId: callbackData.orderId,
-            });
-
-            clearCart();
-            sessionStorage.removeItem('pending_order_reference');
-
-            setStatus('success');
-            setMessage('Your payment was successful!');
-          } else {
-            setStatus('error');
-            setMessage('Could not verify payment. Please contact support if you were charged.');
-          }
+          // Payment failed
+          const errorMessage = getErrorMessage(verifyResult.status);
+          setStatus('failed');
+          setMessage(errorMessage);
         }
       } else {
-        // Failure callback
-        const errorMessage = callbackData.errorMessage ||
-          getErrorMessage(callbackData.errorCode || callbackData.status);
-
-        await ordersApi.updateOrderPayment(referenceId, {
-          status: mapErrorToPaymentStatus(callbackData.status || 'FAILED'),
-          errorCode: callbackData.errorCode,
-          errorMessage: errorMessage,
-        });
-
-        setStatus('failed');
-        setMessage(errorMessage);
+        // Couldn't verify - show error
+        setStatus('error');
+        setMessage(verifyResult.errorMessage || 'Could not verify payment. Please contact support.');
       }
     } catch (error) {
       console.error('Payment callback error:', error);
       setStatus('error');
       setMessage('An unexpected error occurred. Please contact support.');
     }
-  };
-
-  // Map WaafiPay status to payment status
-  const mapErrorToPaymentStatus = (status) => {
-    const statusMap = {
-      DECLINED: PAYMENT_STATUS.DECLINED,
-      CANCELLED: PAYMENT_STATUS.CANCELLED,
-      CANCELED: PAYMENT_STATUS.CANCELLED,
-      EXPIRED: PAYMENT_STATUS.EXPIRED,
-      TIMEOUT: PAYMENT_STATUS.TIMEOUT,
-      FAILED: PAYMENT_STATUS.FAILED,
-    };
-    return statusMap[status?.toUpperCase()] || PAYMENT_STATUS.FAILED;
   };
 
   // Get user-friendly error message
