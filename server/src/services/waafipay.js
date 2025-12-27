@@ -247,10 +247,11 @@ const apiPurchase = async ({
   description,
   payerPhone,
 }) => {
-  // Clean phone number
-  let accountNo = payerPhone.replace(/^\+?252/, '');
-  if (!accountNo.startsWith('6')) {
-    accountNo = '6' + accountNo.replace(/^0+/, '');
+  // Format phone number with country code (252 for Somalia)
+  let accountNo = payerPhone.replace(/\D/g, ''); // Remove non-digits
+  accountNo = accountNo.replace(/^0+/, ''); // Remove leading zeros
+  if (!accountNo.startsWith('252')) {
+    accountNo = '252' + accountNo;
   }
 
   const serviceParams = {
