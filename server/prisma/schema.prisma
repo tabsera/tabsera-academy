@@ -112,17 +112,17 @@ model LearningCenter {
 
 // Track model (e.g., "Web Development", "Data Science")
 model Track {
-  id          String   @id @default(uuid())
-  title       String
-  slug        String   @unique
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  duration    String?
-  level       String?
-  image       String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  title              String
+  slug               String   @unique
+  description        String?
+  discountPercentage Decimal  @default(0) @db.Decimal(5, 2) @map("discount_percentage") // Discount % off total course prices
+  duration           String?
+  level              String?
+  image              String?
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   // Relations
   courses     Course[]

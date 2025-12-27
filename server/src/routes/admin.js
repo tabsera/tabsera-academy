@@ -565,6 +565,20 @@ router.post('/courses/sync-edx', async (req, res, next) => {
 // ============================================
 
 /**
+ * Calculate track price from courses with discount
+ */
+const calculateTrackPrice = (courses, discountPercentage) => {
+  const originalPrice = courses.reduce((sum, course) => sum + parseFloat(course.price || 0), 0);
+  const discount = parseFloat(discountPercentage || 0);
+  const discountedPrice = originalPrice * (1 - discount / 100);
+  return {
+    originalPrice: originalPrice.toFixed(2),
+    price: discountedPrice.toFixed(2),
+    savings: (originalPrice - discountedPrice).toFixed(2),
+  };
+};
+
+/**
  * GET /api/admin/tracks
  * Get all tracks (including inactive) with pagination
  */
@@ -595,6 +609,9 @@ router.get('/tracks', async (req, res, next) => {
       req.prisma.track.findMany({
         where,
         include: {
+          courses: {
+            select: { id: true, price: true },
+          },
           _count: {
             select: { courses: true, enrollments: true, orderItems: true },
           },
@@ -606,14 +623,21 @@ router.get('/tracks', async (req, res, next) => {
       req.prisma.track.count({ where }),
     ]);
 
-    // Transform to include stats
-    const tracksWithStats = tracks.map(track => ({
-      ...track,
-      coursesCount: track._count.courses,
-      enrollmentCount: track._count.enrollments,
-      orderCount: track._count.orderItems,
-      _count: undefined,
-    }));
+    // Transform to include stats and calculated prices
+    const tracksWithStats = tracks.map(track => {
+      const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+      return {
+        ...track,
+        coursesCount: track._count.courses,
+        enrollmentCount: track._count.enrollments,
+        orderCount: track._count.orderItems,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        savings: pricing.savings,
+        courses: undefined,
+        _count: undefined,
+      };
+    });
 
     res.json({
       success: true,
@@ -653,12 +677,18 @@ router.get('/tracks/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Track not found' });
     }
 
+    // Calculate price from courses
+    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+
     res.json({
       success: true,
       track: {
         ...track,
         enrollmentCount: track._count.enrollments,
         orderCount: track._count.orderItems,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        savings: pricing.savings,
         _count: undefined,
       },
     });
@@ -677,7 +707,7 @@ router.post('/tracks', async (req, res, next) => {
       title,
       slug,
       description,
-      price,
+      discountPercentage = 0,
       duration,
       level,
       image,
@@ -685,9 +715,17 @@ router.post('/tracks', async (req, res, next) => {
     } = req.body;
 
     // Validate required fields
-    if (!title || !slug || price === undefined) {
+    if (!title || !slug) {
       return res.status(400).json({
-        message: 'Title, slug, and price are required',
+        message: 'Title and slug are required',
+      });
+    }
+
+    // Validate discount percentage
+    const discount = parseFloat(discountPercentage) || 0;
+    if (discount < 0 || discount > 100) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100',
       });
     }
 
@@ -707,24 +745,33 @@ router.post('/tracks', async (req, res, next) => {
         title,
         slug,
         description: sanitizeDescription(description),
-        price,
+        discountPercentage: discount,
         duration,
         level,
         image,
         isActive,
       },
       include: {
+        courses: {
+          select: { id: true, price: true },
+        },
         _count: {
           select: { courses: true },
         },
       },
     });
 
+    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+
     res.status(201).json({
       success: true,
       track: {
         ...track,
         coursesCount: track._count.courses,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        savings: pricing.savings,
+        courses: undefined,
         _count: undefined,
       },
       message: 'Track created successfully',
@@ -745,7 +792,7 @@ router.put('/tracks/:id', async (req, res, next) => {
       title,
       slug,
       description,
-      price,
+      discountPercentage,
       duration,
       level,
       image,
@@ -759,6 +806,16 @@ router.put('/tracks/:id', async (req, res, next) => {
 
     if (!existing) {
       return res.status(404).json({ message: 'Track not found' });
+    }
+
+    // Validate discount percentage if provided
+    if (discountPercentage !== undefined) {
+      const discount = parseFloat(discountPercentage);
+      if (isNaN(discount) || discount < 0 || discount > 100) {
+        return res.status(400).json({
+          message: 'Discount percentage must be between 0 and 100',
+        });
+      }
     }
 
     // Check for duplicate slug (if slug is being changed)
@@ -780,7 +837,7 @@ router.put('/tracks/:id', async (req, res, next) => {
         ...(title !== undefined && { title }),
         ...(slug !== undefined && { slug }),
         ...(description !== undefined && { description: sanitizeDescription(description) }),
-        ...(price !== undefined && { price }),
+        ...(discountPercentage !== undefined && { discountPercentage: parseFloat(discountPercentage) }),
         ...(duration !== undefined && { duration }),
         ...(level !== undefined && { level }),
         ...(image !== undefined && { image }),
@@ -794,6 +851,8 @@ router.put('/tracks/:id', async (req, res, next) => {
       },
     });
 
+    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+
     res.json({
       success: true,
       track: {
@@ -801,6 +860,9 @@ router.put('/tracks/:id', async (req, res, next) => {
         coursesCount: track.courses.length,
         enrollmentCount: track._count.enrollments,
         orderCount: track._count.orderItems,
+        price: pricing.price,
+        originalPrice: pricing.originalPrice,
+        savings: pricing.savings,
         _count: undefined,
       },
       message: 'Track updated successfully',

@@ -78,10 +78,15 @@ function TrackDetail() {
     navigate('/cart');
   };
 
-  // Calculate total price and stats
-  const totalPrice = courses.reduce((sum, c) => sum + (parseFloat(c.price) || 0), 0);
+  // Calculate total stats
   const totalLessons = courses.reduce((sum, c) => sum + (c.lessons || 0), 0);
   const allInCart = courses.length > 0 && courses.every(c => isInCart(c.id, ITEM_TYPES.COURSE));
+
+  // Get pricing info from track (calculated by backend)
+  const trackPrice = parseFloat(track?.price || 0);
+  const originalPrice = parseFloat(track?.originalPrice || 0);
+  const savings = parseFloat(track?.savings || 0);
+  const hasDiscount = savings > 0;
 
   if (loading) {
     return (
@@ -319,10 +324,21 @@ function TrackDetail() {
                     <span className="font-semibold">{track.level || 'All Levels'}</span>
                   </div>
                   <div className="border-t border-gray-200 pt-4">
+                    {hasDiscount && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-500 text-sm">Original Price</span>
+                        <span className="text-gray-400 line-through">${originalPrice.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-900 font-semibold">Total Price</span>
-                      <span className="text-2xl font-bold text-blue-600">${totalPrice.toFixed(2)}</span>
+                      <span className="text-gray-900 font-semibold">Track Price</span>
+                      <span className="text-2xl font-bold text-blue-600">${trackPrice.toFixed(2)}</span>
                     </div>
+                    {hasDiscount && (
+                      <div className="mt-2 bg-green-50 text-green-700 text-center py-2 px-3 rounded-lg text-sm font-medium">
+                        You save ${savings.toFixed(2)}!
+                      </div>
+                    )}
                   </div>
                 </div>
 

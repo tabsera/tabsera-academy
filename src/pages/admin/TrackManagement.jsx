@@ -35,7 +35,7 @@ function TrackManagement() {
     slug: '',
     description: '',
     isActive: false,
-    price: 0,
+    discountPercentage: 0,
     duration: '',
     level: '',
     image: '',
@@ -98,7 +98,7 @@ function TrackManagement() {
         slug: track.slug,
         description: track.description || '',
         isActive: track.isActive,
-        price: parseFloat(track.price) || 0,
+        discountPercentage: parseFloat(track.discountPercentage) || 0,
         duration: track.duration || '',
         level: track.level || '',
         image: track.image || '',
@@ -111,7 +111,7 @@ function TrackManagement() {
         slug: '',
         description: '',
         isActive: false,
-        price: 0,
+        discountPercentage: 0,
         duration: '',
         level: '',
         image: '',
@@ -139,7 +139,7 @@ function TrackManagement() {
           slug: trackForm.slug,
           description: trackForm.description,
           isActive: trackForm.isActive,
-          price: trackForm.price,
+          discountPercentage: trackForm.discountPercentage,
           duration: trackForm.duration,
           level: trackForm.level,
           image: trackForm.image,
@@ -152,7 +152,7 @@ function TrackManagement() {
           slug: trackForm.slug,
           description: trackForm.description,
           isActive: trackForm.isActive,
-          price: trackForm.price,
+          discountPercentage: trackForm.discountPercentage,
           duration: trackForm.duration,
           level: trackForm.level,
           image: trackForm.image,
@@ -446,7 +446,12 @@ function TrackManagement() {
                 </div>
                 <div className="flex items-center gap-2">
                   <DollarSign size={18} className="text-gray-400" />
-                  <span className="text-sm text-gray-600">${parseFloat(track.price).toFixed(2)}</span>
+                  <div className="text-sm">
+                    <span className="text-gray-900 font-medium">${parseFloat(track.price || 0).toFixed(2)}</span>
+                    {parseFloat(track.discountPercentage) > 0 && (
+                      <span className="text-green-600 ml-1">({track.discountPercentage}% off)</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -580,17 +585,20 @@ function TrackManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price (USD) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bundle Discount (%)</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <input
                       type="number"
-                      step="0.01"
-                      value={trackForm.price}
-                      onChange={(e) => setTrackForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                      className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={trackForm.discountPercentage}
+                      onChange={(e) => setTrackForm(f => ({ ...f, discountPercentage: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+                      className="w-full pl-4 pr-8 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">Discount off the total price of included courses</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>

@@ -59,6 +59,9 @@ export function TrackCard({ track }) {
 
   // Handle price display
   const price = parseFloat(track.price) || 0;
+  const originalPrice = parseFloat(track.originalPrice) || 0;
+  const savings = parseFloat(track.savings) || 0;
+  const hasDiscount = savings > 0;
 
   return (
     <Link
@@ -78,9 +81,21 @@ export function TrackCard({ track }) {
       </p>
 
       {price > 0 && (
-        <p className="text-sm font-semibold text-green-600 mb-4">
-          ${price.toFixed(2)}
-        </p>
+        <div className="mb-4">
+          {hasDiscount && (
+            <p className="text-xs text-gray-400 line-through">
+              ${originalPrice.toFixed(2)}
+            </p>
+          )}
+          <p className="text-sm font-semibold text-green-600">
+            ${price.toFixed(2)}
+          </p>
+          {hasDiscount && (
+            <p className="text-xs text-green-500 font-medium">
+              Save ${savings.toFixed(2)}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-auto flex items-center text-sm font-semibold text-blue-600 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
