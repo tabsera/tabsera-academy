@@ -610,7 +610,7 @@ router.get('/tracks', async (req, res, next) => {
         where,
         include: {
           courses: {
-            select: { id: true, price: true },
+            select: { id: true, title: true, price: true },
           },
           _count: {
             select: { courses: true, enrollments: true, orderItems: true },
@@ -634,8 +634,8 @@ router.get('/tracks', async (req, res, next) => {
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
-        // Keep course IDs for editing (map to full objects for consistency)
-        courses: track.courses.map(c => ({ id: c.id })),
+        // Keep course IDs and titles for display and editing
+        courses: track.courses.map(c => ({ id: c.id, title: c.title })),
         _count: undefined,
       };
     });
