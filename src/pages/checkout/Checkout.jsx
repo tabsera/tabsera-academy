@@ -142,55 +142,9 @@ function Checkout() {
 
       const order = orderResult.order;
 
-      // Handle Mobile Money payments (via backend API)
-      if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY) {
+      // Handle Mobile Money and Card payments via WaafiPay HPP
+      if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY || paymentMethod === PAYMENT_METHODS.CARD) {
         // Mock mode: simulate successful payment
-        if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
-          clearCart();
-          navigate(`/order-confirmation/${order.referenceId}`, {
-            state: { orderDetails: { ...order, paymentStatus: 'approved' } }
-          });
-          return;
-        }
-
-        // Use backend API for mobile money payment
-        const paymentResult = await paymentsApi.initiateMobileMoneyPayment({
-          orderReferenceId: order.referenceId,
-          payerPhone: mobileNumber || billingInfo.phone,
-        });
-
-        if (paymentResult.success && paymentResult.status === 'approved') {
-          // Payment approved! Go to confirmation
-          clearCart();
-          navigate(`/order-confirmation/${order.referenceId}`, {
-            state: {
-              orderDetails: {
-                ...order,
-                paymentStatus: 'approved',
-                transactionId: paymentResult.transactionId,
-              }
-            }
-          });
-        } else if (paymentResult.success && paymentResult.status === 'pending') {
-          // Payment pending - user needs to approve on phone
-          clearCart();
-          navigate(`/order-confirmation/${order.referenceId}`, {
-            state: {
-              orderDetails: {
-                ...order,
-                paymentStatus: 'pending',
-                message: paymentResult.message || 'Please approve the payment on your phone',
-              }
-            }
-          });
-        } else {
-          // Payment failed or was declined
-          throw new Error(paymentResult.errorMessage || 'Payment was not approved');
-        }
-      }
-      // Handle Card payments (HPP redirect via backend)
-      else if (paymentMethod === PAYMENT_METHODS.CARD) {
-        // Mock mode
         if (import.meta.env.VITE_ENABLE_MOCK_API === 'true') {
           clearCart();
           navigate(`/order-confirmation/${order.referenceId}`, {
@@ -202,17 +156,18 @@ function Checkout() {
         // Store order reference for callback
         sessionStorage.setItem('pending_order_reference', order.referenceId);
 
-        // Initiate HPP via backend
-        const hppResult = await paymentsApi.initiateCardPayment({
+        // Initiate HPP payment - redirects to WaafiPay payment page
+        const hppResult = await paymentsApi.initiateHppPayment({
           orderReferenceId: order.referenceId,
-          payerPhone: billingInfo.phone,
+          payerPhone: mobileNumber || billingInfo.phone,
         });
 
         if (hppResult.success && hppResult.hppUrl) {
+          // Redirect to WaafiPay payment page
           window.location.href = hppResult.hppUrl;
           return;
         } else {
-          throw new Error(hppResult.errorMessage || 'Failed to initiate card payment');
+          throw new Error(hppResult.errorMessage || 'Failed to initiate payment');
         }
       }
       // Handle manual payment methods

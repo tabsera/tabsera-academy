@@ -191,16 +191,16 @@ router.post('/initiate', authenticate, async (req, res, next) => {
 });
 
 /**
- * POST /api/payments/api-purchase
- * Direct API purchase (USSD prompt to user's phone)
+ * POST /api/payments/hpp
+ * Initiate HPP (Hosted Payment Page) - redirects user to WaafiPay payment page
  */
-router.post('/api-purchase', authenticate, async (req, res, next) => {
+router.post('/hpp', authenticate, async (req, res, next) => {
   try {
     const { orderReferenceId, payerPhone } = req.body;
 
-    if (!orderReferenceId || !payerPhone) {
+    if (!orderReferenceId) {
       return res.status(400).json({
-        message: 'Order reference ID and payer phone are required',
+        message: 'Order reference ID is required',
       });
     }
 
@@ -220,36 +220,35 @@ router.post('/api-purchase', authenticate, async (req, res, next) => {
       return res.status(404).json({ message: 'Order not found or already processed' });
     }
 
-    // Build description
+    // Build callback URLs
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const successUrl = `${frontendUrl}/payment/callback?status=success&ref=${order.referenceId}`;
+    const failureUrl = `${frontendUrl}/payment/callback?status=failure&ref=${order.referenceId}`;
+
+    // Build description from order items
     const itemNames = order.items.map((item) => item.name).join(', ');
     const description = `Tabsera Academy: ${itemNames}`.substring(0, 100);
 
-    // Make API purchase (sends USSD to phone)
-    const result = await waafipayService.apiPurchase({
+    // Initiate HPP payment (redirects to WaafiPay payment page)
+    const result = await waafipayService.initiatePurchase({
       referenceId: order.referenceId,
       amount: parseFloat(order.total),
       currency: order.currency || 'USD',
       description,
       payerPhone,
+      paymentMethod: 'MWALLET_ACCOUNT',
+      successUrl,
+      failureUrl,
     });
 
-    if (result.success && result.state === 'APPROVED') {
-      // Payment approved immediately
-      await processApprovedPayment(req.prisma, order, result, req.user.id);
-
-      res.json({
-        success: true,
-        status: 'approved',
-        transactionId: result.transactionId,
-        message: 'Payment approved successfully',
-      });
-    } else if (result.success) {
-      // Payment pending (waiting for USSD confirmation)
+    if (result.success && result.hppUrl) {
+      // Update order status
       await req.prisma.order.update({
         where: { id: order.id },
         data: { status: 'PENDING_PAYMENT' },
       });
 
+      // Create pending payment record
       await req.prisma.payment.create({
         data: {
           orderId: order.id,
@@ -258,20 +257,21 @@ router.post('/api-purchase', authenticate, async (req, res, next) => {
           currency: order.currency || 'USD',
           status: 'PENDING',
           paymentMethod: order.paymentMethod,
+          waafipayOrderId: result.orderId,
           transactionId: result.transactionId,
         },
       });
 
       res.json({
         success: true,
-        status: 'pending',
-        transactionId: result.transactionId,
-        message: 'Please approve the payment on your phone',
+        hppUrl: result.hppUrl,
+        orderId: result.orderId,
+        referenceId: order.referenceId,
       });
     } else {
       res.status(400).json({
         success: false,
-        message: result.errorMessage || 'Payment failed',
+        message: result.errorMessage || 'Failed to initiate payment',
         errorCode: result.errorCode,
       });
     }

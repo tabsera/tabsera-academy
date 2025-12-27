@@ -7,32 +7,32 @@
 import apiClient from './client';
 
 /**
- * Initiate mobile money payment (API_PURCHASE)
- * Backend sends USSD prompt to user's phone
+ * Initiate HPP payment (Hosted Payment Page)
+ * User will be redirected to WaafiPay's payment page
  *
  * @param {Object} params
  * @param {string} params.orderReferenceId - Order reference ID
- * @param {string} params.payerPhone - Payer's phone number
- * @returns {Promise<Object>} Payment result
+ * @param {string} params.payerPhone - Payer's phone number (optional, for pre-fill)
+ * @returns {Promise<Object>} HPP result with redirect URL
  */
-export async function initiateMobileMoneyPayment({ orderReferenceId, payerPhone }) {
+export async function initiateHppPayment({ orderReferenceId, payerPhone }) {
   try {
-    const response = await apiClient.post('/payments/api-purchase', {
+    const response = await apiClient.post('/payments/hpp', {
       orderReferenceId,
       payerPhone,
     });
 
     return {
       success: response.success,
-      status: response.status,
-      transactionId: response.transactionId,
-      message: response.message,
+      hppUrl: response.hppUrl,
+      orderId: response.orderId,
+      referenceId: response.referenceId,
     };
   } catch (error) {
-    console.error('Mobile money payment error:', error);
+    console.error('HPP payment error:', error);
     return {
       success: false,
-      errorMessage: error.message || 'Payment failed',
+      errorMessage: error.message || 'Failed to initiate payment',
     };
   }
 }
@@ -147,7 +147,7 @@ export async function testPaymentConnection() {
 }
 
 export const paymentsApi = {
-  initiateMobileMoneyPayment,
+  initiateHppPayment,
   initiateCardPayment,
   verifyPayment,
   getPaymentHistory,
