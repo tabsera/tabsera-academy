@@ -3,7 +3,8 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Building2, LayoutDashboard, Users, FileText, Receipt,
   CircleDollarSign, Settings, Bell, Menu, X, ChevronDown, LogOut,
-  Briefcase, UserPlus, KeyRound, BookOpen, BarChart3, FileCheck, Layers
+  Briefcase, UserPlus, KeyRound, BookOpen, BarChart3, FileCheck, Layers,
+  Globe
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -64,6 +65,7 @@ const AdminLayout = () => {
       { path: '/admin/revenue', icon: CircleDollarSign, label: 'Revenue' },
     ]},
     { section: 'System', items: [
+      { path: '/admin/countries', icon: Globe, label: 'Countries' },
       { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ]},
   ];

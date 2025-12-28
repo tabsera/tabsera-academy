@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // EdX base URL
-const EDX_BASE_URL = 'https://cambridge.tabsera.com';
+const EDX_BASE_URL = 'https://learn.tabsera.com';
 
 function StudentDashboard() {
   const { user } = useAuth();
@@ -54,10 +54,16 @@ function StudentDashboard() {
     return `${EDX_BASE_URL}/courses`;
   };
 
-  const { tracks, stats } = learningData;
+  const { tracks, courses: individualCourses, stats } = learningData;
 
-  // Get courses that are in progress for "Continue Learning" section
+  // Get tracks that are in progress for "Continue Learning" section
   const inProgressTracks = tracks.filter(t => t.progress > 0 && t.progress < 100).slice(0, 2);
+
+  // Get individual courses that are in progress
+  const inProgressCourses = (individualCourses || []).filter(c => c.progress > 0 && c.progress < 100).slice(0, 2);
+
+  // Combine for display - prioritize in-progress, then not started
+  const hasEnrollments = tracks.length > 0 || (individualCourses || []).length > 0;
 
   return (
     <div className="p-6 lg:p-8">
@@ -150,95 +156,136 @@ function StudentDashboard() {
                 </div>
               ))}
             </div>
-          ) : inProgressTracks.length > 0 ? (
-            inProgressTracks.map((track) => {
-              // Find the first in-progress course
-              const nextCourse = track.courses.find(c => c.status === 'in_progress') ||
-                                 track.courses.find(c => c.status === 'not_started');
+          ) : hasEnrollments ? (
+            <div className="space-y-4">
+              {/* Show in-progress tracks */}
+              {inProgressTracks.map((track) => {
+                const nextCourse = track.courses.find(c => c.status === 'in_progress') ||
+                                   track.courses.find(c => c.status === 'not_started');
 
-              return (
-                <div key={track.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                return (
+                  <div key={track.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-bold text-gray-900">{track.title}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {track.completedCourses} of {track.totalCourses} courses completed
+                          </p>
+                        </div>
+                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                          {track.progress}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${track.progress}%` }}
+                        />
+                      </div>
+                      {nextCourse && (
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <PlayCircle size={20} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {nextCourse.status === 'not_started' ? 'Up Next' : 'Continue'}: {nextCourse.title}
+                              </p>
+                              <p className="text-xs text-gray-500">{nextCourse.progress}% complete</p>
+                            </div>
+                          </div>
+                          <a
+                            href={getCourseUrl(nextCourse)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            {nextCourse.status === 'not_started' ? 'Start' : 'Continue'}
+                            <ExternalLink size={16} />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Show individual courses */}
+              {(individualCourses || []).slice(0, inProgressTracks.length > 0 ? 1 : 3).map((course) => (
+                <div key={course.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="font-bold text-gray-900">{track.title}</h3>
+                        <h3 className="font-bold text-gray-900">{course.title}</h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          {track.completedCourses} of {track.totalCourses} courses completed
+                          {course.status === 'completed' ? 'Completed' :
+                           course.status === 'in_progress' ? 'In Progress' : 'Not Started'}
                         </p>
                       </div>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                        {track.progress}%
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        course.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        course.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {course.progress}%
                       </span>
                     </div>
-
-                    {/* Progress Bar */}
                     <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
                       <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${track.progress}%` }}
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          course.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                          'bg-gradient-to-r from-blue-500 to-cyan-500'
+                        }`}
+                        style={{ width: `${course.progress}%` }}
                       />
                     </div>
+                    <a
+                      href={getCourseUrl(course)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                    >
+                      {course.status === 'completed' ? 'Review Course' :
+                       course.status === 'in_progress' ? 'Continue Learning' : 'Start Course'}
+                      <ExternalLink size={16} />
+                    </a>
+                  </div>
+                </div>
+              ))}
 
-                    {/* Next Course */}
-                    {nextCourse && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <PlayCircle size={20} className="text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {nextCourse.status === 'not_started' ? 'Up Next' : 'Continue'}: {nextCourse.title}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {nextCourse.progress}% complete
-                            </p>
-                          </div>
-                        </div>
-                        <a
-                          href={getCourseUrl(nextCourse)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
-                        >
-                          {nextCourse.status === 'not_started' ? 'Start' : 'Continue'}
-                          <ExternalLink size={16} />
-                        </a>
+              {/* Show first track if no in-progress items but has tracks */}
+              {inProgressTracks.length === 0 && (individualCourses || []).length === 0 && tracks.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-bold text-gray-900">{tracks[0].title}</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {tracks[0].completedCourses} of {tracks[0].totalCourses} courses completed
+                        </p>
                       </div>
-                    )}
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+                        {tracks[0].progress}% Complete
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                      <div
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full"
+                        style={{ width: `${tracks[0].progress}%` }}
+                      />
+                    </div>
+                    <Link
+                      to="/student/my-learning"
+                      className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-200"
+                    >
+                      View All Courses
+                      <ArrowRight size={16} />
+                    </Link>
                   </div>
                 </div>
-              );
-            })
-          ) : tracks.length > 0 ? (
-            // Show first track even if completed
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-bold text-gray-900">{tracks[0].title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {tracks[0].completedCourses} of {tracks[0].totalCourses} courses completed
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                    {tracks[0].progress}% Complete
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
-                  <div
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full"
-                    style={{ width: `${tracks[0].progress}%` }}
-                  />
-                </div>
-                <Link
-                  to="/student/my-learning"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-200"
-                >
-                  View All Courses
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
+              )}
             </div>
           ) : (
             <div className="bg-gray-50 rounded-2xl border border-gray-200 p-8 text-center">

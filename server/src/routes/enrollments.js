@@ -4,6 +4,7 @@
 
 const express = require('express');
 const { authenticate, optionalAuth } = require('../middleware/auth');
+const edxService = require('../services/edx');
 
 const router = express.Router();
 
@@ -113,11 +114,19 @@ router.get('/', authenticate, async (req, res, next) => {
 
 /**
  * GET /api/enrollments/my-learning
- * Get comprehensive learning data for the student dashboard
+ * Get comprehensive learning data for the student dashboard with real edX progress
  */
 router.get('/my-learning', authenticate, async (req, res, next) => {
   try {
     const userId = req.user.id;
+
+    // Get user's edX username for fetching progress
+    const user = await req.prisma.user.findUnique({
+      where: { id: userId },
+      select: { edxUsername: true, email: true },
+    });
+
+    const edxUsername = user?.edxUsername;
 
     // Get all enrollments with full details
     const allEnrollments = await req.prisma.enrollment.findMany({
@@ -135,6 +144,31 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Collect all edX course IDs for batch progress fetch
+    const allEdxCourseIds = [];
+    allEnrollments.forEach(e => {
+      if (e.track?.courses) {
+        e.track.courses.forEach(c => {
+          if (c.edxCourseId) allEdxCourseIds.push(c.edxCourseId);
+        });
+      }
+      if (e.course?.edxCourseId) {
+        allEdxCourseIds.push(e.course.edxCourseId);
+      }
+    });
+
+    // Fetch progress from edX for all courses
+    let edxProgressMap = {};
+    if (edxUsername && allEdxCourseIds.length > 0) {
+      try {
+        const uniqueCourseIds = [...new Set(allEdxCourseIds)];
+        edxProgressMap = await edxService.getCoursesProgress(edxUsername, uniqueCourseIds);
+      } catch (err) {
+        console.error('Failed to fetch edX progress:', err.message);
+        // Continue without edX progress data
+      }
+    }
 
     // Separate track enrollments and individual course enrollments
     const trackEnrollments = allEnrollments.filter(e => e.trackId && e.track);
@@ -164,9 +198,23 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
         courseEnrollmentMap[ce.courseId] = ce;
       });
 
-      // Calculate track progress
+      // Calculate track progress with edX data
       const coursesWithProgress = track.courses.map(course => {
         const courseEnrollment = courseEnrollmentMap[course.id];
+        const edxProgress = course.edxCourseId ? edxProgressMap[course.edxCourseId] : null;
+
+        // Use edX progress if available, otherwise use local progress
+        const progress = edxProgress?.progress ?? courseEnrollment?.progress ?? 0;
+        const hasPassingGrade = edxProgress?.hasPassingGrade || false;
+
+        // Determine status based on progress
+        let status = 'not_started';
+        if (progress >= 100 || hasPassingGrade || courseEnrollment?.completedAt) {
+          status = 'completed';
+        } else if (progress > 0) {
+          status = 'in_progress';
+        }
+
         return {
           id: course.id,
           title: course.title,
@@ -176,13 +224,14 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
           lessons: course.lessons,
           externalUrl: course.externalUrl,
           edxCourseId: course.edxCourseId,
-          progress: courseEnrollment?.progress || 0,
+          progress,
+          hasPassingGrade,
           completedLessons: courseEnrollment?.completedLessons || 0,
-          status: courseEnrollment?.completedAt ? 'completed' :
-                  (courseEnrollment?.progress > 0 ? 'in_progress' : 'not_started'),
+          status,
           startDate: courseEnrollment?.startDate,
           completedAt: courseEnrollment?.completedAt,
           edxEnrolled: courseEnrollment?.edxEnrolled || false,
+          completionSummary: edxProgress?.completionSummary || null,
         };
       });
 
@@ -209,26 +258,43 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
       });
     }
 
-    // Build individual courses list
-    const individualCourses = courseOnlyEnrollments.map(enrollment => ({
-      id: enrollment.course.id,
-      title: enrollment.course.title,
-      slug: enrollment.course.slug,
-      description: enrollment.course.description,
-      image: enrollment.course.image,
-      duration: enrollment.course.duration,
-      lessons: enrollment.course.lessons,
-      externalUrl: enrollment.course.externalUrl,
-      edxCourseId: enrollment.course.edxCourseId,
-      enrollmentId: enrollment.id,
-      enrolledAt: enrollment.startDate,
-      progress: enrollment.progress,
-      completedLessons: enrollment.completedLessons,
-      status: enrollment.completedAt ? 'completed' :
-              (enrollment.progress > 0 ? 'in_progress' : 'not_started'),
-      completedAt: enrollment.completedAt,
-      edxEnrolled: enrollment.edxEnrolled,
-    }));
+    // Build individual courses list with edX progress
+    const individualCourses = courseOnlyEnrollments.map(enrollment => {
+      const edxProgress = enrollment.course.edxCourseId
+        ? edxProgressMap[enrollment.course.edxCourseId]
+        : null;
+
+      const progress = edxProgress?.progress ?? enrollment.progress ?? 0;
+      const hasPassingGrade = edxProgress?.hasPassingGrade || false;
+
+      let status = 'not_started';
+      if (progress >= 100 || hasPassingGrade || enrollment.completedAt) {
+        status = 'completed';
+      } else if (progress > 0) {
+        status = 'in_progress';
+      }
+
+      return {
+        id: enrollment.course.id,
+        title: enrollment.course.title,
+        slug: enrollment.course.slug,
+        description: enrollment.course.description,
+        image: enrollment.course.image,
+        duration: enrollment.course.duration,
+        lessons: enrollment.course.lessons,
+        externalUrl: enrollment.course.externalUrl,
+        edxCourseId: enrollment.course.edxCourseId,
+        enrollmentId: enrollment.id,
+        enrolledAt: enrollment.startDate,
+        progress,
+        hasPassingGrade,
+        completedLessons: enrollment.completedLessons,
+        status,
+        completedAt: enrollment.completedAt,
+        edxEnrolled: enrollment.edxEnrolled,
+        completionSummary: edxProgress?.completionSummary || null,
+      };
+    });
 
     // Calculate stats
     const allCourses = [

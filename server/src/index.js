@@ -71,6 +71,28 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Public tuition packs endpoint
+app.get('/api/tuition-packs', async (req, res, next) => {
+  try {
+    const packs = await prisma.tuitionPack.findMany({
+      where: { isActive: true },
+      orderBy: [{ price: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        creditsIncluded: true,
+        validityDays: true,
+        price: true,
+      },
+    });
+
+    res.json({ success: true, packs });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // WaafiPay HPP callback handler (POST to /payment/callback)
 // This handles POST requests from WaafiPay and redirects to frontend
 app.post('/payment/callback', (req, res) => {

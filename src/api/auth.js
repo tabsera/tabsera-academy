@@ -275,8 +275,8 @@ export const authApi = {
       return {
         success: false,
         message: 'edX session not available in mock mode',
-        edxBaseUrl: 'https://cambridge.tabsera.com',
-        loginUrl: 'https://cambridge.tabsera.com/login',
+        edxBaseUrl: 'https://learn.tabsera.com',
+        loginUrl: 'https://learn.tabsera.com/login',
       };
     }
 
@@ -293,8 +293,8 @@ export const authApi = {
       return {
         success: false,
         message: 'edX login not available in mock mode',
-        edxBaseUrl: 'https://cambridge.tabsera.com',
-        loginUrl: 'https://cambridge.tabsera.com/login',
+        edxBaseUrl: 'https://learn.tabsera.com',
+        loginUrl: 'https://learn.tabsera.com/login',
       };
     }
 
@@ -311,9 +311,9 @@ export const authApi = {
       return {
         success: false,
         message: 'edX admin login not available in mock mode',
-        edxBaseUrl: 'https://cambridge.tabsera.com',
-        adminUrl: 'https://cambridge.tabsera.com/admin',
-        studioUrl: 'https://studio.cambridge.tabsera.com',
+        edxBaseUrl: 'https://learn.tabsera.com',
+        adminUrl: 'https://learn.tabsera.com/admin',
+        studioUrl: 'https://studio.learn.tabsera.com',
       };
     }
 
@@ -328,10 +328,10 @@ export const authApi = {
     if (useMockApi) {
       return {
         success: true,
-        edxBaseUrl: 'https://cambridge.tabsera.com',
-        adminUrl: 'https://cambridge.tabsera.com/admin',
-        studioUrl: 'https://studio.cambridge.tabsera.com',
-        dashboardUrl: 'https://cambridge.tabsera.com/dashboard',
+        edxBaseUrl: 'https://learn.tabsera.com',
+        adminUrl: 'https://learn.tabsera.com/admin',
+        studioUrl: 'https://studio.learn.tabsera.com',
+        dashboardUrl: 'https://learn.tabsera.com/dashboard',
       };
     }
 

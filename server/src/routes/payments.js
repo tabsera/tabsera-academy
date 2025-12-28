@@ -387,10 +387,13 @@ router.post('/callback', async (req, res, next) => {
 /**
  * GET /api/payments/verify/:referenceId
  * Verify payment status by order reference
+ * Query params:
+ *   - callbackStatus: Status from WaafiPay callback URL (success/failure)
  */
 router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
   try {
     const { referenceId } = req.params;
+    const { callbackStatus } = req.query;
 
     // Find order
     const order = await req.prisma.order.findFirst({
@@ -399,11 +402,17 @@ router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
         userId: req.user.id,
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            course: true,
+            track: { include: { courses: true } },
+          },
+        },
         payments: {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        user: true,
       },
     });
 
@@ -411,76 +420,132 @@ router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // If order is already completed, return success
+    if (order.status === 'COMPLETED' && order.paymentStatus === 'APPROVED') {
+      return res.json({
+        success: true,
+        verified: true,
+        status: 'APPROVED',
+        order,
+      });
+    }
+
     const latestPayment = order.payments[0];
 
-    // If payment is pending, check with WaafiPay
-    if (latestPayment && latestPayment.transactionId && latestPayment.status === 'PENDING') {
-      const transactionInfo = await waafipayService.getTransactionInfo(latestPayment.transactionId);
+    // If WaafiPay callback indicated success, mark payment as approved
+    // This handles HPP payments where transactionId may not be available
+    if (callbackStatus === 'success' && order.status !== 'COMPLETED') {
+      console.log(`Marking order ${referenceId} as completed based on WaafiPay callback`);
 
-      if (transactionInfo.success && transactionInfo.state !== 'PENDING') {
-        // Update payment status
-        const statusMap = {
-          APPROVED: 'APPROVED',
-          DECLINED: 'DECLINED',
-          CANCELLED: 'CANCELLED',
-          EXPIRED: 'EXPIRED',
-        };
+      // Update order status
+      await req.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'COMPLETED',
+          paymentStatus: 'APPROVED',
+        },
+      });
 
-        const newStatus = statusMap[transactionInfo.state] || 'FAILED';
-        const orderStatus = newStatus === 'APPROVED' ? 'COMPLETED' : 'FAILED';
-
+      // Update payment record if exists
+      if (latestPayment) {
         await req.prisma.payment.update({
           where: { id: latestPayment.id },
           data: {
-            status: newStatus,
-            issuerTransactionId: transactionInfo.issuerTransactionId,
-            payerId: transactionInfo.payerId,
-            ...(newStatus === 'APPROVED' && { paidAt: new Date() }),
+            status: 'APPROVED',
+            paidAt: new Date(),
           },
         });
-
-        await req.prisma.order.update({
-          where: { id: order.id },
+      } else {
+        // Create payment record if doesn't exist
+        await req.prisma.payment.create({
           data: {
-            status: orderStatus,
-            paymentStatus: newStatus,
+            orderId: order.id,
+            userId: req.user.id,
+            amount: order.total,
+            currency: order.currency || 'USD',
+            status: 'APPROVED',
+            paymentMethod: order.paymentMethod,
+            paidAt: new Date(),
           },
         });
+      }
 
-        // If approved, process enrollments
-        if (newStatus === 'APPROVED') {
-          const fullOrder = await req.prisma.order.findUnique({
-            where: { id: order.id },
-            include: {
-              items: {
-                include: {
-                  course: true,
-                  track: { include: { courses: true } },
-                },
-              },
-              user: true,
+      // Process enrollments
+      await processEnrollments(req.prisma, order);
+
+      return res.json({
+        success: true,
+        verified: true,
+        status: 'APPROVED',
+        order: {
+          ...order,
+          status: 'COMPLETED',
+          paymentStatus: 'APPROVED',
+        },
+      });
+    }
+
+    // If payment is pending and we have a transactionId, check with WaafiPay
+    if (latestPayment && latestPayment.transactionId && latestPayment.status === 'PENDING') {
+      try {
+        const transactionInfo = await waafipayService.getTransactionInfo(latestPayment.transactionId);
+
+        if (transactionInfo.success && transactionInfo.state !== 'PENDING') {
+          // Update payment status
+          const statusMap = {
+            APPROVED: 'APPROVED',
+            DECLINED: 'DECLINED',
+            CANCELLED: 'CANCELLED',
+            EXPIRED: 'EXPIRED',
+          };
+
+          const newStatus = statusMap[transactionInfo.state] || 'FAILED';
+          const orderStatus = newStatus === 'APPROVED' ? 'COMPLETED' : 'FAILED';
+
+          await req.prisma.payment.update({
+            where: { id: latestPayment.id },
+            data: {
+              status: newStatus,
+              issuerTransactionId: transactionInfo.issuerTransactionId,
+              payerId: transactionInfo.payerId,
+              ...(newStatus === 'APPROVED' && { paidAt: new Date() }),
             },
           });
-          await processEnrollments(req.prisma, fullOrder);
-        }
 
-        return res.json({
-          success: true,
-          verified: newStatus === 'APPROVED',
-          status: newStatus,
-          order: {
-            ...order,
-            status: orderStatus,
-            paymentStatus: newStatus,
-          },
-        });
+          await req.prisma.order.update({
+            where: { id: order.id },
+            data: {
+              status: orderStatus,
+              paymentStatus: newStatus,
+            },
+          });
+
+          // If approved, process enrollments
+          if (newStatus === 'APPROVED') {
+            await processEnrollments(req.prisma, order);
+          }
+
+          return res.json({
+            success: true,
+            verified: newStatus === 'APPROVED',
+            status: newStatus,
+            order: {
+              ...order,
+              status: orderStatus,
+              paymentStatus: newStatus,
+            },
+          });
+        }
+      } catch (waafipayError) {
+        console.error('WaafiPay verification error:', waafipayError);
+        // Continue to return current order status
       }
     }
 
     res.json({
       success: true,
       verified: order.paymentStatus === 'APPROVED',
-      status: order.paymentStatus,
+      status: order.paymentStatus || 'PENDING',
       order,
     });
   } catch (error) {

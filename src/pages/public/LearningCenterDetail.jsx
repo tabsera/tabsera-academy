@@ -175,7 +175,7 @@ function LearningCenterDetail() {
                     <p className="text-sm text-gray-500 mb-3">{program.description}</p>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">{program.coursesCount} courses</span>
-                      <span className="font-semibold text-blue-600">${program.price}/mo</span>
+                      <span className="font-semibold text-blue-600">${program.price}</span>
                     </div>
                   </div>
                 ))}

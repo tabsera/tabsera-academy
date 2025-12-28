@@ -3,13 +3,14 @@
  * Complete enrollment with payment via WaafiPay
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import Layout from '../../components/Layout';
 import { paymentsApi } from '../../api/payments';
 import { ordersApi } from '../../api/orders';
+import apiClient from '../../api/client';
 import {
   CreditCard, Smartphone, Building2, MapPin, User,
   Mail, Phone, ChevronRight, CheckCircle, AlertCircle,
@@ -51,6 +52,32 @@ function Checkout() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [countries, setCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+
+  // Fetch countries from API
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await apiClient.get('/countries');
+        if (response.success && response.countries) {
+          setCountries(response.countries);
+        }
+      } catch (err) {
+        console.error('Failed to fetch countries:', err);
+        // Fallback to default countries
+        setCountries([
+          { code: 'SO', name: 'Somalia' },
+          { code: 'KE', name: 'Kenya' },
+          { code: 'ET', name: 'Ethiopia' },
+          { code: 'DJ', name: 'Djibouti' },
+        ]);
+      } finally {
+        setCountriesLoading(false);
+      }
+    };
+    fetchCountries();
+  }, []);
 
   // Form state
   const [billingInfo, setBillingInfo] = useState({
@@ -367,13 +394,17 @@ function Checkout() {
                         value={billingInfo.country}
                         onChange={handleBillingChange}
                         className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+                        disabled={countriesLoading}
                       >
-                        <option value="SO">🇸🇴 Somalia</option>
-                        <option value="KE">🇰🇪 Kenya</option>
-                        <option value="ET">🇪🇹 Ethiopia</option>
-                        <option value="UG">🇺🇬 Uganda</option>
-                        <option value="TZ">🇹🇿 Tanzania</option>
-                        <option value="DJ">🇩🇯 Djibouti</option>
+                        {countriesLoading ? (
+                          <option value="">Loading countries...</option>
+                        ) : (
+                          countries.map(country => (
+                            <option key={country.code} value={country.code}>
+                              {country.name}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                   </div>
@@ -647,7 +678,7 @@ function Checkout() {
                           <p className="font-medium text-gray-900">{item.name}</p>
                           <p className="text-sm text-gray-500 capitalize">{item.type}</p>
                         </div>
-                        <p className="font-semibold text-gray-900">{formatPrice(item.price)}/mo</p>
+                        <p className="font-semibold text-gray-900">{formatPrice(item.price)}</p>
                       </div>
                     ))}
                   </div>
@@ -666,7 +697,7 @@ function Checkout() {
                     <Link to="/terms" className="text-blue-600 hover:underline">Terms of Service</Link>
                     {' '}and{' '}
                     <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
-                    I understand this is a monthly subscription that can be cancelled anytime.
+                    I understand this is a one-time purchase with access valid for the specified course duration.
                   </span>
                 </label>
 
@@ -690,7 +721,7 @@ function Checkout() {
                     ) : (
                       <>
                         <Lock size={18} />
-                        Place Order - {formatPrice(total)}/month
+                        Place Order - {formatPrice(total)}
                       </>
                     )}
                   </button>
@@ -725,7 +756,7 @@ function Checkout() {
                   </div>
                 )}
                 <div className="flex justify-between pt-2 border-t border-gray-100">
-                  <span className="font-bold text-gray-900">Monthly Total</span>
+                  <span className="font-bold text-gray-900">Total</span>
                   <span className="text-xl font-bold text-gray-900">{formatPrice(total)}</span>
                 </div>
               </div>

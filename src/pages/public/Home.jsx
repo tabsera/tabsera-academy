@@ -5,17 +5,23 @@ import { Hero } from '../../components/Hero';
 import { TrackCard } from '../../components/TrackCard';
 import { CourseCard } from '../../components/CourseCard';
 import apiClient from '../../api/client';
-import { ArrowRight, Building2, Users, Globe, Award, Loader2, BookOpen } from 'lucide-react';
+import { tutorsApi } from '../../api/tutors';
+import {
+  ArrowRight, Building2, Users, Globe, Award, Loader2, BookOpen,
+  Video, Clock, CreditCard, Star, CheckCircle, User, GraduationCap
+} from 'lucide-react';
 
 function Home() {
   const [tracks, setTracks] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [tutors, setTutors] = useState([]);
   const [stats, setStats] = useState({
     students: 510,
     centers: 8,
     countries: 5,
     tracks: 0,
     courses: 0,
+    tutors: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -27,20 +33,24 @@ function Home() {
     try {
       setLoading(true);
 
-      const [coursesRes, tracksRes] = await Promise.all([
+      const [coursesRes, tracksRes, tutorsRes] = await Promise.all([
         apiClient.get('/courses', { limit: 6 }),
         apiClient.get('/tracks'),
+        tutorsApi.listTutors({ limit: 6 }).catch(() => ({ tutors: [] })),
       ]);
 
       const fetchedTracks = tracksRes.tracks || [];
       const fetchedCourses = coursesRes.courses || [];
+      const fetchedTutors = tutorsRes.tutors || [];
 
       setTracks(fetchedTracks);
       setCourses(fetchedCourses);
+      setTutors(fetchedTutors);
       setStats(prev => ({
         ...prev,
         tracks: fetchedTracks.length,
         courses: coursesRes.total || fetchedCourses.length,
+        tutors: tutorsRes.pagination?.total || fetchedTutors.length,
       }));
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -116,6 +126,132 @@ function Home() {
               <p>No courses available yet.</p>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* 1-on-1 Tutoring Section */}
+      <section className="py-20 bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 bg-cyan-500/20 text-cyan-300 rounded-full text-sm font-medium mb-4">
+              Personal Learning Experience
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              1-on-1 Tutoring with Tuition Credits
+            </h2>
+            <p className="text-lg text-indigo-200 max-w-2xl mx-auto">
+              Get personalized help from expert tutors. Purchase Tuition Packs with credits
+              and book sessions when you need them most.
+            </p>
+          </div>
+
+          {/* How It Works */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
+            {[
+              { step: 1, icon: CreditCard, title: 'Buy Credits', desc: 'Purchase a Tuition Pack with credits that fit your budget' },
+              { step: 2, icon: User, title: 'Choose a Tutor', desc: 'Browse verified tutors and find your perfect match' },
+              { step: 3, icon: Clock, title: 'Book a Session', desc: 'Schedule 10-minute sessions at times that work for you' },
+              { step: 4, icon: GraduationCap, title: 'Learn & Grow', desc: 'Get personalized help and master your courses' },
+            ].map((item, idx) => (
+              <div key={idx} className="relative">
+                {idx < 3 && (
+                  <div className="hidden md:block absolute top-8 left-[60%] w-full h-0.5 bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+                )}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/15 transition-colors">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-cyan-500/20 rounded-full flex items-center justify-center relative">
+                    <item.icon size={28} className="text-cyan-400" />
+                    <span className="absolute -top-1 -right-1 w-6 h-6 bg-cyan-500 rounded-full text-xs font-bold text-white flex items-center justify-center">
+                      {item.step}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+                  <p className="text-sm text-indigo-200">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Featured Tutors */}
+          {tutors.length > 0 && (
+            <div>
+              <div className="flex justify-between items-end mb-8">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Meet Our Tutors</h3>
+                  <p className="text-indigo-200">Expert educators ready to help you succeed</p>
+                </div>
+                <Link to="/tutors" className="text-cyan-400 font-semibold hover:text-cyan-300 flex items-center gap-1">
+                  View All Tutors <ArrowRight size={16} />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {tutors.slice(0, 6).map(tutor => (
+                  <div key={tutor.id} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold flex-shrink-0 overflow-hidden">
+                        {tutor.avatar ? (
+                          <img src={tutor.avatar} alt={tutor.name} className="w-full h-full object-cover" />
+                        ) : (
+                          tutor.name?.charAt(0).toUpperCase() || 'T'
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-900 truncate">{tutor.name}</h4>
+                        <p className="text-sm text-gray-500 line-clamp-1">{tutor.headline || 'Expert Tutor'}</p>
+                        {tutor.avgRating > 0 && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Star size={14} className="text-yellow-400 fill-current" />
+                            <span className="text-sm font-medium text-gray-700">{tutor.avgRating?.toFixed(1)}</span>
+                            <span className="text-sm text-gray-400">({tutor.totalReviews || 0} reviews)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {tutor.courses && tutor.courses.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">Teaches</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tutor.courses.slice(0, 3).map(course => (
+                            <span key={course.id} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg">
+                              {course.title}
+                            </span>
+                          ))}
+                          {tutor.courses.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg">
+                              +{tutor.courses.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Video size={16} />
+                        <span>{tutor.sessionsCompleted || 0} sessions</span>
+                      </div>
+                      <Link
+                        to={`/tutors/${tutor.id}`}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                      >
+                        View Profile
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CTA */}
+          <div className="text-center mt-12">
+            <Link
+              to="/tuition"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-xl transition-colors shadow-lg shadow-cyan-900/30"
+            >
+              Explore Tuition Packs <ArrowRight size={18} />
+            </Link>
+          </div>
         </div>
       </section>
 

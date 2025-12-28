@@ -387,14 +387,15 @@ router.post('/login', async (req, res, next) => {
     // Generate token
     const token = generateToken(user.id);
 
-    // Include edX info if user is registered
-    const edxInfo = user.edxRegistered
-      ? {
-          edxUsername: user.edxUsername,
-          edxRegistered: user.edxRegistered,
-          hasEdxAccess: !!user.edxPassword,
-        }
-      : null;
+    // Include edX credentials if user is registered
+    let edxPassword = null;
+    if (user.edxPassword) {
+      try {
+        edxPassword = edxService.decryptPassword(user.edxPassword);
+      } catch (err) {
+        console.error('Failed to decrypt edX password:', err);
+      }
+    }
 
     res.json({
       success: true,
@@ -410,7 +411,9 @@ router.post('/login', async (req, res, next) => {
         avatar: user.avatar,
         role: user.role.toLowerCase(),
         centerId: user.centerId,
-        edxInfo,
+        edxUsername: user.edxUsername,
+        edxPassword,
+        edxRegistered: user.edxRegistered,
       },
       token,
     });
@@ -499,14 +502,15 @@ router.post('/google', async (req, res, next) => {
     // Generate token
     const token = generateToken(user.id);
 
-    // Include edX info if user is registered
-    const edxInfo = user.edxRegistered
-      ? {
-          edxUsername: user.edxUsername,
-          edxRegistered: user.edxRegistered,
-          hasEdxAccess: !!user.edxPassword,
-        }
-      : null;
+    // Include edX credentials if user is registered
+    let edxPassword = null;
+    if (user.edxPassword) {
+      try {
+        edxPassword = edxService.decryptPassword(user.edxPassword);
+      } catch (err) {
+        console.error('Failed to decrypt edX password:', err);
+      }
+    }
 
     res.json({
       success: true,
@@ -522,7 +526,9 @@ router.post('/google', async (req, res, next) => {
         avatar: user.avatar,
         role: user.role.toLowerCase(),
         centerId: user.centerId,
-        edxInfo,
+        edxUsername: user.edxUsername,
+        edxPassword,
+        edxRegistered: user.edxRegistered,
       },
       token,
     });
@@ -674,6 +680,16 @@ router.post('/reset-password', async (req, res, next) => {
  * Get current user
  */
 router.get('/me', authenticate, async (req, res) => {
+  // Decrypt edX password if available
+  let edxPassword = null;
+  if (req.user.edxPassword) {
+    try {
+      edxPassword = edxService.decryptPassword(req.user.edxPassword);
+    } catch (err) {
+      console.error('Failed to decrypt edX password:', err);
+    }
+  }
+
   res.json({
     success: true,
     user: {
@@ -681,6 +697,7 @@ router.get('/me', authenticate, async (req, res) => {
       first_name: req.user.firstName,
       last_name: req.user.lastName,
       role: req.user.role.toLowerCase(),
+      edxPassword, // Return decrypted password
     },
   });
 });

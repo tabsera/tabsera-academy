@@ -273,7 +273,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Failed to open edX:', error);
       // Fall back to direct link
-      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://learn.tabsera.com';
       window.open(targetUrl || edxBaseUrl + '/dashboard', '_blank');
       return { success: false, error: error.message };
     }
@@ -284,7 +284,7 @@ export function AuthProvider({ children }) {
     try {
       // Get edX URLs from backend
       const urls = await authApi.getEdxUrls();
-      const edxBaseUrl = urls.edxBaseUrl || import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      const edxBaseUrl = urls.edxBaseUrl || import.meta.env.VITE_EDX_BASE_URL || 'https://learn.tabsera.com';
 
       // Open edX admin panel - user will login there if needed
       const url = targetUrl || urls.adminUrl || edxBaseUrl + '/admin';
@@ -292,7 +292,7 @@ export function AuthProvider({ children }) {
       return { success: true, url };
     } catch (error) {
       console.error('Failed to open edX admin:', error);
-      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://learn.tabsera.com';
       window.open(targetUrl || edxBaseUrl + '/admin', '_blank');
       return { success: false, error: error.message };
     }
@@ -304,7 +304,7 @@ export function AuthProvider({ children }) {
       return await authApi.getEdxUrls();
     } catch (error) {
       console.error('Failed to get edX URLs:', error);
-      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://cambridge.tabsera.com';
+      const edxBaseUrl = import.meta.env.VITE_EDX_BASE_URL || 'https://learn.tabsera.com';
       return {
         edxBaseUrl,
         adminUrl: edxBaseUrl + '/admin',

@@ -4,6 +4,7 @@
 
 const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
+const edxService = require('../services/edx');
 
 const router = express.Router();
 
@@ -51,7 +52,7 @@ router.get('/certificates', authenticate, async (req, res, next) => {
 
 /**
  * GET /api/users/profile
- * Get current user's profile
+ * Get current user's profile including edX credentials
  */
 router.get('/profile', authenticate, async (req, res, next) => {
   try {
@@ -66,10 +67,29 @@ router.get('/profile', authenticate, async (req, res, next) => {
         country: true,
         avatar: true,
         role: true,
+        edxUsername: true,
+        edxPassword: true,
+        edxRegistered: true,
       },
     });
 
-    res.json({ success: true, user });
+    // Decrypt edX password if available
+    let edxPassword = null;
+    if (user.edxPassword) {
+      try {
+        edxPassword = edxService.decryptPassword(user.edxPassword);
+      } catch (err) {
+        console.error('Failed to decrypt edX password:', err);
+      }
+    }
+
+    res.json({
+      success: true,
+      user: {
+        ...user,
+        edxPassword, // Return decrypted password
+      },
+    });
   } catch (error) {
     next(error);
   }

@@ -13,7 +13,7 @@ import {
 import { apiClient } from '@/api/client';
 
 // EdX base URL
-const EDX_BASE_URL = 'https://cambridge.tabsera.com';
+const EDX_BASE_URL = 'https://learn.tabsera.com';
 
 function MyLearning() {
   const [loading, setLoading] = useState(true);

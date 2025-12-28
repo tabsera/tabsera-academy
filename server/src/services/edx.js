@@ -121,15 +121,16 @@ const edxRequest = async (endpoint, options = {}) => {
 
 /**
  * Generate a unique username from email
+ * edX usernames can only contain: A-Z, a-z, 0-9, _, -
  */
 const generateUsername = (email, firstName, lastName) => {
-  // Try first.last format, then email prefix, then add random suffix
+  // Try first_last format, then email prefix
   const base = firstName && lastName
-    ? `${firstName.toLowerCase()}.${lastName.toLowerCase()}`
+    ? `${firstName.toLowerCase()}_${lastName.toLowerCase()}`
     : email.split('@')[0].toLowerCase();
 
-  // Remove special chars, max 30 chars
-  const clean = base.replace(/[^a-z0-9._]/g, '').substring(0, 25);
+  // Remove invalid chars (only allow alphanumeric, underscore, hyphen), max 25 chars
+  const clean = base.replace(/[^a-z0-9_-]/g, '').substring(0, 25);
 
   // Add random suffix for uniqueness
   const suffix = Math.random().toString(36).substring(2, 6);
@@ -145,20 +146,21 @@ const registerUser = async ({ email, password, firstName, lastName, username }) 
     const edxUsername = username || generateUsername(email, firstName, lastName);
     const fullName = `${firstName} ${lastName}`;
 
-    // Note: Registration endpoint may not require OAuth, using direct POST
+    // Note: Registration endpoint requires form data, not JSON
+    const formData = new URLSearchParams();
+    formData.append('email', email);
+    formData.append('username', edxUsername);
+    formData.append('password', password);
+    formData.append('name', fullName);
+    formData.append('honor_code', 'true');
+    formData.append('terms_of_service', 'true');
+
     const response = await fetch(`${EDX_BASE_URL}/api/user/v1/account/registration/`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        email,
-        username: edxUsername,
-        password,
-        name: fullName,
-        honor_code: true,
-        terms_of_service: true,
-      }),
+      body: formData.toString(),
     });
 
     // edX returns 200 for success, 400 for validation errors
@@ -391,6 +393,100 @@ const getCourse = async (courseId) => {
     };
   } catch (error) {
     console.error('edX getCourse error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get course progress for a user
+ * Uses the course_home progress API
+ */
+const getCourseProgress = async (username, courseId) => {
+  try {
+    // Try the course_home progress endpoint first
+    const result = await edxRequest(
+      `/api/course_home/v1/progress/${encodeURIComponent(courseId)}?username=${encodeURIComponent(username)}`
+    );
+
+    // Parse completion summary if available
+    let completionPercentage = 0;
+    if (result.completion_summary) {
+      const { complete_count = 0, incomplete_count = 0, locked_count = 0 } = result.completion_summary;
+      const total = complete_count + incomplete_count + locked_count;
+      completionPercentage = total > 0 ? Math.round((complete_count / total) * 100) : 0;
+    }
+
+    return {
+      success: true,
+      courseId,
+      progress: completionPercentage,
+      hasPassingGrade: result.user_has_passing_grade || false,
+      certificateData: result.certificate_data || null,
+      completionSummary: result.completion_summary || null,
+      gradeSummary: result.grade_summary || null,
+    };
+  } catch (error) {
+    // If progress endpoint fails, return 0 progress
+    console.error(`edX getCourseProgress error for ${courseId}:`, error.message || error);
+    return {
+      success: false,
+      courseId,
+      progress: 0,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Get progress for multiple courses
+ */
+const getCoursesProgress = async (username, courseIds) => {
+  const results = {};
+
+  // Fetch progress for each course in parallel
+  const progressPromises = courseIds.map(async (courseId) => {
+    const progress = await getCourseProgress(username, courseId);
+    results[courseId] = progress;
+  });
+
+  await Promise.all(progressPromises);
+  return results;
+};
+
+/**
+ * Get user's enrollments with progress from edX
+ */
+const getUserEnrollmentsWithProgress = async (username) => {
+  try {
+    // First get all enrollments
+    const enrollmentsResult = await getUserEnrollments(username);
+
+    if (!enrollmentsResult.success || !enrollmentsResult.enrollments) {
+      return enrollmentsResult;
+    }
+
+    // Get progress for each enrollment
+    const enrollmentsWithProgress = await Promise.all(
+      enrollmentsResult.enrollments.map(async (enrollment) => {
+        const courseId = enrollment.course_details?.course_id || enrollment.course_id;
+        if (!courseId) return enrollment;
+
+        const progress = await getCourseProgress(username, courseId);
+        return {
+          ...enrollment,
+          progress: progress.progress || 0,
+          hasPassingGrade: progress.hasPassingGrade || false,
+          completionSummary: progress.completionSummary || null,
+        };
+      })
+    );
+
+    return {
+      success: true,
+      enrollments: enrollmentsWithProgress,
+    };
+  } catch (error) {
+    console.error('edX getUserEnrollmentsWithProgress error:', error);
     throw error;
   }
 };
@@ -695,6 +791,194 @@ const getStudioUrl = (courseId) => {
     : studioBase;
 };
 
+/**
+ * Enroll user as staff/instructor in a course
+ * Uses the Course Team API to add user with staff role
+ * @param {string} email - User's email address
+ * @param {string} courseId - Course ID (e.g., "course-v1:TabseraX+CS101+2024")
+ * @param {string} role - Role to assign ('staff' or 'instructor')
+ * @returns {Object} Result of staff enrollment
+ */
+const enrollAsStaff = async (email, courseId, role = 'staff') => {
+  try {
+    console.log(`Enrolling ${email} as ${role} in ${courseId}`);
+
+    // First, try to add user to course team via Studio API
+    // This is the preferred method as it grants proper staff/instructor access
+    const studioBase = EDX_BASE_URL.replace('://learn.', '://studio.learn.').replace('://cambridge.', '://studio.cambridge.');
+
+    // Get OAuth token
+    const token = await getAccessToken();
+
+    // Try the course team endpoint
+    // POST /api/course_team/v0/course_team/{course_id}/
+    const courseTeamUrl = `${studioBase}/api/course_team/v0/course_team/${encodeURIComponent(courseId)}/`;
+
+    try {
+      const teamResponse = await fetch(courseTeamUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          role: role, // 'staff' or 'instructor'
+        }),
+      });
+
+      if (teamResponse.ok) {
+        const result = await teamResponse.json().catch(() => ({}));
+        console.log(`Successfully enrolled ${email} as ${role} via course team API`);
+        return {
+          success: true,
+          method: 'course_team',
+          email,
+          courseId,
+          role,
+          result,
+        };
+      }
+
+      // If course team API fails, log the error and try alternative method
+      const teamError = await teamResponse.text().catch(() => 'Unknown error');
+      console.log(`Course team API returned ${teamResponse.status}: ${teamError}`);
+    } catch (teamApiError) {
+      console.log(`Course team API not available: ${teamApiError.message}`);
+    }
+
+    // Alternative: Use instructor API to add course access role
+    // POST /courses/{course_id}/instructor/api/access_control/
+    try {
+      const instructorApiUrl = `${EDX_BASE_URL}/courses/${encodeURIComponent(courseId)}/instructor/api/access_control/`;
+
+      const accessResponse = await fetch(instructorApiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          unique_student_identifier: email,
+          rolename: role,
+          action: 'allow',
+        }),
+      });
+
+      if (accessResponse.ok) {
+        const result = await accessResponse.json().catch(() => ({}));
+        console.log(`Successfully enrolled ${email} as ${role} via instructor API`);
+        return {
+          success: true,
+          method: 'instructor_api',
+          email,
+          courseId,
+          role,
+          result,
+        };
+      }
+
+      const accessError = await accessResponse.text().catch(() => 'Unknown error');
+      console.log(`Instructor API returned ${accessResponse.status}: ${accessError}`);
+    } catch (instructorApiError) {
+      console.log(`Instructor API not available: ${instructorApiError.message}`);
+    }
+
+    // Fallback: At minimum, enroll the user in the course
+    // Then manually add staff role will need to be done via Django admin
+    try {
+      await enrollUserInCourse({
+        email,
+        courseId,
+        mode: 'honor',
+      });
+
+      console.log(`Enrolled ${email} in ${courseId} as student. Staff role needs manual assignment.`);
+      return {
+        success: true,
+        method: 'enrollment_only',
+        email,
+        courseId,
+        role,
+        message: 'User enrolled in course. Staff role needs to be assigned via edX admin.',
+        needsManualStaffRole: true,
+      };
+    } catch (enrollError) {
+      console.error(`Failed to enroll ${email} in ${courseId}:`, enrollError);
+      throw enrollError;
+    }
+  } catch (error) {
+    console.error(`edX enrollAsStaff error for ${email} in ${courseId}:`, error);
+    return {
+      success: false,
+      error: error.message || 'Failed to enroll as staff',
+      email,
+      courseId,
+    };
+  }
+};
+
+/**
+ * Get pending submissions for a course (for grading)
+ * Uses edX ORA (Open Response Assessment) API
+ * @param {string} courseId - Course ID
+ * @returns {Object} List of pending submissions
+ */
+const getPendingSubmissions = async (courseId) => {
+  try {
+    // Use the ORA API to get submissions
+    const result = await edxRequest(
+      `/api/ora_staff_grading/v1/submissions/${encodeURIComponent(courseId)}/`
+    );
+
+    return {
+      success: true,
+      submissions: result?.submissions || result || [],
+    };
+  } catch (error) {
+    console.error('edX getPendingSubmissions error:', error);
+    return {
+      success: false,
+      error: error.message,
+      submissions: [],
+    };
+  }
+};
+
+/**
+ * Submit a grade for an ORA submission
+ * @param {string} courseId - Course ID
+ * @param {string} submissionId - Submission UUID
+ * @param {Object} grade - Grade data including score and feedback
+ * @returns {Object} Result of grading
+ */
+const submitGrade = async (courseId, submissionId, grade) => {
+  try {
+    const result = await edxRequest(
+      `/api/ora_staff_grading/v1/submissions/${encodeURIComponent(courseId)}/${submissionId}/grade/`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          assess: grade.assess || {},
+          feedback: grade.feedback || '',
+          options_selected: grade.optionsSelected || {},
+        }),
+      }
+    );
+
+    return {
+      success: true,
+      result,
+    };
+  } catch (error) {
+    console.error('edX submitGrade error:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
 module.exports = {
   getAccessToken,
   registerUser,
@@ -705,6 +989,9 @@ module.exports = {
   bulkEnroll,
   getCourses,
   getCourse,
+  getCourseProgress,
+  getCoursesProgress,
+  getUserEnrollmentsWithProgress,
   registerAndEnroll,
   testConnection,
   loginUser,
@@ -715,4 +1002,7 @@ module.exports = {
   adminLogin,
   getAdminUrl,
   getStudioUrl,
+  enrollAsStaff,
+  getPendingSubmissions,
+  submitGrade,
 };

@@ -28,6 +28,8 @@ import LearningCentersListing from './pages/public/LearningCentersListing';
 import LearningCenterDetail from './pages/public/LearningCenterDetail';
 import BecomePartner from './pages/public/BecomePartner';
 import TrackDetail from './pages/public/TrackDetail';
+import Tutors from './pages/public/Tutors';
+import TuitionPacks from './pages/public/TuitionPacks';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -138,6 +140,8 @@ function App() {
       <Route path="/courses" element={<Courses />} />
       <Route path="/courses/:id" element={<CourseDetail />} />
       <Route path="/tracks/:slug" element={<TrackDetail />} />
+      <Route path="/tutors" element={<Tutors />} />
+      <Route path="/tuition" element={<TuitionPacks />} />
       <Route path="/centers" element={<LearningCentersListing />} />
       <Route path="/centers/:id" element={<LearningCenterDetail />} />
       <Route path="/partner" element={<BecomePartner />} />

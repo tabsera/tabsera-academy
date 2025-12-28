@@ -210,7 +210,7 @@ function OrderConfirmation() {
                 <p className="font-semibold">{formatDate(createdAt)}</p>
               </div>
               <div className="text-right">
-                <p className="text-blue-100 text-sm">Monthly Total</p>
+                <p className="text-blue-100 text-sm">Total</p>
                 <p className="text-2xl font-bold">{formatPrice(total)}</p>
               </div>
             </div>
@@ -236,7 +236,7 @@ function OrderConfirmation() {
                       {item.coursesCount && ` • ${item.coursesCount} courses`}
                     </p>
                   </div>
-                  <p className="font-semibold text-gray-900">{formatPrice(item.price)}/mo</p>
+                  <p className="font-semibold text-gray-900">{formatPrice(item.price)}</p>
                 </div>
               ))}
             </div>
@@ -254,7 +254,7 @@ function OrderConfirmation() {
                 </div>
               )}
               <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
-                <span>Monthly Total</span>
+                <span>Total</span>
                 <span>{formatPrice(total)}</span>
               </div>
             </div>
@@ -333,7 +333,7 @@ function OrderConfirmation() {
             Start Learning
           </Link>
           <a
-            href="https://cambridge.tabsera.com"
+            href="https://learn.tabsera.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

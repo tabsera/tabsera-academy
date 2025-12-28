@@ -74,11 +74,19 @@ export async function initiateCardPayment({ orderReferenceId, payerPhone }) {
  * Verify payment status by order reference
  *
  * @param {string} referenceId - Order reference ID
+ * @param {string} callbackStatus - Status from WaafiPay callback (success/failure)
  * @returns {Promise<Object>} Payment verification result
  */
-export async function verifyPayment(referenceId) {
+export async function verifyPayment(referenceId, callbackStatus = null) {
   try {
-    const response = await apiClient.get(`/payments/verify/${referenceId}`);
+    const params = new URLSearchParams();
+    if (callbackStatus) {
+      params.append('callbackStatus', callbackStatus);
+    }
+    const queryString = params.toString();
+    const url = `/payments/verify/${referenceId}${queryString ? `?${queryString}` : ''}`;
+
+    const response = await apiClient.get(url);
 
     return {
       success: response.success,

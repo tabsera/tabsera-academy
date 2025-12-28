@@ -69,7 +69,8 @@ function PaymentCallback() {
       }
 
       // Verify payment via backend API (handles WaafiPay verification internally)
-      const verifyResult = await paymentsApi.verifyPayment(referenceId);
+      // Pass callbackStatus so backend can mark payment as completed for HPP
+      const verifyResult = await paymentsApi.verifyPayment(referenceId, callbackStatus);
 
       if (verifyResult.success) {
         setOrderDetails(verifyResult.order);

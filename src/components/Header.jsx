@@ -74,10 +74,22 @@ export function Header() {
               Courses
             </Link>
             <Link
+              to="/tuition"
+              className={`text-sm font-medium transition-colors hover:text-blue-600 ${isActive('/tuition') ? 'text-blue-600' : 'text-gray-700'}`}
+            >
+              Tuition
+            </Link>
+            <Link
+              to="/tutors"
+              className={`text-sm font-medium transition-colors hover:text-blue-600 ${isActive('/tutors') ? 'text-blue-600' : 'text-gray-700'}`}
+            >
+              Tutors
+            </Link>
+            <Link
               to="/centers"
               className={`text-sm font-medium transition-colors hover:text-blue-600 ${isActive('/centers') ? 'text-blue-600' : 'text-gray-700'}`}
             >
-              Learning Centers
+              Centers
             </Link>
             <Link
               to="/partner"
@@ -241,8 +253,14 @@ export function Header() {
             <Link to="/courses" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Courses
             </Link>
+            <Link to="/tuition" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+              Tuition
+            </Link>
+            <Link to="/tutors" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+              Tutors
+            </Link>
             <Link to="/centers" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
-              Learning Centers
+              Centers
             </Link>
             <Link to="/partner" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Become a Partner

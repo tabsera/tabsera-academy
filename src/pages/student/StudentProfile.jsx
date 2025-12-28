@@ -8,7 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   User, Mail, Phone, MapPin, Building2, Camera,
   Lock, Eye, EyeOff, Bell, Shield, CheckCircle,
-  AlertCircle, Loader2, Save, Calendar, BookOpen
+  AlertCircle, Loader2, Save, Calendar, BookOpen,
+  GraduationCap, Copy, ExternalLink
 } from 'lucide-react';
 
 function StudentProfile() {
@@ -49,6 +50,21 @@ function StudentProfile() {
     smsPaymentReminders: true,
     smsImportantAlerts: true,
   });
+
+  // edX credentials state
+  const [showEdxPassword, setShowEdxPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
+
+  // Copy to clipboard helper
+  const copyToClipboard = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -133,6 +149,7 @@ function StudentProfile() {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'edx', label: 'edX Credentials', icon: GraduationCap },
     { id: 'password', label: 'Password', icon: Lock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
@@ -344,6 +361,144 @@ function StudentProfile() {
                 )}
               </button>
             </form>
+          )}
+
+          {/* edX Credentials Tab */}
+          {activeTab === 'edx' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <GraduationCap size={24} className="text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">Open edX Learning Platform</h3>
+                    <p className="text-gray-600 text-sm">
+                      Access your courses on the Open edX platform using the credentials below.
+                      These credentials are automatically generated when you enroll in courses.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {user?.edxUsername ? (
+                <div className="space-y-4">
+                  {/* edX Username */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      edX Username
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <User size={18} className="text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          value={user.edxUsername || ''}
+                          readOnly
+                          className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 font-mono"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(user.edxUsername, 'username')}
+                        className="px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        {copiedField === 'username' ? (
+                          <>
+                            <CheckCircle size={18} className="text-green-600" />
+                            <span className="text-green-600 text-sm">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={18} className="text-gray-500" />
+                            <span className="text-gray-600 text-sm">Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* edX Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      edX Password
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Lock size={18} className="text-gray-400" />
+                        </div>
+                        <input
+                          type={showEdxPassword ? 'text' : 'password'}
+                          value={user.edxPassword || '••••••••••••'}
+                          readOnly
+                          className="w-full pl-11 pr-12 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEdxPassword(!showEdxPassword)}
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+                        >
+                          {showEdxPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(user.edxPassword, 'password')}
+                        className="px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        disabled={!user.edxPassword}
+                      >
+                        {copiedField === 'password' ? (
+                          <>
+                            <CheckCircle size={18} className="text-green-600" />
+                            <span className="text-green-600 text-sm">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={18} className="text-gray-500" />
+                            <span className="text-gray-600 text-sm">Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {!user.edxPassword && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Password is securely stored. Contact support if you need to reset it.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Access Button */}
+                  <div className="pt-4">
+                    <a
+                      href="https://learn.tabsera.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-semibold hover:bg-orange-700 transition-colors"
+                    >
+                      <ExternalLink size={18} />
+                      Access edX Platform
+                    </a>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Opens in a new tab. Use the credentials above to log in.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <GraduationCap size={32} className="text-gray-400" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">No edX Account Yet</h3>
+                  <p className="text-gray-500 max-w-md mx-auto">
+                    Your edX credentials will be automatically created when you enroll in your first course.
+                    Once enrolled, you'll find your login details here.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Password Tab */}
