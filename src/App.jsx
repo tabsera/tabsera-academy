@@ -48,6 +48,13 @@ import CourseEditor from './pages/admin/CourseEditor';
 import CurriculumBuilder from './pages/admin/CurriculumBuilder';
 import TrackManagement from './pages/admin/TrackManagement';
 import OrderManagement from './pages/admin/OrderManagement';
+import CountryManagement from './pages/admin/CountryManagement';
+import TutorManagement from './pages/admin/TutorManagement';
+import TuitionPackManagement from './pages/admin/TuitionPackManagement';
+
+// Tutor Pages
+import TutorRegistration from './pages/tutor/TutorRegistration';
+import TutorPending from './pages/tutor/TutorPending';
 
 // Center Pages
 import CenterDashboard from './pages/center/CenterDashboard';
@@ -75,6 +82,7 @@ const ROLES = {
   STUDENT: 'student',
   CENTER_ADMIN: 'center_admin',
   TABSERA_ADMIN: 'tabsera_admin',
+  TUTOR: 'tutor',
 };
 
 function App() {
@@ -161,6 +169,26 @@ function App() {
       <Route path="/payment/failure" element={<PaymentCallback />} />
 
       {/* ===================== */}
+      {/* TUTOR ROUTES */}
+      {/* ===================== */}
+      <Route
+        path="/tutor/register"
+        element={
+          <ProtectedRoute roles={[ROLES.STUDENT]}>
+            <TutorRegistration />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tutor/pending"
+        element={
+          <ProtectedRoute roles={[ROLES.TUTOR]}>
+            <TutorPending />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ===================== */}
       {/* ADMIN PORTAL ROUTES */}
       {/* Protected: TABSERA Admin only */}
       {/* ===================== */}
@@ -193,6 +221,9 @@ function App() {
         <Route path="students/enroll" element={<TrackEnrollment />} />
         <Route path="password-reset" element={<PasswordResetCenter />} />
         <Route path="orders" element={<OrderManagement />} />
+        <Route path="countries" element={<CountryManagement />} />
+        <Route path="tutors" element={<TutorManagement />} />
+        <Route path="tuition-packs" element={<TuitionPackManagement />} />
       </Route>
 
       {/* ===================== */}

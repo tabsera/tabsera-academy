@@ -2387,4 +2387,1034 @@ router.get('/payments/stats', async (req, res, next) => {
   }
 });
 
+// ============================================
+// ORDER ENROLLMENT FIX
+// ============================================
+
+/**
+ * POST /api/admin/orders/:referenceId/fix-enrollment
+ * Fix missing enrollments for a completed order
+ */
+router.post('/orders/:referenceId/fix-enrollment', async (req, res, next) => {
+  try {
+    const { referenceId } = req.params;
+
+    // Find the order with all related data
+    const order = await req.prisma.order.findFirst({
+      where: { referenceId },
+      include: {
+        items: {
+          include: {
+            course: true,
+            track: { include: { courses: true } }
+          }
+        },
+        payments: true,
+        user: true,
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const results = {
+      orderId: order.id,
+      referenceId: order.referenceId,
+      userId: order.userId,
+      userEmail: order.user?.email,
+      previousStatus: order.status,
+      previousPaymentStatus: order.paymentStatus,
+      enrollmentsCreated: [],
+      enrollmentsExisted: [],
+    };
+
+    // Update order status to COMPLETED if needed
+    if (order.status !== 'COMPLETED' || order.paymentStatus !== 'APPROVED') {
+      await req.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'COMPLETED',
+          paymentStatus: 'APPROVED',
+        }
+      });
+      results.orderUpdated = true;
+
+      // Update payment if exists
+      const payment = order.payments[0];
+      if (payment && payment.status !== 'APPROVED') {
+        await req.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'APPROVED',
+            paidAt: payment.paidAt || new Date(),
+          }
+        });
+        results.paymentUpdated = true;
+      }
+    }
+
+    // Get existing enrollments
+    const existingEnrollments = await req.prisma.enrollment.findMany({
+      where: { userId: order.userId },
+    });
+
+    // Create enrollments for each order item
+    for (const item of order.items) {
+      // Track enrollment
+      if (item.trackId && item.track) {
+        const existingTrackEnrollment = existingEnrollments.find(
+          e => e.trackId === item.trackId
+        );
+
+        if (!existingTrackEnrollment) {
+          await req.prisma.enrollment.create({
+            data: {
+              userId: order.userId,
+              trackId: item.trackId,
+              status: 'active',
+            }
+          });
+          results.enrollmentsCreated.push({ type: 'track', name: item.track.name || item.track.title });
+        } else {
+          results.enrollmentsExisted.push({ type: 'track', name: item.track.name || item.track.title });
+        }
+
+        // Enroll in each course of the track
+        if (item.track.courses && item.track.courses.length > 0) {
+          for (const course of item.track.courses) {
+            const existingCourseEnrollment = existingEnrollments.find(
+              e => e.courseId === course.id
+            );
+
+            if (!existingCourseEnrollment) {
+              await req.prisma.enrollment.create({
+                data: {
+                  userId: order.userId,
+                  courseId: course.id,
+                  status: 'active',
+                  edxCourseId: course.edxCourseId,
+                }
+              });
+              results.enrollmentsCreated.push({ type: 'course', name: course.name || course.title });
+            } else {
+              results.enrollmentsExisted.push({ type: 'course', name: course.name || course.title });
+            }
+          }
+        }
+      }
+
+      // Single course enrollment
+      if (item.courseId && item.course) {
+        const existingCourseEnrollment = existingEnrollments.find(
+          e => e.courseId === item.courseId
+        );
+
+        if (!existingCourseEnrollment) {
+          await req.prisma.enrollment.create({
+            data: {
+              userId: order.userId,
+              courseId: item.courseId,
+              status: 'active',
+              edxCourseId: item.course.edxCourseId,
+            }
+          });
+          results.enrollmentsCreated.push({ type: 'course', name: item.course.name || item.course.title });
+        } else {
+          results.enrollmentsExisted.push({ type: 'course', name: item.course.name || item.course.title });
+        }
+      }
+    }
+
+    // Get final enrollment count
+    const finalEnrollments = await req.prisma.enrollment.count({
+      where: { userId: order.userId }
+    });
+
+    results.totalEnrollments = finalEnrollments;
+    results.success = true;
+
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// TUTOR MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/tutors
+ * Get all tutor applications with filtering
+ */
+router.get('/tutors', async (req, res, next) => {
+  try {
+    const {
+      status,
+      search,
+      limit = 50,
+      offset = 0,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const where = {
+      ...(status && { status: status.toUpperCase() }),
+      ...(search && {
+        OR: [
+          { user: { firstName: { contains: search, mode: 'insensitive' } } },
+          { user: { lastName: { contains: search, mode: 'insensitive' } } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+          { headline: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [tutors, total] = await Promise.all([
+      req.prisma.tutorProfile.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              avatar: true,
+            },
+          },
+          courses: {
+            include: {
+              course: {
+                select: { id: true, title: true, slug: true },
+              },
+            },
+          },
+          certifications: true,
+          _count: {
+            select: { sessions: true },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        take: parseInt(limit),
+        skip: parseInt(offset),
+      }),
+      req.prisma.tutorProfile.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      tutors,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/tutors/:id
+ * Get tutor details
+ */
+router.get('/tutors/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            country: true,
+            avatar: true,
+            edxUsername: true,
+            edxRegistered: true,
+            createdAt: true,
+          },
+        },
+        courses: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                edxCourseId: true,
+              },
+            },
+          },
+        },
+        certifications: true,
+        availability: {
+          orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+        },
+        sessions: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            student: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+          },
+        },
+        _count: {
+          select: { sessions: true },
+        },
+      },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    res.json({ success: true, tutor });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tutors/:id/approve
+ * Approve a tutor application
+ */
+router.post('/tutors/:id/approve', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { enrollInEdx = true } = req.body;
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        courses: {
+          include: {
+            course: {
+              select: { id: true, title: true, edxCourseId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    if (tutor.status !== 'PENDING') {
+      return res.status(400).json({
+        message: `Tutor is already ${tutor.status.toLowerCase()}`,
+      });
+    }
+
+    // Update tutor profile status
+    const updated = await req.prisma.tutorProfile.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy: req.user.id,
+      },
+    });
+
+    // Update user role to TUTOR
+    await req.prisma.user.update({
+      where: { id: tutor.userId },
+      data: { role: 'TUTOR' },
+    });
+
+    // Enroll as staff in edX for each course (if configured)
+    if (enrollInEdx && tutor.courses.length > 0) {
+      const edxService = require('../services/edx');
+
+      for (const tc of tutor.courses) {
+        if (tc.course.edxCourseId) {
+          try {
+            // Enroll as staff using edX API
+            const result = await edxService.enrollAsStaff(
+              tutor.user.email,
+              tc.course.edxCourseId
+            );
+
+            if (result.success) {
+              await req.prisma.tutorCourse.update({
+                where: { id: tc.id },
+                data: {
+                  edxStaffEnrolled: true,
+                  edxEnrolledAt: new Date(),
+                  canGrade: true,
+                },
+              });
+            }
+          } catch (edxError) {
+            console.error(`Failed to enroll tutor as staff in ${tc.course.edxCourseId}:`, edxError);
+          }
+        }
+      }
+    }
+
+    // Send approval email
+    try {
+      const { sendTemplatedEmail } = require('../services/email');
+      await sendTemplatedEmail('tutorApproved', tutor.user.email, {
+        firstName: tutor.user.firstName,
+        loginUrl: `${process.env.FRONTEND_URL}/login`,
+      });
+    } catch (emailError) {
+      console.error('Failed to send tutor approval email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Tutor approved successfully',
+      tutor: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tutors/:id/reject
+ * Reject a tutor application
+ */
+router.post('/tutors/:id/reject', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    if (tutor.status !== 'PENDING') {
+      return res.status(400).json({
+        message: `Tutor is already ${tutor.status.toLowerCase()}`,
+      });
+    }
+
+    const updated = await req.prisma.tutorProfile.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: reason || 'Application did not meet our requirements',
+      },
+    });
+
+    // Send rejection email
+    try {
+      const { sendTemplatedEmail } = require('../services/email');
+      await sendTemplatedEmail('tutorRejected', tutor.user.email, {
+        firstName: tutor.user.firstName,
+        reason: reason || 'Application did not meet our requirements',
+      });
+    } catch (emailError) {
+      console.error('Failed to send tutor rejection email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Tutor application rejected',
+      tutor: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tutors/:id/suspend
+ * Suspend an active tutor
+ */
+router.post('/tutors/:id/suspend', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    if (tutor.status !== 'APPROVED') {
+      return res.status(400).json({
+        message: 'Can only suspend approved tutors',
+      });
+    }
+
+    const updated = await req.prisma.tutorProfile.update({
+      where: { id },
+      data: {
+        status: 'SUSPENDED',
+        rejectionReason: reason || 'Account suspended by admin',
+      },
+    });
+
+    // Revert user role to STUDENT
+    await req.prisma.user.update({
+      where: { id: tutor.userId },
+      data: { role: 'STUDENT' },
+    });
+
+    // Cancel all upcoming sessions
+    await req.prisma.tutorSession.updateMany({
+      where: {
+        tutorProfileId: id,
+        status: 'SCHEDULED',
+        scheduledAt: { gte: new Date() },
+      },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledBy: 'admin',
+        cancellationReason: 'Tutor account suspended',
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Tutor suspended',
+      tutor: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tutors/:id/reactivate
+ * Reactivate a suspended tutor
+ */
+router.post('/tutors/:id/reactivate', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    if (tutor.status !== 'SUSPENDED') {
+      return res.status(400).json({
+        message: 'Can only reactivate suspended tutors',
+      });
+    }
+
+    const updated = await req.prisma.tutorProfile.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        rejectionReason: null,
+      },
+    });
+
+    // Restore user role to TUTOR
+    await req.prisma.user.update({
+      where: { id: tutor.userId },
+      data: { role: 'TUTOR' },
+    });
+
+    res.json({
+      success: true,
+      message: 'Tutor reactivated',
+      tutor: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tutors/:id/courses
+ * Add courses to a tutor
+ */
+router.post('/tutors/:id/courses', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { courseIds, enrollInEdx = true } = req.body;
+
+    if (!courseIds || !Array.isArray(courseIds)) {
+      return res.status(400).json({ message: 'courseIds array is required' });
+    }
+
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    const results = [];
+
+    for (const courseId of courseIds) {
+      // Check if course exists
+      const course = await req.prisma.course.findUnique({
+        where: { id: courseId },
+      });
+
+      if (!course) {
+        results.push({ courseId, success: false, error: 'Course not found' });
+        continue;
+      }
+
+      // Upsert tutor course
+      const tutorCourse = await req.prisma.tutorCourse.upsert({
+        where: {
+          tutorProfileId_courseId: {
+            tutorProfileId: id,
+            courseId,
+          },
+        },
+        create: {
+          tutorProfileId: id,
+          courseId,
+        },
+        update: {},
+      });
+
+      // Enroll as staff in edX if tutor is approved
+      if (enrollInEdx && tutor.status === 'APPROVED' && course.edxCourseId) {
+        try {
+          const edxService = require('../services/edx');
+          const result = await edxService.enrollAsStaff(
+            tutor.user.email,
+            course.edxCourseId
+          );
+
+          if (result.success) {
+            await req.prisma.tutorCourse.update({
+              where: { id: tutorCourse.id },
+              data: {
+                edxStaffEnrolled: true,
+                edxEnrolledAt: new Date(),
+                canGrade: true,
+              },
+            });
+          }
+
+          results.push({
+            courseId,
+            success: true,
+            edxEnrolled: result.success,
+          });
+        } catch (edxError) {
+          results.push({
+            courseId,
+            success: true,
+            edxEnrolled: false,
+            edxError: edxError.message,
+          });
+        }
+      } else {
+        results.push({ courseId, success: true });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Courses added to tutor',
+      results,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/tutors/:id/courses/:courseId
+ * Remove a course from a tutor
+ */
+router.delete('/tutors/:id/courses/:courseId', async (req, res, next) => {
+  try {
+    const { id, courseId } = req.params;
+
+    const tutorCourse = await req.prisma.tutorCourse.findUnique({
+      where: {
+        tutorProfileId_courseId: {
+          tutorProfileId: id,
+          courseId,
+        },
+      },
+    });
+
+    if (!tutorCourse) {
+      return res.status(404).json({ message: 'Tutor course assignment not found' });
+    }
+
+    await req.prisma.tutorCourse.delete({
+      where: { id: tutorCourse.id },
+    });
+
+    res.json({
+      success: true,
+      message: 'Course removed from tutor',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/tutors/stats
+ * Get tutor statistics
+ */
+router.get('/tutors/stats', async (req, res, next) => {
+  try {
+    const [
+      totalTutors,
+      pendingTutors,
+      approvedTutors,
+      suspendedTutors,
+      totalSessions,
+      completedSessions,
+    ] = await Promise.all([
+      req.prisma.tutorProfile.count(),
+      req.prisma.tutorProfile.count({ where: { status: 'PENDING' } }),
+      req.prisma.tutorProfile.count({ where: { status: 'APPROVED' } }),
+      req.prisma.tutorProfile.count({ where: { status: 'SUSPENDED' } }),
+      req.prisma.tutorSession.count(),
+      req.prisma.tutorSession.count({ where: { status: 'COMPLETED' } }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalTutors,
+        pendingTutors,
+        approvedTutors,
+        suspendedTutors,
+        totalSessions,
+        completedSessions,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// TUITION PACKS MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/tuition-packs
+ * Get all tuition packs with credit statistics
+ */
+router.get('/tuition-packs', async (req, res, next) => {
+  try {
+    const packs = await req.prisma.tuitionPack.findMany({
+      include: {
+        _count: {
+          select: { purchases: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Calculate credit statistics for each pack
+    const packsWithStats = await Promise.all(packs.map(async (pack) => {
+      const stats = await req.prisma.tuitionPackPurchase.aggregate({
+        where: { tuitionPackId: pack.id },
+        _sum: {
+          creditsTotal: true,
+          creditsUsed: true,
+          creditsRemaining: true,
+        },
+      });
+
+      return {
+        ...pack,
+        purchaseCount: pack._count.purchases,
+        totalCreditsSold: stats._sum.creditsTotal || 0,
+        totalCreditsUsed: stats._sum.creditsUsed || 0,
+        totalCreditsRemaining: stats._sum.creditsRemaining || 0,
+        _count: undefined,
+      };
+    }));
+
+    res.json({
+      success: true,
+      packs: packsWithStats,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tuition-packs
+ * Create a tuition pack
+ */
+router.post('/tuition-packs', async (req, res, next) => {
+  try {
+    const { name, description, creditsIncluded, validityDays = 365, price, isActive = true } = req.body;
+
+    if (!name || !creditsIncluded || price === undefined) {
+      return res.status(400).json({
+        message: 'Name, creditsIncluded, and price are required',
+      });
+    }
+
+    const pack = await req.prisma.tuitionPack.create({
+      data: {
+        name,
+        description,
+        creditsIncluded,
+        validityDays,
+        price,
+        isActive,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      pack,
+      message: 'Tuition pack created',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/tuition-packs/:id
+ * Update a tuition pack
+ */
+router.put('/tuition-packs/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, description, creditsIncluded, validityDays, price, isActive } = req.body;
+
+    const pack = await req.prisma.tuitionPack.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(creditsIncluded !== undefined && { creditsIncluded }),
+        ...(validityDays !== undefined && { validityDays }),
+        ...(price !== undefined && { price }),
+        ...(isActive !== undefined && { isActive }),
+      },
+    });
+
+    res.json({
+      success: true,
+      pack,
+      message: 'Tuition pack updated',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/tuition-packs/:id
+ * Delete a tuition pack
+ */
+router.delete('/tuition-packs/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const pack = await req.prisma.tuitionPack.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { purchases: true } },
+      },
+    });
+
+    if (!pack) {
+      return res.status(404).json({ message: 'Tuition pack not found' });
+    }
+
+    if (pack._count.purchases > 0) {
+      return res.status(400).json({
+        message: 'Cannot delete pack with existing purchases. Deactivate instead.',
+      });
+    }
+
+    await req.prisma.tuitionPack.delete({ where: { id } });
+
+    res.json({
+      success: true,
+      message: 'Tuition pack deleted',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/tuition-packs/:id/assign
+ * Manually assign a tuition pack to a student
+ */
+router.post('/tuition-packs/:id/assign', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId, notes } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Get tuition pack
+    const pack = await req.prisma.tuitionPack.findUnique({ where: { id } });
+    if (!pack) {
+      return res.status(404).json({ message: 'Tuition pack not found' });
+    }
+
+    if (!pack.isActive) {
+      return res.status(400).json({ message: 'Cannot assign inactive tuition pack' });
+    }
+
+    // Get user
+    const user = await req.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Calculate expiry date
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + pack.validityDays);
+
+    // Create purchase record
+    const purchase = await req.prisma.tuitionPackPurchase.create({
+      data: {
+        userId,
+        tuitionPackId: id,
+        creditsTotal: pack.creditsIncluded,
+        creditsUsed: 0,
+        creditsRemaining: pack.creditsIncluded,
+        creditsReserved: 0,
+        expiresAt,
+        assignedBy: req.user.id,
+        assignedAt: new Date(),
+      },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        tuitionPack: { select: { name: true, creditsIncluded: true } },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      purchase,
+      message: `Assigned ${pack.creditsIncluded} credits to ${user.firstName} ${user.lastName}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/tuition-purchases
+ * Get all tuition pack purchases with filtering
+ */
+router.get('/tuition-purchases', async (req, res, next) => {
+  try {
+    const { userId, tuitionPackId, status, search, limit = 50, offset = 0 } = req.query;
+
+    const now = new Date();
+    const where = {
+      ...(userId && { userId }),
+      ...(tuitionPackId && { tuitionPackId }),
+      ...(status === 'active' && { creditsRemaining: { gt: 0 }, expiresAt: { gt: now } }),
+      ...(status === 'expired' && { expiresAt: { lte: now } }),
+      ...(status === 'depleted' && { creditsRemaining: 0 }),
+      ...(search && {
+        user: {
+          OR: [
+            { email: { contains: search, mode: 'insensitive' } },
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      }),
+    };
+
+    const [purchases, total] = await Promise.all([
+      req.prisma.tuitionPackPurchase.findMany({
+        where,
+        include: {
+          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+          tuitionPack: { select: { id: true, name: true, creditsIncluded: true, price: true } },
+          order: { select: { id: true, referenceId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset),
+      }),
+      req.prisma.tuitionPackPurchase.count({ where }),
+    ]);
+
+    res.json({ success: true, purchases, total });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/tuition-purchases/stats
+ * Get tuition credit statistics
+ */
+router.get('/tuition-purchases/stats', async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    const [totalPurchases, activePurchases, expiredPurchases, creditStats] = await Promise.all([
+      req.prisma.tuitionPackPurchase.count(),
+      req.prisma.tuitionPackPurchase.count({
+        where: { creditsRemaining: { gt: 0 }, expiresAt: { gt: now } },
+      }),
+      req.prisma.tuitionPackPurchase.count({
+        where: { expiresAt: { lte: now } },
+      }),
+      req.prisma.tuitionPackPurchase.aggregate({
+        _sum: {
+          creditsTotal: true,
+          creditsUsed: true,
+          creditsRemaining: true,
+          creditsReserved: true,
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalPurchases,
+        activePurchases,
+        expiredPurchases,
+        totalCredits: creditStats._sum.creditsTotal || 0,
+        usedCredits: creditStats._sum.creditsUsed || 0,
+        remainingCredits: creditStats._sum.creditsRemaining || 0,
+        reservedCredits: creditStats._sum.creditsReserved || 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

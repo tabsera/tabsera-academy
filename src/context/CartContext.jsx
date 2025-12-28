@@ -11,6 +11,7 @@ const CartContext = createContext(null);
 export const ITEM_TYPES = {
   TRACK: 'track',
   COURSE: 'course',
+  TUITION_PACK: 'tuition_pack',
 };
 
 export function CartProvider({ children }) {
@@ -59,8 +60,12 @@ export function CartProvider({ children }) {
         originalPrice: item.originalPrice || item.price,
         image: item.image,
         description: item.description,
+        // Track/Course specific
         duration: item.duration,
         coursesCount: item.coursesCount,
+        // Tuition Pack specific
+        creditsIncluded: item.creditsIncluded,
+        validityDays: item.validityDays,
       }];
     });
   }, []);

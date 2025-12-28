@@ -14,6 +14,24 @@ enum UserRole {
   STUDENT
   CENTER_ADMIN
   TABSERA_ADMIN
+  TUTOR
+}
+
+// Tutor application status
+enum TutorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+// Tutoring session status
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 // Order status enum
@@ -46,6 +64,23 @@ enum PaymentMethod {
   PAY_AT_CENTER
 }
 
+// Country model - for billing/shipping country selection
+model Country {
+  id              String   @id @default(uuid())
+  code            String   @unique // ISO 3166-1 alpha-2 (e.g., "SO", "US")
+  name            String   // Full name (e.g., "Somalia")
+  dialCode        String?  @map("dial_code") // Phone dial code (e.g., "+252")
+  currency        String?  // Currency code (e.g., "USD", "SOS")
+  currencySymbol  String?  @map("currency_symbol") // Currency symbol (e.g., "$", "S")
+  usdExchangeRate Decimal  @default(1) @map("usd_exchange_rate") @db.Decimal(12, 4) // 1 USD = X local currency
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("countries")
+}
+
 // User model
 model User {
   id                      String    @id @default(uuid())
@@ -75,11 +110,14 @@ model User {
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  center        LearningCenter? @relation(fields: [centerId], references: [id])
-  orders        Order[]
-  enrollments   Enrollment[]
-  payments      Payment[]
-  certificates  Certificate[]
+  center            LearningCenter? @relation(fields: [centerId], references: [id])
+  orders            Order[]
+  enrollments       Enrollment[]
+  payments          Payment[]
+  certificates      Certificate[]
+  tutorProfile      TutorProfile?
+  tuitionPurchases  TuitionPackPurchase[]
+  studentSessions   TutorSession[]        @relation("StudentSessions")
 
   @@map("users")
 }
@@ -134,26 +172,29 @@ model Track {
 
 // Course model
 model Course {
-  id          String   @id @default(uuid())
-  title       String
-  slug        String   @unique
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  duration    String?
-  level       String?
-  lessons     Int      @default(0)
-  image       String?
-  externalUrl String?  @map("external_url") // EdX or external platform course URL
-  edxCourseId String?  @map("edx_course_id") // Open edX course ID (e.g., "course-v1:TabseraX+CS101+2024")
-  trackId     String?  @map("track_id")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  creditsFactor Int      @default(1) @map("credits_factor") // Tuition credit multiplier (1x, 2x, 3x)
+  duration      String?
+  level         String?
+  lessons       Int      @default(0)
+  image         String?
+  externalUrl   String?  @map("external_url") // EdX or external platform course URL
+  edxCourseId   String?  @map("edx_course_id") // Open edX course ID (e.g., "course-v1:TabseraX+CS101+2024")
+  trackId       String?  @map("track_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
-  track       Track?       @relation(fields: [trackId], references: [id])
-  enrollments Enrollment[]
-  orderItems  OrderItem[]
+  track         Track?         @relation(fields: [trackId], references: [id])
+  enrollments   Enrollment[]
+  orderItems    OrderItem[]
+  tutorCourses  TutorCourse[]
+  tutorSessions TutorSession[]
 
   @@map("courses")
 }
@@ -209,28 +250,31 @@ model Order {
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  user     User            @relation(fields: [userId], references: [id])
-  center   LearningCenter? @relation(fields: [centerId], references: [id])
-  items    OrderItem[]
-  payments Payment[]
+  user              User            @relation(fields: [userId], references: [id])
+  center            LearningCenter? @relation(fields: [centerId], references: [id])
+  items             OrderItem[]
+  payments          Payment[]
+  tuitionPurchases  TuitionPackPurchase[]
 
   @@map("orders")
 }
 
 // Order Item model
 model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String  @map("order_id")
-  trackId   String? @map("track_id")
-  courseId  String? @map("course_id")
-  name      String
-  price     Decimal @db.Decimal(10, 2)
-  quantity  Int     @default(1)
+  id            String  @id @default(uuid())
+  orderId       String  @map("order_id")
+  trackId       String? @map("track_id")
+  courseId      String? @map("course_id")
+  tuitionPackId String? @map("tuition_pack_id")
+  name          String
+  price         Decimal @db.Decimal(10, 2)
+  quantity      Int     @default(1)
 
   // Relations
-  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  track  Track?  @relation(fields: [trackId], references: [id])
-  course Course? @relation(fields: [courseId], references: [id])
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  track       Track?       @relation(fields: [trackId], references: [id])
+  course      Course?      @relation(fields: [courseId], references: [id])
+  tuitionPack TuitionPack? @relation(fields: [tuitionPackId], references: [id])
 
   @@map("order_items")
 }
@@ -293,4 +337,177 @@ model PromoCode {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("promo_codes")
+}
+
+// ============================================
+// TUTOR PARTNER SYSTEM MODELS
+// ============================================
+
+// Tutor Profile model - extends User with tutor-specific information
+model TutorProfile {
+  id              String       @id @default(uuid())
+  userId          String       @unique @map("user_id")
+  bio             String?      @db.Text
+  headline        String?      // e.g., "Mathematics Expert | 10+ years experience"
+  status          TutorStatus  @default(PENDING)
+  approvedAt      DateTime?    @map("approved_at")
+  approvedBy      String?      @map("approved_by")
+  rejectionReason String?      @map("rejection_reason") @db.Text
+  timezone        String       @default("UTC")
+  hourlyRate      Decimal?     @db.Decimal(10, 2) @map("hourly_rate")
+  totalSessions   Int          @default(0) @map("total_sessions")
+  avgRating       Decimal?     @db.Decimal(3, 2) @map("avg_rating")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certifications  TutorCertification[]
+  courses         TutorCourse[]
+  availability    TutorAvailability[]
+  sessions        TutorSession[]
+
+  @@index([status])
+  @@map("tutor_profiles")
+}
+
+// Tutor Certification model - uploaded documents proving qualifications
+model TutorCertification {
+  id              String       @id @default(uuid())
+  tutorProfileId  String       @map("tutor_profile_id")
+  title           String       // e.g., "Bachelor of Education"
+  institution     String       // e.g., "University of Nairobi"
+  fileUrl         String       @map("file_url")
+  fileName        String       @map("file_name")
+  fileSize        Int          @map("file_size") // bytes
+  fileType        String       @map("file_type") // mime type
+  verified        Boolean      @default(false)
+  verifiedAt      DateTime?    @map("verified_at")
+  verifiedBy      String?      @map("verified_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  tutorProfile    TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("tutor_certifications")
+}
+
+// Tutor Course model - courses the tutor is proficient in and can teach/grade
+model TutorCourse {
+  id               String       @id @default(uuid())
+  tutorProfileId   String       @map("tutor_profile_id")
+  courseId         String       @map("course_id")
+  edxStaffEnrolled Boolean      @default(false) @map("edx_staff_enrolled")
+  edxEnrolledAt    DateTime?    @map("edx_enrolled_at")
+  canGrade         Boolean      @default(false) @map("can_grade")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  tutorProfile     TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  course           Course       @relation(fields: [courseId], references: [id])
+
+  @@unique([tutorProfileId, courseId])
+  @@map("tutor_courses")
+}
+
+// Tutor Availability model - weekly recurring availability slots
+model TutorAvailability {
+  id              String       @id @default(uuid())
+  tutorProfileId  String       @map("tutor_profile_id")
+  dayOfWeek       Int          @map("day_of_week") // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime       String       @map("start_time") // "09:00" in tutor's timezone
+  endTime         String       @map("end_time")   // "17:00" in tutor's timezone
+  isActive        Boolean      @default(true) @map("is_active")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  tutorProfile    TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([tutorProfileId, dayOfWeek, startTime])
+  @@map("tutor_availability")
+}
+
+// Tuition Pack model - purchasable packages of tutoring credits
+model TuitionPack {
+  id              String   @id @default(uuid())
+  name            String   // e.g., "10 Credit Pack"
+  description     String?  @db.Text
+  creditsIncluded Int      @map("credits_included") // Number of credits (each credit = 10-minute session)
+  validityDays    Int      @default(365) @map("validity_days") // Expiry period from purchase date
+  price           Decimal  @db.Decimal(10, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  purchases       TuitionPackPurchase[]
+  orderItems      OrderItem[]
+
+  @@map("tuition_packs")
+}
+
+// Tuition Pack Purchase model - student's purchased credit packs
+model TuitionPackPurchase {
+  id               String      @id @default(uuid())
+  userId           String      @map("user_id")
+  tuitionPackId    String      @map("tuition_pack_id")
+  orderId          String?     @map("order_id")
+  creditsTotal     Int         @map("credits_total")
+  creditsUsed      Int         @default(0) @map("credits_used")
+  creditsRemaining Int         @map("credits_remaining")
+  creditsReserved  Int         @default(0) @map("credits_reserved") // Credits reserved for scheduled sessions
+  expiresAt        DateTime    @map("expires_at")
+  assignedBy       String?     @map("assigned_by") // Admin who manually assigned (null if purchased)
+  assignedAt       DateTime?   @map("assigned_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id])
+  tuitionPack       TuitionPack @relation(fields: [tuitionPackId], references: [id])
+  order             Order?      @relation(fields: [orderId], references: [id])
+  sessions          TutorSession[]
+
+  @@index([userId, creditsRemaining])
+  @@map("tuition_pack_purchases")
+}
+
+// Tutor Session model - individual tutoring sessions
+model TutorSession {
+  id                 String        @id @default(uuid())
+  tutorProfileId     String        @map("tutor_profile_id")
+  studentId          String        @map("student_id")
+  purchaseId         String?       @map("purchase_id")
+  courseId           String?       @map("course_id")
+  scheduledAt        DateTime      @map("scheduled_at") // Session start time (UTC)
+  duration           Int           @default(10) // minutes
+  status             SessionStatus @default(SCHEDULED)
+  creditsConsumed    Int           @default(1) @map("credits_consumed") // Credits deducted for this session
+  creditsRefunded    Boolean       @default(false) @map("credits_refunded") // True if credits were refunded on cancellation
+  meetingUrl         String?       @map("meeting_url") // Google Meet URL
+  meetingId          String?       @map("meeting_id")  // Google Meet ID
+  topic              String?       // What student wants to discuss
+  tutorNotes         String?       @db.Text @map("tutor_notes")
+  studentNotes       String?       @db.Text @map("student_notes")
+  rating             Int?          // 1-5 rating by student
+  feedback           String?       @db.Text
+  startedAt          DateTime?     @map("started_at")
+  endedAt            DateTime?     @map("ended_at")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  cancelledBy        String?       @map("cancelled_by") // 'tutor' or 'student'
+  cancellationReason String?       @map("cancellation_reason")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  tutorProfile       TutorProfile           @relation(fields: [tutorProfileId], references: [id])
+  student            User                   @relation("StudentSessions", fields: [studentId], references: [id])
+  purchase           TuitionPackPurchase?   @relation(fields: [purchaseId], references: [id])
+  course             Course?                @relation(fields: [courseId], references: [id])
+
+  @@index([tutorProfileId, status])
+  @@index([studentId, status])
+  @@index([scheduledAt])
+  @@map("tutor_sessions")
 }

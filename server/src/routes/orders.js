@@ -247,6 +247,7 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
               courses: true,
             },
           },
+          tuitionPack: true,
         },
       });
 
@@ -387,6 +388,31 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
               console.error(`edX enrollment failed for course ${item.courseId}:`, edxError);
             }
           }
+        }
+
+        // If it's a tuition pack
+        if (item.tuitionPackId && item.tuitionPack) {
+          const pack = item.tuitionPack;
+
+          // Calculate expiry date based on validity period
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + pack.validityDays);
+
+          // Create tuition pack purchase
+          await req.prisma.tuitionPackPurchase.create({
+            data: {
+              userId: req.user.id,
+              tuitionPackId: item.tuitionPackId,
+              orderId: order.id,
+              creditsTotal: pack.creditsIncluded,
+              creditsUsed: 0,
+              creditsRemaining: pack.creditsIncluded,
+              creditsReserved: 0,
+              expiresAt,
+            },
+          });
+
+          console.log(`Tuition pack purchase created: ${pack.name} (${pack.creditsIncluded} credits) for user ${req.user.id}`);
         }
       }
 

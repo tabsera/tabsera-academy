@@ -1,6 +1,6 @@
 /**
  * File Upload Service
- * Handles image uploads with multer
+ * Handles image and document uploads with multer
  */
 
 const multer = require('multer');
@@ -21,17 +21,36 @@ const ensureDir = (dir) => {
 // Initialize directories
 ensureDir(path.join(UPLOAD_DIR, 'tracks'));
 ensureDir(path.join(UPLOAD_DIR, 'courses'));
+ensureDir(path.join(UPLOAD_DIR, 'certifications'));
 
-// Allowed image types
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+// Allowed file types
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+];
 
-// File filter
-const fileFilter = (req, file, cb) => {
-  if (ALLOWED_TYPES.includes(file.mimetype)) {
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_DOCUMENT_SIZE = 25 * 1024 * 1024; // 25MB
+
+// File filter for images
+const imageFileFilter = (req, file, cb) => {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'), false);
+  }
+};
+
+// File filter for documents (certifications)
+const documentFileFilter = (req, file, cb) => {
+  if (ALLOWED_DOCUMENT_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.'), false);
   }
 };
 
@@ -50,12 +69,21 @@ const storage = multer.diskStorage({
   },
 });
 
-// Multer upload instance
+// Multer upload instance for images
 const upload = multer({
   storage,
-  fileFilter,
+  fileFilter: imageFileFilter,
   limits: {
-    fileSize: MAX_FILE_SIZE,
+    fileSize: MAX_IMAGE_SIZE,
+  },
+});
+
+// Multer upload instance for documents (certifications)
+const uploadDocument = multer({
+  storage,
+  fileFilter: documentFileFilter,
+  limits: {
+    fileSize: MAX_DOCUMENT_SIZE,
   },
 });
 
@@ -74,9 +102,27 @@ const deleteFile = (filePath) => {
   return false;
 };
 
+// Get file info
+const getFileInfo = (filePath) => {
+  const fullPath = path.join(UPLOAD_DIR, filePath.replace('/uploads/', ''));
+  if (fs.existsSync(fullPath)) {
+    const stats = fs.statSync(fullPath);
+    return {
+      exists: true,
+      size: stats.size,
+      created: stats.birthtime,
+    };
+  }
+  return { exists: false };
+};
+
 module.exports = {
   upload,
+  uploadDocument,
   getFileUrl,
   deleteFile,
+  getFileInfo,
   UPLOAD_DIR,
+  ALLOWED_DOCUMENT_TYPES,
+  MAX_DOCUMENT_SIZE,
 };

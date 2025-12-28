@@ -285,6 +285,127 @@ export const adminApi = {
   async getCenters() {
     return apiClient.get('/admin/centers');
   },
+
+  // ============================================
+  // TUTOR MANAGEMENT
+  // ============================================
+
+  /**
+   * Get all tutor applications
+   */
+  async getTutors(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get(`/admin/tutors${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Get tutor details
+   */
+  async getTutor(id) {
+    return apiClient.get(`/admin/tutors/${id}`);
+  },
+
+  /**
+   * Get tutor statistics
+   */
+  async getTutorStats() {
+    return apiClient.get('/admin/tutors/stats');
+  },
+
+  /**
+   * Approve a tutor application
+   */
+  async approveTutor(id, options = {}) {
+    return apiClient.post(`/admin/tutors/${id}/approve`, options);
+  },
+
+  /**
+   * Reject a tutor application
+   */
+  async rejectTutor(id, data = {}) {
+    return apiClient.post(`/admin/tutors/${id}/reject`, data);
+  },
+
+  /**
+   * Suspend an active tutor
+   */
+  async suspendTutor(id, data = {}) {
+    return apiClient.post(`/admin/tutors/${id}/suspend`, data);
+  },
+
+  /**
+   * Reactivate a suspended tutor
+   */
+  async reactivateTutor(id) {
+    return apiClient.post(`/admin/tutors/${id}/reactivate`);
+  },
+
+  /**
+   * Add courses to a tutor
+   */
+  async addTutorCourses(tutorId, courseIds, options = {}) {
+    return apiClient.post(`/admin/tutors/${tutorId}/courses`, { courseIds, ...options });
+  },
+
+  /**
+   * Remove a course from a tutor
+   */
+  async removeTutorCourse(tutorId, courseId) {
+    return apiClient.delete(`/admin/tutors/${tutorId}/courses/${courseId}`);
+  },
+
+  // ============================================
+  // TUITION PACKS
+  // ============================================
+
+  /**
+   * Get all tuition packs
+   */
+  async getTuitionPacks() {
+    return apiClient.get('/admin/tuition-packs');
+  },
+
+  /**
+   * Create a tuition pack
+   */
+  async createTuitionPack(data) {
+    return apiClient.post('/admin/tuition-packs', data);
+  },
+
+  /**
+   * Update a tuition pack
+   */
+  async updateTuitionPack(id, data) {
+    return apiClient.put(`/admin/tuition-packs/${id}`, data);
+  },
+
+  /**
+   * Delete a tuition pack
+   */
+  async deleteTuitionPack(id) {
+    return apiClient.delete(`/admin/tuition-packs/${id}`);
+  },
+
+  /**
+   * Assign tuition pack to a student
+   */
+  async assignTuitionPack(packId, userId, notes) {
+    return apiClient.post(`/admin/tuition-packs/${packId}/assign`, { userId, notes });
+  },
+
+  /**
+   * Get tuition pack purchases
+   */
+  async getTuitionPurchases(params = {}) {
+    return apiClient.get('/admin/tuition-purchases', params);
+  },
+
+  /**
+   * Get tuition purchase statistics
+   */
+  async getTuitionPurchasesStats() {
+    return apiClient.get('/admin/tuition-purchases/stats');
+  },
 };
 
 export default adminApi;

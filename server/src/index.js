@@ -49,6 +49,8 @@ const enrollmentsRoutes = require('./routes/enrollments');
 const edxRoutes = require('./routes/edx');
 const uploadRoutes = require('./routes/upload');
 const centersRoutes = require('./routes/centers');
+const countriesRoutes = require('./routes/countries');
+const tutorsRoutes = require('./routes/tutors');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -61,6 +63,8 @@ app.use('/api/enrollments', enrollmentsRoutes);
 app.use('/api/edx', edxRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/centers', centersRoutes);
+app.use('/api/countries', countriesRoutes);
+app.use('/api/tutors', tutorsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

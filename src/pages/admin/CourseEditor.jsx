@@ -33,6 +33,7 @@ function CourseEditor() {
     description: '',
     trackId: '',
     price: 0,
+    creditsFactor: 1,
     duration: '',
     level: '',
     lessons: 0,
@@ -65,6 +66,7 @@ function CourseEditor() {
             description: courseRes.course.description || '',
             trackId: courseRes.course.trackId || '',
             price: parseFloat(courseRes.course.price) || 0,
+            creditsFactor: courseRes.course.creditsFactor || 1,
             duration: courseRes.course.duration || '',
             level: courseRes.course.level || '',
             lessons: courseRes.course.lessons || 0,
@@ -367,7 +369,7 @@ function CourseEditor() {
                 type="text"
                 value={formData.externalUrl}
                 onChange={(e) => handleChange('externalUrl', e.target.value)}
-                placeholder="https://apps.cambridge.tabsera.com/learning/course/..."
+                placeholder="https://apps.learn.tabsera.com/learning/course/..."
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <p className="text-sm text-gray-500 mt-2">
@@ -397,6 +399,24 @@ function CourseEditor() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tuition Credits Factor
+                </label>
+                <select
+                  value={formData.creditsFactor}
+                  onChange={(e) => handleChange('creditsFactor', parseInt(e.target.value))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={1}>1x (Standard)</option>
+                  <option value={2}>2x (Intensive)</option>
+                  <option value={3}>3x (Premium)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Multiplier for tuition credits consumed per tutoring session</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Duration
