@@ -9,6 +9,8 @@ const crypto = require('crypto');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sanitizeDescription } = require('../utils/sanitize');
 const { sendTemplatedEmail } = require('../services/email');
+const recordingPipeline = require('../services/recordingPipeline');
+const vimeoService = require('../services/vimeo');
 
 const router = express.Router();
 
@@ -561,14 +563,20 @@ router.post('/courses/sync-edx', async (req, res, next) => {
 });
 
 // ============================================
-// TRACKS MANAGEMENT
+// LEARNING PACKS MANAGEMENT
 // ============================================
 
 /**
- * Calculate track price from courses with discount
+ * Calculate learning pack price from courses and tuition packs with discount
  */
-const calculateTrackPrice = (courses, discountPercentage) => {
-  const originalPrice = courses.reduce((sum, course) => sum + parseFloat(course.price || 0), 0);
+const calculatePackPrice = (courses, tuitionPacks, discountPercentage) => {
+  const coursesTotal = courses.reduce((sum, course) => sum + parseFloat(course.price || 0), 0);
+  const tuitionTotal = (tuitionPacks || []).reduce((sum, tp) => {
+    const packPrice = parseFloat(tp.tuitionPack?.price || 0);
+    const quantity = tp.quantity || 1;
+    return sum + (packPrice * quantity);
+  }, 0);
+  const originalPrice = coursesTotal + tuitionTotal;
   const discount = parseFloat(discountPercentage || 0);
   const discountedPrice = originalPrice * (1 - discount / 100);
   return {
@@ -579,10 +587,10 @@ const calculateTrackPrice = (courses, discountPercentage) => {
 };
 
 /**
- * GET /api/admin/tracks
- * Get all tracks (including inactive) with pagination
+ * GET /api/admin/packs
+ * Get all learning packs (including inactive) with pagination
  */
-router.get('/tracks', async (req, res, next) => {
+router.get('/packs', async (req, res, next) => {
   try {
     const {
       search,
@@ -605,12 +613,19 @@ router.get('/tracks', async (req, res, next) => {
       }),
     };
 
-    const [tracks, total] = await Promise.all([
-      req.prisma.track.findMany({
+    const [packs, total] = await Promise.all([
+      req.prisma.learningPack.findMany({
         where,
         include: {
           courses: {
             select: { id: true, title: true, price: true },
+          },
+          tuitionPacks: {
+            include: {
+              tuitionPack: {
+                select: { id: true, name: true, price: true, creditsIncluded: true },
+              },
+            },
           },
           _count: {
             select: { courses: true, enrollments: true, orderItems: true },
@@ -620,29 +635,34 @@ router.get('/tracks', async (req, res, next) => {
         take: parseInt(limit),
         skip: parseInt(offset),
       }),
-      req.prisma.track.count({ where }),
+      req.prisma.learningPack.count({ where }),
     ]);
 
     // Transform to include stats and calculated prices
-    const tracksWithStats = tracks.map(track => {
-      const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+    const packsWithStats = packs.map(pack => {
+      const pricing = calculatePackPrice(pack.courses, pack.tuitionPacks, pack.discountPercentage);
       return {
-        ...track,
-        coursesCount: track._count.courses,
-        enrollmentCount: track._count.enrollments,
-        orderCount: track._count.orderItems,
+        ...pack,
+        coursesCount: pack._count.courses,
+        tuitionPacksCount: pack.tuitionPacks.length,
+        enrollmentCount: pack._count.enrollments,
+        orderCount: pack._count.orderItems,
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
-        // Keep course IDs and titles for display and editing
-        courses: track.courses.map(c => ({ id: c.id, title: c.title })),
+        courses: pack.courses.map(c => ({ id: c.id, title: c.title })),
+        tuitionPacks: pack.tuitionPacks.map(tp => ({
+          id: tp.tuitionPack.id,
+          name: tp.tuitionPack.name,
+          quantity: tp.quantity,
+        })),
         _count: undefined,
       };
     });
 
     res.json({
       success: true,
-      tracks: tracksWithStats,
+      packs: packsWithStats,
       total,
       limit: parseInt(limit),
       offset: parseInt(offset),
@@ -653,14 +673,14 @@ router.get('/tracks', async (req, res, next) => {
 });
 
 /**
- * GET /api/admin/tracks/:id
- * Get track by ID with all courses
+ * GET /api/admin/packs/:id
+ * Get learning pack by ID with all courses and tuition packs
  */
-router.get('/tracks/:id', async (req, res, next) => {
+router.get('/packs/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const track = await req.prisma.track.findFirst({
+    const pack = await req.prisma.learningPack.findFirst({
       where: {
         OR: [{ id }, { slug: id }],
       },
@@ -668,28 +688,37 @@ router.get('/tracks/:id', async (req, res, next) => {
         courses: {
           orderBy: { createdAt: 'asc' },
         },
+        tuitionPacks: {
+          include: {
+            tuitionPack: true,
+          },
+        },
         _count: {
           select: { enrollments: true, orderItems: true },
         },
       },
     });
 
-    if (!track) {
-      return res.status(404).json({ message: 'Track not found' });
+    if (!pack) {
+      return res.status(404).json({ message: 'Learning pack not found' });
     }
 
-    // Calculate price from courses
-    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+    // Calculate price from courses and tuition packs
+    const pricing = calculatePackPrice(pack.courses, pack.tuitionPacks, pack.discountPercentage);
 
     res.json({
       success: true,
-      track: {
-        ...track,
-        enrollmentCount: track._count.enrollments,
-        orderCount: track._count.orderItems,
+      pack: {
+        ...pack,
+        enrollmentCount: pack._count.enrollments,
+        orderCount: pack._count.orderItems,
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
+        tuitionPacks: pack.tuitionPacks.map(tp => ({
+          ...tp.tuitionPack,
+          quantity: tp.quantity,
+        })),
         _count: undefined,
       },
     });
@@ -699,10 +728,10 @@ router.get('/tracks/:id', async (req, res, next) => {
 });
 
 /**
- * POST /api/admin/tracks
- * Create a new track
+ * POST /api/admin/packs
+ * Create a new learning pack
  */
-router.post('/tracks', async (req, res, next) => {
+router.post('/packs', async (req, res, next) => {
   try {
     const {
       title,
@@ -713,6 +742,7 @@ router.post('/tracks', async (req, res, next) => {
       level,
       image,
       isActive = true,
+      tuitionPackIds = [], // Array of { tuitionPackId, quantity }
     } = req.body;
 
     // Validate required fields
@@ -731,17 +761,17 @@ router.post('/tracks', async (req, res, next) => {
     }
 
     // Check for duplicate slug
-    const existing = await req.prisma.track.findUnique({
+    const existing = await req.prisma.learningPack.findUnique({
       where: { slug },
     });
 
     if (existing) {
       return res.status(400).json({
-        message: 'A track with this slug already exists',
+        message: 'A learning pack with this slug already exists',
       });
     }
 
-    const track = await req.prisma.track.create({
+    const pack = await req.prisma.learningPack.create({
       data: {
         title,
         slug,
@@ -751,10 +781,21 @@ router.post('/tracks', async (req, res, next) => {
         level,
         image,
         isActive,
+        tuitionPacks: {
+          create: tuitionPackIds.map(tp => ({
+            tuitionPackId: tp.tuitionPackId || tp.id,
+            quantity: tp.quantity || 1,
+          })),
+        },
       },
       include: {
         courses: {
           select: { id: true, price: true },
+        },
+        tuitionPacks: {
+          include: {
+            tuitionPack: true,
+          },
         },
         _count: {
           select: { courses: true },
@@ -762,20 +803,21 @@ router.post('/tracks', async (req, res, next) => {
       },
     });
 
-    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+    const pricing = calculatePackPrice(pack.courses, pack.tuitionPacks, pack.discountPercentage);
 
     res.status(201).json({
       success: true,
-      track: {
-        ...track,
-        coursesCount: track._count.courses,
+      pack: {
+        ...pack,
+        coursesCount: pack._count.courses,
+        tuitionPacksCount: pack.tuitionPacks.length,
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
         courses: undefined,
         _count: undefined,
       },
-      message: 'Track created successfully',
+      message: 'Learning pack created successfully',
     });
   } catch (error) {
     next(error);
@@ -783,10 +825,10 @@ router.post('/tracks', async (req, res, next) => {
 });
 
 /**
- * PUT /api/admin/tracks/:id
- * Update a track
+ * PUT /api/admin/packs/:id
+ * Update a learning pack
  */
-router.put('/tracks/:id', async (req, res, next) => {
+router.put('/packs/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
@@ -798,15 +840,16 @@ router.put('/tracks/:id', async (req, res, next) => {
       level,
       image,
       isActive,
+      tuitionPackIds, // Array of { tuitionPackId, quantity }
     } = req.body;
 
-    // Check if track exists
-    const existing = await req.prisma.track.findUnique({
+    // Check if pack exists
+    const existing = await req.prisma.learningPack.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ message: 'Track not found' });
+      return res.status(404).json({ message: 'Learning pack not found' });
     }
 
     // Validate discount percentage if provided
@@ -821,18 +864,34 @@ router.put('/tracks/:id', async (req, res, next) => {
 
     // Check for duplicate slug (if slug is being changed)
     if (slug && slug !== existing.slug) {
-      const slugExists = await req.prisma.track.findUnique({
+      const slugExists = await req.prisma.learningPack.findUnique({
         where: { slug },
       });
 
       if (slugExists) {
         return res.status(400).json({
-          message: 'A track with this slug already exists',
+          message: 'A learning pack with this slug already exists',
         });
       }
     }
 
-    const track = await req.prisma.track.update({
+    // Update tuition packs if provided
+    if (tuitionPackIds !== undefined) {
+      await req.prisma.learningPackTuitionPack.deleteMany({
+        where: { learningPackId: id },
+      });
+      if (tuitionPackIds.length > 0) {
+        await req.prisma.learningPackTuitionPack.createMany({
+          data: tuitionPackIds.map(tp => ({
+            learningPackId: id,
+            tuitionPackId: tp.tuitionPackId || tp.id,
+            quantity: tp.quantity || 1,
+          })),
+        });
+      }
+    }
+
+    const pack = await req.prisma.learningPack.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
@@ -846,27 +905,33 @@ router.put('/tracks/:id', async (req, res, next) => {
       },
       include: {
         courses: true,
+        tuitionPacks: {
+          include: {
+            tuitionPack: true,
+          },
+        },
         _count: {
           select: { enrollments: true, orderItems: true },
         },
       },
     });
 
-    const pricing = calculateTrackPrice(track.courses, track.discountPercentage);
+    const pricing = calculatePackPrice(pack.courses, pack.tuitionPacks, pack.discountPercentage);
 
     res.json({
       success: true,
-      track: {
-        ...track,
-        coursesCount: track.courses.length,
-        enrollmentCount: track._count.enrollments,
-        orderCount: track._count.orderItems,
+      pack: {
+        ...pack,
+        coursesCount: pack.courses.length,
+        tuitionPacksCount: pack.tuitionPacks.length,
+        enrollmentCount: pack._count.enrollments,
+        orderCount: pack._count.orderItems,
         price: pricing.price,
         originalPrice: pricing.originalPrice,
         savings: pricing.savings,
         _count: undefined,
       },
-      message: 'Track updated successfully',
+      message: 'Learning pack updated successfully',
     });
   } catch (error) {
     next(error);
@@ -874,15 +939,15 @@ router.put('/tracks/:id', async (req, res, next) => {
 });
 
 /**
- * DELETE /api/admin/tracks/:id
- * Delete a track
+ * DELETE /api/admin/packs/:id
+ * Delete a learning pack
  */
-router.delete('/tracks/:id', async (req, res, next) => {
+router.delete('/packs/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Check if track exists
-    const existing = await req.prisma.track.findUnique({
+    // Check if pack exists
+    const existing = await req.prisma.learningPack.findUnique({
       where: { id },
       include: {
         _count: {
@@ -892,31 +957,36 @@ router.delete('/tracks/:id', async (req, res, next) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ message: 'Track not found' });
+      return res.status(404).json({ message: 'Learning pack not found' });
     }
 
     // Check for dependencies
     if (existing._count.enrollments > 0 || existing._count.orderItems > 0) {
       return res.status(400).json({
-        message: 'Cannot delete track with existing enrollments or orders. Consider deactivating instead.',
+        message: 'Cannot delete learning pack with existing enrollments or orders. Consider deactivating instead.',
       });
     }
 
-    // Remove track association from courses first
+    // Remove pack association from courses first
     if (existing._count.courses > 0) {
       await req.prisma.course.updateMany({
-        where: { trackId: id },
-        data: { trackId: null },
+        where: { learningPackId: id },
+        data: { learningPackId: null },
       });
     }
 
-    await req.prisma.track.delete({
+    // Delete tuition pack associations
+    await req.prisma.learningPackTuitionPack.deleteMany({
+      where: { learningPackId: id },
+    });
+
+    await req.prisma.learningPack.delete({
       where: { id },
     });
 
     res.json({
       success: true,
-      message: 'Track deleted successfully',
+      message: 'Learning pack deleted successfully',
     });
   } catch (error) {
     next(error);
@@ -924,51 +994,56 @@ router.delete('/tracks/:id', async (req, res, next) => {
 });
 
 /**
- * PUT /api/admin/tracks/:id/courses
- * Update courses assigned to a track
+ * PUT /api/admin/packs/:id/courses
+ * Update courses assigned to a learning pack
  */
-router.put('/tracks/:id/courses', async (req, res, next) => {
+router.put('/packs/:id/courses', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { courseIds } = req.body;
 
-    // Check if track exists
-    const existing = await req.prisma.track.findUnique({
+    // Check if pack exists
+    const existing = await req.prisma.learningPack.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ message: 'Track not found' });
+      return res.status(404).json({ message: 'Learning pack not found' });
     }
 
-    // Remove track from all courses currently in this track
+    // Remove pack from all courses currently in this pack
     await req.prisma.course.updateMany({
-      where: { trackId: id },
-      data: { trackId: null },
+      where: { learningPackId: id },
+      data: { learningPackId: null },
     });
 
-    // Assign new courses to the track
+    // Assign new courses to the pack
     if (courseIds && courseIds.length > 0) {
       await req.prisma.course.updateMany({
         where: { id: { in: courseIds } },
-        data: { trackId: id },
+        data: { learningPackId: id },
       });
     }
 
-    // Fetch updated track with courses
-    const track = await req.prisma.track.findUnique({
+    // Fetch updated pack with courses
+    const pack = await req.prisma.learningPack.findUnique({
       where: { id },
       include: {
         courses: {
           orderBy: { createdAt: 'asc' },
+        },
+        tuitionPacks: {
+          include: {
+            tuitionPack: true,
+          },
         },
       },
     });
 
     res.json({
       success: true,
-      track,
-      message: 'Track courses updated successfully',
+      pack,
+      message: 'Learning pack courses updated successfully',
     });
   } catch (error) {
     next(error);
@@ -976,46 +1051,112 @@ router.put('/tracks/:id/courses', async (req, res, next) => {
 });
 
 /**
- * POST /api/admin/tracks/:id/duplicate
- * Duplicate a track
+ * PUT /api/admin/packs/:id/tuition-packs
+ * Update tuition packs assigned to a learning pack
  */
-router.post('/tracks/:id/duplicate', async (req, res, next) => {
+router.put('/packs/:id/tuition-packs', async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { tuitionPackIds } = req.body; // Array of { tuitionPackId, quantity }
 
-    const existing = await req.prisma.track.findUnique({
+    // Check if pack exists
+    const existing = await req.prisma.learningPack.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      return res.status(404).json({ message: 'Track not found' });
+      return res.status(404).json({ message: 'Learning pack not found' });
+    }
+
+    // Remove all current tuition pack associations
+    await req.prisma.learningPackTuitionPack.deleteMany({
+      where: { learningPackId: id },
+    });
+
+    // Add new tuition pack associations
+    if (tuitionPackIds && tuitionPackIds.length > 0) {
+      await req.prisma.learningPackTuitionPack.createMany({
+        data: tuitionPackIds.map(tp => ({
+          learningPackId: id,
+          tuitionPackId: tp.tuitionPackId || tp.id,
+          quantity: tp.quantity || 1,
+        })),
+      });
+    }
+
+    // Fetch updated pack
+    const pack = await req.prisma.learningPack.findUnique({
+      where: { id },
+      include: {
+        courses: true,
+        tuitionPacks: {
+          include: {
+            tuitionPack: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      pack,
+      message: 'Learning pack tuition packs updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/packs/:id/duplicate
+ * Duplicate a learning pack
+ */
+router.post('/packs/:id/duplicate', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await req.prisma.learningPack.findUnique({
+      where: { id },
+      include: {
+        tuitionPacks: true,
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Learning pack not found' });
     }
 
     // Generate unique slug
     let newSlug = `${existing.slug}-copy`;
     let counter = 1;
-    while (await req.prisma.track.findUnique({ where: { slug: newSlug } })) {
+    while (await req.prisma.learningPack.findUnique({ where: { slug: newSlug } })) {
       newSlug = `${existing.slug}-copy-${counter}`;
       counter++;
     }
 
-    const track = await req.prisma.track.create({
+    const pack = await req.prisma.learningPack.create({
       data: {
         title: `${existing.title} (Copy)`,
         slug: newSlug,
         description: existing.description,
-        price: existing.price,
+        discountPercentage: existing.discountPercentage,
         duration: existing.duration,
         level: existing.level,
         image: existing.image,
         isActive: false, // Start as inactive
+        tuitionPacks: {
+          create: existing.tuitionPacks.map(tp => ({
+            tuitionPackId: tp.tuitionPackId,
+            quantity: tp.quantity,
+          })),
+        },
       },
     });
 
     res.status(201).json({
       success: true,
-      track,
-      message: 'Track duplicated successfully',
+      pack,
+      message: 'Learning pack duplicated successfully',
     });
   } catch (error) {
     next(error);
@@ -1035,8 +1176,8 @@ router.get('/stats', async (req, res, next) => {
     const [
       totalCourses,
       activeCourses,
-      totalTracks,
-      activeTracks,
+      totalPacks,
+      activePacks,
       totalEnrollments,
       totalOrders,
       totalRevenue,
@@ -1044,8 +1185,8 @@ router.get('/stats', async (req, res, next) => {
     ] = await Promise.all([
       req.prisma.course.count(),
       req.prisma.course.count({ where: { isActive: true } }),
-      req.prisma.track.count(),
-      req.prisma.track.count({ where: { isActive: true } }),
+      req.prisma.learningPack.count(),
+      req.prisma.learningPack.count({ where: { isActive: true } }),
       req.prisma.enrollment.count(),
       req.prisma.order.count({ where: { status: 'COMPLETED' } }),
       req.prisma.order.aggregate({
@@ -1077,10 +1218,10 @@ router.get('/stats', async (req, res, next) => {
           active: activeCourses,
           inactive: totalCourses - activeCourses,
         },
-        tracks: {
-          total: totalTracks,
-          active: activeTracks,
-          inactive: totalTracks - activeTracks,
+        packs: {
+          total: totalPacks,
+          active: activePacks,
+          inactive: totalPacks - activePacks,
         },
         enrollments: totalEnrollments,
         orders: totalOrders,
@@ -3410,6 +3551,271 @@ router.get('/tuition-purchases/stats', async (req, res, next) => {
         usedCredits: creditStats._sum.creditsUsed || 0,
         remainingCredits: creditStats._sum.creditsRemaining || 0,
         reservedCredits: creditStats._sum.creditsReserved || 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// RECORDINGS MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/recordings
+ * List all session recordings with filters
+ */
+router.get('/recordings', async (req, res, next) => {
+  try {
+    const {
+      status,
+      tutorId,
+      studentId,
+      dateFrom,
+      dateTo,
+      search,
+      limit = 50,
+      offset = 0,
+    } = req.query;
+
+    const where = {
+      // Only sessions that have recording info
+      OR: [
+        { recordingStatus: { not: null } },
+        { vimeoVideoId: { not: null } },
+      ],
+    };
+
+    if (status) {
+      where.recordingStatus = status;
+    }
+
+    if (tutorId) {
+      where.tutorProfileId = tutorId;
+    }
+
+    if (studentId) {
+      where.studentId = studentId;
+    }
+
+    if (dateFrom || dateTo) {
+      where.scheduledAt = {};
+      if (dateFrom) {
+        where.scheduledAt.gte = new Date(dateFrom);
+      }
+      if (dateTo) {
+        where.scheduledAt.lte = new Date(dateTo);
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { topic: { contains: search, mode: 'insensitive' } },
+        { tutorProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
+        { student: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [recordings, total] = await Promise.all([
+      req.prisma.tutorSession.findMany({
+        where,
+        include: {
+          tutorProfile: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+          student: {
+            select: { id: true, name: true, email: true },
+          },
+          course: {
+            select: { id: true, title: true },
+          },
+        },
+        orderBy: { scheduledAt: 'desc' },
+        skip: parseInt(offset),
+        take: parseInt(limit),
+      }),
+      req.prisma.tutorSession.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      recordings: recordings.map(r => ({
+        sessionId: r.id,
+        scheduledAt: r.scheduledAt,
+        topic: r.topic,
+        duration: r.duration,
+        recordingStatus: r.recordingStatus,
+        recordingDuration: r.recordingDuration,
+        vimeoVideoId: r.vimeoVideoId,
+        vimeoVideoUrl: r.vimeoVideoUrl,
+        tutor: r.tutorProfile?.user,
+        student: r.student,
+        course: r.course,
+      })),
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/recordings/:sessionId
+ * Get recording details for a specific session
+ */
+router.get('/recordings/:sessionId', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const recording = await recordingPipeline.getRecordingDetails(sessionId);
+
+    if (!recording) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recording not found',
+      });
+    }
+
+    // If recording is on Vimeo, get additional details
+    if (recording.vimeoVideoId) {
+      try {
+        const vimeoStatus = await vimeoService.getVideoStatus(recording.vimeoVideoId);
+        recording.vimeoStatus = vimeoStatus.status;
+        recording.videoDimensions = {
+          width: vimeoStatus.width,
+          height: vimeoStatus.height,
+        };
+      } catch (e) {
+        // Vimeo details not available
+      }
+    }
+
+    res.json({
+      success: true,
+      recording,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/recordings/:sessionId
+ * Delete a recording (from Vimeo and database)
+ */
+router.delete('/recordings/:sessionId', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const result = await recordingPipeline.deleteRecording(sessionId);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.error || 'Failed to delete recording',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Recording deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/recordings/:sessionId/retry
+ * Retry failed recording upload to Vimeo
+ */
+router.post('/recordings/:sessionId/retry', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    if (session.recordingStatus !== 'failed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only failed recordings can be retried',
+      });
+    }
+
+    // Reset status to pending for retry
+    await req.prisma.tutorSession.update({
+      where: { id: sessionId },
+      data: { recordingStatus: 'pending' },
+    });
+
+    // Note: In production, you would need to re-trigger the S3 to Vimeo upload
+    // This would require storing the S3 URL or having a way to locate the file
+
+    res.json({
+      success: true,
+      message: 'Recording marked for retry',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/recordings/stats
+ * Get recording statistics
+ */
+router.get('/recordings/stats', async (req, res, next) => {
+  try {
+    const [
+      totalRecordings,
+      completedRecordings,
+      failedRecordings,
+      processingRecordings,
+      totalDuration,
+    ] = await Promise.all([
+      req.prisma.tutorSession.count({
+        where: { recordingStatus: { not: null } },
+      }),
+      req.prisma.tutorSession.count({
+        where: { recordingStatus: 'completed' },
+      }),
+      req.prisma.tutorSession.count({
+        where: { recordingStatus: 'failed' },
+      }),
+      req.prisma.tutorSession.count({
+        where: { recordingStatus: { in: ['recording', 'processing', 'pending'] } },
+      }),
+      req.prisma.tutorSession.aggregate({
+        where: { recordingStatus: 'completed' },
+        _sum: { recordingDuration: true },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalRecordings,
+        completedRecordings,
+        failedRecordings,
+        processingRecordings,
+        totalDurationSeconds: totalDuration._sum.recordingDuration || 0,
+        totalDurationHours: Math.round((totalDuration._sum.recordingDuration || 0) / 3600 * 10) / 10,
       },
     });
   } catch (error) {

@@ -5,7 +5,10 @@
 
 const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { uploadDocument, getFileUrl, deleteFile } = require('../services/upload');
+const { upload, uploadDocument, getFileUrl, deleteFile } = require('../services/upload');
+const { createMeetSession, cancelMeetSession } = require('../services/googleMeet');
+const livekitService = require('../services/livekit');
+const recordingPipeline = require('../services/recordingPipeline');
 
 const router = express.Router();
 
@@ -299,6 +302,69 @@ router.delete('/certifications/:id', authenticate, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// ============================================
+// AVATAR UPLOAD
+// ============================================
+
+/**
+ * POST /api/tutors/avatar
+ * Upload or update tutor avatar photo
+ */
+router.post('/avatar', authenticate, (req, res, next) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 5MB.',
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Upload failed',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+    }
+
+    try {
+      const avatarUrl = getFileUrl('avatars', req.file.filename);
+
+      // Get current user to check for existing avatar
+      const user = await req.prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { avatar: true },
+      });
+
+      // Delete old avatar if exists
+      if (user.avatar) {
+        deleteFile(user.avatar);
+      }
+
+      // Update user's avatar
+      await req.prisma.user.update({
+        where: { id: req.user.id },
+        data: { avatar: avatarUrl },
+      });
+
+      res.json({
+        success: true,
+        avatarUrl,
+        message: 'Avatar uploaded successfully',
+      });
+    } catch (error) {
+      // Delete uploaded file on error
+      deleteFile(getFileUrl('avatars', req.file.filename));
+      next(error);
+    }
+  });
 });
 
 // ============================================
@@ -1002,6 +1068,17 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
       });
     }
 
+    // Get student and tutor emails for meeting invite
+    const student = await req.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { email: true, firstName: true },
+    });
+
+    const tutorUser = await req.prisma.user.findUnique({
+      where: { id: tutor.userId },
+      select: { email: true, firstName: true },
+    });
+
     // Reserve credits and create session
     const session = await req.prisma.$transaction(async (prisma) => {
       // Update purchase - reserve credits
@@ -1013,7 +1090,7 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
         },
       });
 
-      // Create session
+      // Create session first to get the ID
       const newSession = await prisma.tutorSession.create({
         data: {
           tutorProfileId,
@@ -1038,6 +1115,33 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
 
       return newSession;
     });
+
+    // Generate meeting link (async, non-blocking)
+    try {
+      const meetingInfo = await createMeetSession({
+        tutorEmail: tutorUser.email,
+        studentEmail: student.email,
+        scheduledAt: scheduledTime,
+        duration: 10,
+        topic: topic || `Tutoring with ${tutorUser.firstName}`,
+        sessionId: session.id,
+      });
+
+      // Update session with meeting URL
+      if (meetingInfo.meetingUrl) {
+        await req.prisma.tutorSession.update({
+          where: { id: session.id },
+          data: {
+            meetingUrl: meetingInfo.meetingUrl,
+            meetingId: meetingInfo.meetingId,
+          },
+        });
+        session.meetingUrl = meetingInfo.meetingUrl;
+      }
+    } catch (meetError) {
+      console.error('Failed to create meeting link:', meetError.message);
+      // Continue without meeting link - can be added later
+    }
 
     res.status(201).json({
       success: true,
@@ -1173,6 +1277,457 @@ router.get('/student/credits', authenticate, async (req, res, next) => {
         isExpired: p.expiresAt <= now,
         isActive: p.creditsRemaining > 0 && p.expiresAt > now,
       })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/sessions/:id/rate
+ * Rate a completed session
+ */
+router.post('/sessions/:id/rate', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, feedback } = req.body;
+    const userId = req.user.id;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5',
+      });
+    }
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: { tutorProfile: true },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Only the student can rate
+    if (session.studentId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the student can rate this session',
+      });
+    }
+
+    // Only completed sessions can be rated
+    if (session.status !== 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only completed sessions can be rated',
+      });
+    }
+
+    // Check if already rated
+    if (session.rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session has already been rated',
+      });
+    }
+
+    // Update session with rating
+    const updated = await req.prisma.tutorSession.update({
+      where: { id },
+      data: {
+        rating: parseInt(rating),
+        feedback: feedback || null,
+        ratedAt: new Date(),
+      },
+    });
+
+    // Recalculate tutor's average rating
+    const stats = await req.prisma.tutorSession.aggregate({
+      where: {
+        tutorProfileId: session.tutorProfileId,
+        rating: { not: null },
+      },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    await req.prisma.tutorProfile.update({
+      where: { id: session.tutorProfileId },
+      data: {
+        avgRating: stats._avg.rating || 0,
+        totalReviews: stats._count.rating || 0,
+      },
+    });
+
+    res.json({
+      success: true,
+      session: updated,
+      message: 'Thank you for your feedback!',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// LIVEKIT VIDEO SESSION ENDPOINTS
+// ============================================
+
+/**
+ * POST /api/tutors/sessions/:id/join
+ * Join a session - creates LiveKit room and returns access token
+ */
+router.post('/sessions/:id/join', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: {
+          include: { user: true },
+        },
+        student: true,
+        course: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Check if user is tutor or student of this session
+    const isTutor = session.tutorProfile?.userId === userId;
+    const isStudent = session.studentId === userId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to join this session',
+      });
+    }
+
+    // Check session status
+    if (session.status === 'CANCELLED') {
+      return res.status(400).json({
+        success: false,
+        message: 'This session has been cancelled',
+      });
+    }
+
+    if (session.status === 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        message: 'This session has already ended',
+      });
+    }
+
+    // Check if it's time to join (allow 10 minutes early)
+    const now = new Date();
+    const sessionStart = new Date(session.scheduledAt);
+    const earlyJoinWindow = 10 * 60 * 1000; // 10 minutes
+
+    if (now < new Date(sessionStart.getTime() - earlyJoinWindow)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session has not started yet. You can join 10 minutes before the scheduled time.',
+      });
+    }
+
+    // Create or get the room
+    let roomName = session.livekitRoomName;
+    let roomSid = session.livekitRoomSid;
+
+    if (!roomName) {
+      // Create new room
+      const roomResult = await livekitService.createRoom({
+        sessionId: id,
+        tutorName: session.tutorProfile?.user?.name || 'Tutor',
+        studentName: session.student?.name || 'Student',
+        topic: session.topic,
+      });
+
+      roomName = roomResult.roomName;
+      roomSid = roomResult.roomSid;
+
+      // Update session with room info
+      await req.prisma.tutorSession.update({
+        where: { id },
+        data: {
+          livekitRoomName: roomName,
+          livekitRoomSid: roomSid,
+          status: 'IN_PROGRESS',
+          startedAt: session.startedAt || new Date(),
+        },
+      });
+
+      // Start recording if tutor is joining first
+      if (isTutor && livekitService.LIVEKIT_ENABLED) {
+        await recordingPipeline.initializeRecording(id).catch(err => {
+          console.error('Failed to start recording:', err.message);
+        });
+      }
+    }
+
+    // Generate access token
+    const user = isTutor ? session.tutorProfile.user : session.student;
+    const token = livekitService.createAccessToken({
+      roomName,
+      participantId: userId,
+      participantName: user?.name || (isTutor ? 'Tutor' : 'Student'),
+      isTutor,
+    });
+
+    // Get recording status
+    const updatedSession = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      select: { recordingStatus: true },
+    });
+
+    res.json({
+      success: true,
+      token,
+      roomName,
+      wsUrl: livekitService.LIVEKIT_URL,
+      isRecording: updatedSession?.recordingStatus === 'recording',
+      session: {
+        id: session.id,
+        topic: session.topic,
+        duration: session.duration,
+        tutor: {
+          id: session.tutorProfile?.user?.id,
+          name: session.tutorProfile?.user?.name,
+        },
+        student: {
+          id: session.student?.id,
+          name: session.student?.name,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/sessions/:id/leave
+ * Leave a session - stops recording if tutor leaves
+ */
+router.post('/sessions/:id/leave', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { endSession } = req.body;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    const isTutor = session.tutorProfile?.userId === userId;
+
+    // If tutor leaves or explicitly ends session, complete it
+    if (isTutor && endSession) {
+      // Stop recording
+      if (session.recordingEgressId) {
+        await recordingPipeline.stopSessionRecording(id).catch(err => {
+          console.error('Failed to stop recording:', err.message);
+        });
+      }
+
+      // Close the LiveKit room
+      if (session.livekitRoomName) {
+        await livekitService.closeRoom(session.livekitRoomName).catch(err => {
+          console.error('Failed to close room:', err.message);
+        });
+      }
+
+      // Update session status
+      await req.prisma.tutorSession.update({
+        where: { id },
+        data: {
+          status: 'COMPLETED',
+          endedAt: new Date(),
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Session ended successfully',
+      });
+    }
+
+    // Non-ending leave
+    res.json({
+      success: true,
+      message: 'Left session',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/sessions/:id/recording
+ * Get recording details for a session
+ */
+router.get('/sessions/:id/recording', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Check authorization (tutor, student, or admin)
+    const isTutor = session.tutorProfile?.userId === userId;
+    const isStudent = session.studentId === userId;
+    const isAdmin = req.user.role === 'TABSERA_ADMIN';
+
+    if (!isTutor && !isStudent && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view this recording',
+      });
+    }
+
+    // Check if recording exists
+    if (!session.vimeoVideoId && session.recordingStatus !== 'completed') {
+      return res.json({
+        success: true,
+        recording: null,
+        status: session.recordingStatus || 'not_available',
+        message: 'No recording available for this session',
+      });
+    }
+
+    // Get recording details
+    const recording = await recordingPipeline.getRecordingDetails(id);
+
+    res.json({
+      success: true,
+      recording,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/sessions/:id/whiteboard
+ * Save whiteboard snapshot
+ */
+router.post('/sessions/:id/whiteboard', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { snapshot } = req.body;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: { tutorProfile: true },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Only tutor or student can save whiteboard
+    const isTutor = session.tutorProfile?.userId === userId;
+    const isStudent = session.studentId === userId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
+    }
+
+    await req.prisma.tutorSession.update({
+      where: { id },
+      data: { whiteboardSnapshot: snapshot },
+    });
+
+    res.json({
+      success: true,
+      message: 'Whiteboard saved',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/sessions/:id/whiteboard
+ * Get whiteboard snapshot for resuming
+ */
+router.get('/sessions/:id/whiteboard', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      select: {
+        whiteboardSnapshot: true,
+        tutorProfile: { select: { userId: true } },
+        studentId: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Check authorization
+    const isTutor = session.tutorProfile?.userId === userId;
+    const isStudent = session.studentId === userId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
+    }
+
+    res.json({
+      success: true,
+      snapshot: session.whiteboardSnapshot,
     });
   } catch (error) {
     next(error);

@@ -22,6 +22,7 @@ const ensureDir = (dir) => {
 ensureDir(path.join(UPLOAD_DIR, 'tracks'));
 ensureDir(path.join(UPLOAD_DIR, 'courses'));
 ensureDir(path.join(UPLOAD_DIR, 'certifications'));
+ensureDir(path.join(UPLOAD_DIR, 'avatars'));
 
 // Allowed file types
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];

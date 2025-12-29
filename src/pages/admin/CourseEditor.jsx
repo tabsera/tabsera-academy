@@ -21,7 +21,7 @@ function CourseEditor() {
 
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState(null);
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -31,7 +31,7 @@ function CourseEditor() {
     title: '',
     slug: '',
     description: '',
-    trackId: '',
+    learningPackId: '',
     price: 0,
     creditsFactor: 1,
     duration: '',
@@ -52,9 +52,9 @@ function CourseEditor() {
       setLoading(true);
       setError(null);
 
-      // Fetch tracks
-      const tracksRes = await adminApi.getTracks({ limit: 100 });
-      setTracks(tracksRes.tracks || []);
+      // Fetch packs
+      const packsRes = await adminApi.getPacks({ limit: 100 });
+      setPacks(packsRes.packs || []);
 
       // Fetch course if editing
       if (!isNew && id) {
@@ -64,7 +64,7 @@ function CourseEditor() {
             title: courseRes.course.title || '',
             slug: courseRes.course.slug || '',
             description: courseRes.course.description || '',
-            trackId: courseRes.course.trackId || '',
+            learningPackId: courseRes.course.learningPackId || '',
             price: parseFloat(courseRes.course.price) || 0,
             creditsFactor: courseRes.course.creditsFactor || 1,
             duration: courseRes.course.duration || '',
@@ -104,7 +104,7 @@ function CourseEditor() {
       const data = {
         ...formData,
         isActive: publish ? true : formData.isActive,
-        trackId: formData.trackId || null,
+        learningPackId: formData.learningPackId || null,
       };
 
       if (isNew) {
@@ -315,17 +315,17 @@ function CourseEditor() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Learning Track
+                Learning Pack
               </label>
               <div className="relative">
                 <select
-                  value={formData.trackId}
-                  onChange={(e) => handleChange('trackId', e.target.value)}
+                  value={formData.learningPackId}
+                  onChange={(e) => handleChange('learningPackId', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">No Track (Standalone Course)</option>
-                  {tracks.map(track => (
-                    <option key={track.id} value={track.id}>{track.title}</option>
+                  <option value="">No Pack (Standalone Course)</option>
+                  {packs.map(pack => (
+                    <option key={pack.id} value={pack.id}>{pack.title}</option>
                   ))}
                 </select>
                 <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />

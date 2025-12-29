@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 // Routes
 const authRoutes = require('./routes/auth');
 const coursesRoutes = require('./routes/courses');
-const tracksRoutes = require('./routes/tracks');
+const packsRoutes = require('./routes/packs');
 const ordersRoutes = require('./routes/orders');
 const paymentsRoutes = require('./routes/payments');
 const usersRoutes = require('./routes/users');
@@ -51,10 +51,14 @@ const uploadRoutes = require('./routes/upload');
 const centersRoutes = require('./routes/centers');
 const countriesRoutes = require('./routes/countries');
 const tutorsRoutes = require('./routes/tutors');
+const webhooksRoutes = require('./routes/webhooks');
+
+// Webhooks need raw body for signature verification - mount before json middleware
+app.use('/api/webhooks', webhooksRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
-app.use('/api/tracks', tracksRoutes);
+app.use('/api/packs', packsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/users', usersRoutes);

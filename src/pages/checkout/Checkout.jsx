@@ -666,12 +666,12 @@ function Checkout() {
                     {items.map(item => (
                       <div key={`${item.type}-${item.id}`} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                          item.type === ITEM_TYPES.TRACK 
-                            ? 'bg-blue-100' 
+                          item.type === ITEM_TYPES.PACK
+                            ? 'bg-blue-100'
                             : 'bg-purple-100'
                         }`}>
                           <BookOpen size={20} className={
-                            item.type === ITEM_TYPES.TRACK ? 'text-blue-600' : 'text-purple-600'
+                            item.type === ITEM_TYPES.PACK ? 'text-blue-600' : 'text-purple-600'
                           } />
                         </div>
                         <div className="flex-1">

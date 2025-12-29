@@ -1,6 +1,6 @@
 /**
- * Track Enrollment Page
- * Bulk enroll students to a track via CSV upload
+ * Pack Enrollment Page
+ * Bulk enroll students to a learning pack via CSV upload
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -11,14 +11,14 @@ import {
   FileText, Loader2, X, CheckCircle, XCircle, RefreshCw
 } from 'lucide-react';
 
-const TrackEnrollment = () => {
+const PackEnrollment = () => {
   const [step, setStep] = useState(1);
   const [selectedCenter, setSelectedCenter] = useState(null);
-  const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedPack, setSelectedPack] = useState(null);
 
   // Data from API
   const [centers, setCenters] = useState([]);
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -32,7 +32,7 @@ const TrackEnrollment = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [enrollmentResult, setEnrollmentResult] = useState(null);
 
-  // Fetch centers and tracks on mount
+  // Fetch centers and packs on mount
   useEffect(() => {
     fetchData();
   }, []);
@@ -41,12 +41,12 @@ const TrackEnrollment = () => {
     try {
       setLoading(true);
       setError(null);
-      const [centersRes, tracksRes] = await Promise.all([
+      const [centersRes, packsRes] = await Promise.all([
         adminApi.getCenters(),
-        adminApi.getTracks({ status: 'published', limit: 100 })
+        adminApi.getPacks({ status: 'published', limit: 100 })
       ]);
       setCenters(centersRes.centers || []);
-      setTracks(tracksRes.tracks || []);
+      setPacks(packsRes.packs || []);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to load data');
@@ -185,7 +185,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
   };
 
   const handleEnroll = async () => {
-    if (!selectedCenter || !selectedTrack || parsedStudents.length === 0) return;
+    if (!selectedCenter || !selectedPack || parsedStudents.length === 0) return;
 
     try {
       setEnrolling(true);
@@ -193,7 +193,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
 
       const result = await adminApi.bulkEnroll({
         centerId: selectedCenter.id,
-        trackId: selectedTrack.id,
+        learningPackId: selectedPack.id,
         students: parsedStudents,
         sendWelcomeEmail: true,
       });
@@ -214,7 +214,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
   const resetWizard = () => {
     setStep(1);
     setSelectedCenter(null);
-    setSelectedTrack(null);
+    setSelectedPack(null);
     setCsvFile(null);
     setParsedStudents([]);
     setParseError(null);
@@ -258,7 +258,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bulk Enrollment</h1>
-          <p className="text-gray-500">Enroll multiple students to a track at once</p>
+          <p className="text-gray-500">Enroll multiple students to a learning pack at once</p>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
                   {step > s ? <CheckCircle2 size={20} /> : s}
                 </div>
                 <span className={`font-medium hidden sm:block ${step >= s ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {s === 1 ? 'Select Center' : s === 2 ? 'Choose Track' : s === 3 ? 'Upload CSV' : 'Results'}
+                  {s === 1 ? 'Select Center' : s === 2 ? 'Choose Pack' : s === 3 ? 'Upload CSV' : 'Results'}
                 </span>
               </div>
               {i < 3 && <div className={`flex-1 h-1 mx-4 rounded-full ${step > s ? 'bg-blue-600' : 'bg-gray-200'}`} />}
@@ -321,36 +321,37 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
           </div>
         )}
 
-        {/* Step 2: Choose Track */}
+        {/* Step 2: Choose Pack */}
         {step === 2 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900">Choose Track/Program</h3>
+              <h3 className="font-bold text-gray-900">Choose Learning Pack</h3>
               <span className="text-sm text-gray-500">
                 Center: <strong>{selectedCenter?.name}</strong>
               </span>
             </div>
-            {tracks.length === 0 ? (
+            {packs.length === 0 ? (
               <div className="text-center py-8">
                 <FileText size={48} className="text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No tracks available</p>
+                <p className="text-gray-500">No learning packs available</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {tracks.map((track) => (
+                {packs.map((pack) => (
                   <button
-                    key={track.id}
-                    onClick={() => { setSelectedTrack(track); setStep(3); }}
+                    key={pack.id}
+                    onClick={() => { setSelectedPack(pack); setStep(3); }}
                     className={`w-full p-4 rounded-xl border-2 text-left transition-all hover:border-blue-400 ${
-                      selectedTrack?.id === track.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      selectedPack?.id === pack.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold text-gray-900">{track.title}</p>
+                        <p className="font-semibold text-gray-900">{pack.title}</p>
                         <p className="text-sm text-gray-500">
-                          {track._count?.courses || 0} courses
-                          {track.price > 0 && ` • $${parseFloat(track.price).toFixed(2)}`}
+                          {pack._count?.courses || pack.coursesCount || 0} courses
+                          {pack.tuitionPacksCount > 0 && ` + ${pack.tuitionPacksCount} tuition pack${pack.tuitionPacksCount > 1 ? 's' : ''}`}
+                          {pack.price > 0 && ` • $${parseFloat(pack.price).toFixed(2)}`}
                         </p>
                       </div>
                     </div>
@@ -374,7 +375,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
               <h3 className="font-bold text-gray-900">Upload Student List</h3>
               <div className="text-sm text-gray-500 text-right">
                 <div>Center: <strong>{selectedCenter?.name}</strong></div>
-                <div>Track: <strong>{selectedTrack?.title}</strong></div>
+                <div>Pack: <strong>{selectedPack?.title}</strong></div>
               </div>
             </div>
 
@@ -533,7 +534,7 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">Enrollment Complete!</h3>
                   <p className="text-gray-500 mt-2">
-                    Students have been enrolled to <strong>{selectedTrack?.title}</strong>
+                    Students have been enrolled to <strong>{selectedPack?.title}</strong>
                   </p>
                 </div>
 
@@ -609,4 +610,4 @@ Mary,Smith,mary.smith@example.com,Bob Smith,+252612345679,Grade 10B`;
   );
 };
 
-export default TrackEnrollment;
+export default PackEnrollment;

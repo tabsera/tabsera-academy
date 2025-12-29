@@ -37,6 +37,18 @@ export const tutorsApi = {
   // ============================================
 
   /**
+   * Upload avatar photo
+   * @param {File} file - The image file to upload
+   */
+  async uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'avatars');
+
+    return apiClient.upload('/tutors/avatar', formData);
+  },
+
+  /**
    * Upload a certification document
    * @param {File} file - The file to upload
    * @param {Object} data - Certification data (title, institution)
@@ -140,6 +152,101 @@ export const tutorsApi = {
     const params = new URLSearchParams({ date });
     if (studentTimezone) params.append('studentTimezone', studentTimezone);
     return apiClient.get(`/tutors/${tutorId}/slots?${params}`);
+  },
+
+  // ============================================
+  // STUDENT: SESSION BOOKING
+  // ============================================
+
+  /**
+   * Book a session with a tutor
+   * @param {string} tutorId - Tutor's ID
+   * @param {Object} data - Booking data { scheduledAt, courseId?, topic? }
+   */
+  async bookSession(tutorId, data) {
+    return apiClient.post(`/tutors/${tutorId}/book`, data);
+  },
+
+  /**
+   * Cancel a booked session
+   * @param {string} sessionId - Session ID to cancel
+   */
+  async cancelSession(sessionId) {
+    return apiClient.patch(`/tutors/sessions/${sessionId}/cancel`);
+  },
+
+  /**
+   * Get student's tuition credit summary
+   */
+  async getStudentCredits() {
+    return apiClient.get('/tutors/student/credits');
+  },
+
+  /**
+   * Get student's tutoring sessions
+   * @param {Object} params - Query params { status?, upcoming? }
+   */
+  async getStudentSessions(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get(`/tutors/student/sessions${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Rate a completed session
+   * @param {string} sessionId - Session ID
+   * @param {Object} data - Rating data { rating, feedback? }
+   */
+  async rateSession(sessionId, data) {
+    return apiClient.post(`/tutors/sessions/${sessionId}/rate`, data);
+  },
+
+  // ============================================
+  // LIVEKIT VIDEO SESSION
+  // ============================================
+
+  /**
+   * Join a video session - gets LiveKit access token
+   * @param {string} sessionId - Session ID
+   * @returns {Promise<{token: string, roomName: string, wsUrl: string, isRecording: boolean, session: Object}>}
+   */
+  async joinSession(sessionId) {
+    return apiClient.post(`/tutors/sessions/${sessionId}/join`);
+  },
+
+  /**
+   * Leave a video session
+   * @param {string} sessionId - Session ID
+   * @param {boolean} endSession - If true (and tutor), ends the session completely
+   */
+  async leaveSession(sessionId, endSession = false) {
+    return apiClient.post(`/tutors/sessions/${sessionId}/leave`, { endSession });
+  },
+
+  /**
+   * Get recording details for a session
+   * @param {string} sessionId - Session ID
+   * @returns {Promise<{recording: Object}>}
+   */
+  async getRecording(sessionId) {
+    return apiClient.get(`/tutors/sessions/${sessionId}/recording`);
+  },
+
+  /**
+   * Save whiteboard snapshot
+   * @param {string} sessionId - Session ID
+   * @param {Object} snapshot - tldraw document state
+   */
+  async saveWhiteboard(sessionId, snapshot) {
+    return apiClient.post(`/tutors/sessions/${sessionId}/whiteboard`, { snapshot });
+  },
+
+  /**
+   * Get whiteboard snapshot
+   * @param {string} sessionId - Session ID
+   * @returns {Promise<{snapshot: Object}>}
+   */
+  async getWhiteboard(sessionId) {
+    return apiClient.get(`/tutors/sessions/${sessionId}/whiteboard`);
   },
 };
 

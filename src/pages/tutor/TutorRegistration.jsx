@@ -11,7 +11,7 @@ import { tutorsApi } from '../../api/tutors';
 import { adminApi } from '../../api/admin';
 import {
   GraduationCap, Upload, BookOpen, Clock, ChevronRight, ChevronLeft,
-  Check, X, Loader2, AlertCircle, FileText, Trash2, Plus
+  Check, X, Loader2, AlertCircle, FileText, Trash2, Plus, Camera, User
 } from 'lucide-react';
 
 const STEPS = [
@@ -50,6 +50,11 @@ function TutorRegistration() {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     selectedCourses: [],
   });
+
+  // Avatar upload state
+  const [avatar, setAvatar] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Certifications
   const [certifications, setCertifications] = useState([]);
@@ -98,6 +103,34 @@ function TutorRegistration() {
     }
   };
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+        alert('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+        return;
+      }
+      // Validate file size (5MB max for avatars)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+      setAvatar(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+    }
+  };
+
+  const removeAvatar = () => {
+    setAvatar(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(null);
+    }
+  };
+
   const addCertification = () => {
     if (!newCert.title || !newCert.institution || !newCert.file) {
       alert('Please fill in all certification fields');
@@ -135,7 +168,17 @@ function TutorRegistration() {
     setError(null);
 
     try {
-      // Step 1: Register tutor profile
+      // Step 1: Upload avatar if provided
+      if (avatar) {
+        try {
+          await tutorsApi.uploadAvatar(avatar);
+        } catch (avatarErr) {
+          console.error('Failed to upload avatar:', avatarErr);
+          // Continue with registration even if avatar upload fails
+        }
+      }
+
+      // Step 2: Register tutor profile
       const result = await tutorsApi.register({
         headline: formData.headline,
         bio: formData.bio,
@@ -143,7 +186,7 @@ function TutorRegistration() {
         courses: formData.selectedCourses,
       });
 
-      // Step 2: Upload certifications
+      // Step 3: Upload certifications
       for (const cert of certifications) {
         try {
           await tutorsApi.uploadCertification(cert.file, {
@@ -240,6 +283,58 @@ function TutorRegistration() {
           {/* Step 1: Profile */}
           {currentStep === 1 && (
             <div className="space-y-6">
+              {/* Avatar Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Profile Photo
+                </label>
+                <div className="flex items-center gap-6">
+                  {/* Avatar Preview */}
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User size={40} className="text-gray-400" />
+                      )}
+                    </div>
+                    {avatarPreview && (
+                      <button
+                        type="button"
+                        onClick={removeAvatar}
+                        className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {/* Upload Button */}
+                  <div className="flex-1">
+                    <label className="cursor-pointer">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors w-fit">
+                        <Camera size={18} className="text-gray-600" />
+                        <span className="text-gray-700 font-medium">
+                          {avatar ? 'Change Photo' : 'Upload Photo'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        onChange={handleAvatarChange}
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-sm text-gray-500 mt-2">
+                      JPEG, PNG, GIF, or WebP. Max 5MB. This photo will be shown on your tutor profile.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Professional Headline *
@@ -450,6 +545,27 @@ function TutorRegistration() {
               </h3>
 
               <div className="space-y-4">
+                {/* Avatar Preview */}
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-500 mb-2">Profile Photo</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User size={24} className="text-gray-400" />
+                      )}
+                    </div>
+                    <span className="text-gray-700">
+                      {avatar ? avatar.name : 'No photo uploaded'}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="p-4 bg-gray-50 rounded-xl">
                   <p className="text-sm text-gray-500 mb-1">Professional Headline</p>
                   <p className="font-medium text-gray-900">{formData.headline}</p>

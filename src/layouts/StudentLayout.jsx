@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, BookOpen, CreditCard, Award, User,
+  LayoutDashboard, BookOpen, CreditCard, Award, User, Video,
   Menu, X, Bell, LogOut, ChevronDown, Settings,
   ExternalLink, HelpCircle
 } from 'lucide-react';
@@ -30,6 +30,7 @@ const StudentLayout = () => {
   const navItems = [
     { path: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/student/my-learning', icon: BookOpen, label: 'My Learning' },
+    { path: '/student/sessions', icon: Video, label: 'Tutoring Sessions' },
     { path: '/student/payments', icon: CreditCard, label: 'Payments' },
     { path: '/student/certificates', icon: Award, label: 'Certificates' },
     { path: '/student/profile', icon: User, label: 'Profile' },

@@ -4,18 +4,18 @@ import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'luc
 import apiClient from '../api/client';
 
 export function Footer() {
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
 
   useEffect(() => {
-    fetchTracks();
+    fetchPacks();
   }, []);
 
-  const fetchTracks = async () => {
+  const fetchPacks = async () => {
     try {
-      const response = await apiClient.get('/tracks');
-      setTracks(response.tracks || []);
+      const response = await apiClient.get('/packs');
+      setPacks(response.packs || []);
     } catch (err) {
-      console.error('Error fetching tracks for footer:', err);
+      console.error('Error fetching packs for footer:', err);
     }
   };
 
@@ -88,18 +88,18 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Learning Tracks */}
+          {/* Learning Packs */}
           <div>
-            <h3 className="text-lg font-bold mb-6">Learning Tracks</h3>
+            <h3 className="text-lg font-bold mb-6">Learning Packs</h3>
             <ul className="space-y-4">
-              {tracks.length > 0 ? (
-                tracks.slice(0, 5).map(track => (
-                  <li key={track.id}>
+              {packs.length > 0 ? (
+                packs.slice(0, 5).map(pack => (
+                  <li key={pack.id}>
                     <Link
-                      to={`/tracks/${track.slug || track.id}`}
+                      to={`/packs/${pack.slug || pack.id}`}
                       className="text-gray-400 hover:text-white transition-colors text-sm"
                     >
-                      {track.title}
+                      {pack.title}
                     </Link>
                   </li>
                 ))
@@ -108,15 +108,15 @@ export function Footer() {
                 <>
                   <li>
                     <Link to="/courses" className="text-gray-400 hover:text-white transition-colors text-sm">
-                      Browse All Tracks
+                      Browse All Packs
                     </Link>
                   </li>
                 </>
               )}
-              {tracks.length > 5 && (
+              {packs.length > 5 && (
                 <li>
                   <Link to="/courses" className="text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium">
-                    View All Tracks →
+                    View All Packs →
                   </Link>
                 </li>
               )}

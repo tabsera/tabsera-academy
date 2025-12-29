@@ -164,12 +164,12 @@ function CourseDetail() {
                 <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                   {category}
                 </span>
-                {course.track && (
+                {course.learningPack && (
                   <Link
-                    to={`/tracks/${course.track.slug || course.track.id}`}
+                    to={`/packs/${course.learningPack.slug || course.learningPack.id}`}
                     className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium hover:bg-purple-200"
                   >
-                    {course.track.title}
+                    {course.learningPack.title}
                   </Link>
                 )}
               </div>

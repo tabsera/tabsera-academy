@@ -308,6 +308,10 @@ function Tutors() {
 
 // Tutor Card Component
 function TutorCard({ tutor }) {
+  // Get avatar from user object or direct property
+  const avatar = tutor.user?.avatar || tutor.avatar;
+  const name = tutor.name || `${tutor.user?.firstName || ''} ${tutor.user?.lastName || ''}`.trim();
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-shadow overflow-hidden">
       {/* Header with Avatar */}
@@ -315,10 +319,10 @@ function TutorCard({ tutor }) {
         <div className="absolute -bottom-10 left-6">
           <div className="w-20 h-20 rounded-full bg-white p-1 shadow-lg">
             <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-              {tutor.avatar ? (
-                <img src={tutor.avatar} alt={tutor.name} className="w-full h-full object-cover" />
+              {avatar ? (
+                <img src={avatar} alt={name} className="w-full h-full object-cover" />
               ) : (
-                tutor.name?.charAt(0).toUpperCase() || 'T'
+                name?.charAt(0).toUpperCase() || 'T'
               )}
             </div>
           </div>
@@ -328,7 +332,7 @@ function TutorCard({ tutor }) {
       <div className="p-6 pt-12">
         {/* Name and Rating */}
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">{tutor.name}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
           {tutor.avgRating > 0 && (
             <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-lg">
               <Star size={14} className="text-yellow-500 fill-current" />

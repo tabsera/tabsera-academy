@@ -37,25 +37,25 @@ function Cart() {
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
-  const [suggestedTracks, setSuggestedTracks] = useState([]);
-  const [loadingTracks, setLoadingTracks] = useState(false);
+  const [suggestedPacks, setSuggestedPacks] = useState([]);
+  const [loadingPacks, setLoadingPacks] = useState(false);
 
-  // Fetch suggested tracks when cart is empty
+  // Fetch suggested packs when cart is empty
   useEffect(() => {
     if (items.length === 0) {
-      fetchSuggestedTracks();
+      fetchSuggestedPacks();
     }
   }, [items.length]);
 
-  const fetchSuggestedTracks = async () => {
+  const fetchSuggestedPacks = async () => {
     try {
-      setLoadingTracks(true);
-      const response = await apiClient.get('/tracks');
-      setSuggestedTracks(response.tracks || []);
+      setLoadingPacks(true);
+      const response = await apiClient.get('/packs');
+      setSuggestedPacks(response.packs || []);
     } catch (err) {
-      console.error('Error fetching tracks:', err);
+      console.error('Error fetching packs:', err);
     } finally {
-      setLoadingTracks(false);
+      setLoadingPacks(false);
     }
   };
 
@@ -89,8 +89,8 @@ function Cart() {
     }).format(price);
   };
 
-  // Color classes for track cards
-  const trackColors = [
+  // Color classes for pack cards
+  const packColors = [
     { bg: 'bg-blue-100', text: 'text-blue-600' },
     { bg: 'bg-emerald-100', text: 'text-emerald-600' },
     { bg: 'bg-purple-100', text: 'text-purple-600' },
@@ -110,7 +110,7 @@ function Cart() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-3">Your cart is empty</h1>
             <p className="text-gray-500 mb-8">
-              Looks like you haven't added any courses or tracks yet.
+              Looks like you haven't added any courses or packs yet.
             </p>
             <Link
               to="/courses"
@@ -121,30 +121,30 @@ function Cart() {
             </Link>
           </div>
 
-          {/* Suggested Tracks */}
+          {/* Suggested Packs */}
           <div className="mt-16">
-            <h2 className="text-lg font-bold text-gray-900 mb-6 text-center">Popular Learning Tracks</h2>
-            {loadingTracks ? (
+            <h2 className="text-lg font-bold text-gray-900 mb-6 text-center">Popular Learning Packs</h2>
+            {loadingPacks ? (
               <div className="flex justify-center py-8">
                 <Loader2 size={32} className="animate-spin text-blue-600" />
               </div>
-            ) : suggestedTracks.length > 0 ? (
+            ) : suggestedPacks.length > 0 ? (
               <div className="grid md:grid-cols-3 gap-6">
-                {suggestedTracks.slice(0, 3).map((track, index) => {
-                  const colors = trackColors[index % trackColors.length];
+                {suggestedPacks.slice(0, 3).map((pack, index) => {
+                  const colors = packColors[index % packColors.length];
                   return (
                     <Link
-                      key={track.id}
-                      to={`/tracks/${track.slug || track.id}`}
+                      key={pack.id}
+                      to={`/packs/${pack.slug || pack.id}`}
                       className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:border-blue-200 transition-all"
                     >
                       <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center mb-4`}>
                         <GraduationCap size={24} className={colors.text} />
                       </div>
-                      <h3 className="font-bold text-gray-900">{track.title}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{track.coursesCount || 0} courses</p>
+                      <h3 className="font-bold text-gray-900">{pack.title}</h3>
+                      <p className="text-sm text-gray-500 mt-1">{pack.coursesCount || 0} courses</p>
                       <p className="text-lg font-bold text-blue-600 mt-2">
-                        {formatPrice(parseFloat(track.price) || 0)}
+                        {formatPrice(parseFloat(pack.price) || 0)}
                       </p>
                     </Link>
                   );
@@ -200,7 +200,7 @@ function Cart() {
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.parentElement.classList.add(
-                            item.type === ITEM_TYPES.TRACK
+                            item.type === ITEM_TYPES.PACK
                               ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
                               : 'bg-gradient-to-br from-purple-500 to-pink-500'
                           );
@@ -209,7 +209,7 @@ function Cart() {
                       />
                     ) : (
                       <div className={`w-full h-full flex items-center justify-center ${
-                        item.type === ITEM_TYPES.TRACK
+                        item.type === ITEM_TYPES.PACK
                           ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
                           : 'bg-gradient-to-br from-purple-500 to-pink-500'
                       }`}>
@@ -223,11 +223,11 @@ function Cart() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-1 ${
-                          item.type === ITEM_TYPES.TRACK
+                          item.type === ITEM_TYPES.PACK
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-purple-100 text-purple-700'
                         }`}>
-                          {item.type === ITEM_TYPES.TRACK ? 'Learning Track' : 'Course'}
+                          {item.type === ITEM_TYPES.PACK ? 'Learning Pack' : 'Course'}
                         </span>
                         <h3 className="font-bold text-gray-900">{item.name}</h3>
                         {item.description && (

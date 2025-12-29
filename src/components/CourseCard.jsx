@@ -28,9 +28,9 @@ export function CourseCard({ course }) {
         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold text-blue-700 uppercase tracking-wide">
           {category}
         </div>
-        {course.track && (
+        {course.learningPack && (
           <div className="absolute top-3 right-3 bg-blue-600/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold text-white">
-            {course.track.title}
+            {course.learningPack.title}
           </div>
         )}
       </div>

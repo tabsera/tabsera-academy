@@ -21,7 +21,7 @@ const iconMap = {
   'database': Database
 };
 
-// Default color classes for tracks without a color
+// Default color classes for packs without a color
 const defaultColors = [
   'bg-blue-100 text-blue-600',
   'bg-green-100 text-green-600',
@@ -31,8 +31,8 @@ const defaultColors = [
   'bg-indigo-100 text-indigo-600',
 ];
 
-// Get icon based on track title keywords
-function getIconForTrack(title) {
+// Get icon based on pack title keywords
+function getIconForPack(title) {
   const lowerTitle = title.toLowerCase();
   if (lowerTitle.includes('igcse') || lowerTitle.includes('cambridge')) return GraduationCap;
   if (lowerTitle.includes('web') || lowerTitle.includes('programming') || lowerTitle.includes('code')) return Code;
@@ -47,25 +47,25 @@ function getIconForTrack(title) {
   return BookOpen;
 }
 
-export function TrackCard({ track }) {
+export function PackCard({ pack }) {
   // Get icon - either from icon property or based on title
-  const Icon = track.icon ? (iconMap[track.icon] || BookOpen) : getIconForTrack(track.title);
+  const Icon = pack.icon ? (iconMap[pack.icon] || BookOpen) : getIconForPack(pack.title);
 
   // Get color - either from color property or based on index
-  const colorClass = track.color || defaultColors[Math.abs(track.title.charCodeAt(0)) % defaultColors.length];
+  const colorClass = pack.color || defaultColors[Math.abs(pack.title.charCodeAt(0)) % defaultColors.length];
 
   // Use slug for URL if available, fallback to id
-  const trackIdentifier = track.slug || track.id;
+  const packIdentifier = pack.slug || pack.id;
 
   // Handle price display
-  const price = parseFloat(track.price) || 0;
-  const originalPrice = parseFloat(track.originalPrice) || 0;
-  const savings = parseFloat(track.savings) || 0;
+  const price = parseFloat(pack.price) || 0;
+  const originalPrice = parseFloat(pack.originalPrice) || 0;
+  const savings = parseFloat(pack.savings) || 0;
   const hasDiscount = savings > 0;
 
   return (
     <Link
-      to={`/tracks/${trackIdentifier}`}
+      to={`/packs/${packIdentifier}`}
       className="group flex flex-col items-center p-6 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-100 transition-all duration-300 text-center h-full"
     >
       <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${colorClass} group-hover:scale-110 transition-transform duration-300`}>
@@ -73,11 +73,12 @@ export function TrackCard({ track }) {
       </div>
 
       <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-        {track.title}
+        {pack.title}
       </h3>
 
       <p className="text-sm text-gray-500 mb-2">
-        {track.coursesCount || 0} Courses
+        {pack.coursesCount || 0} Courses
+        {pack.tuitionPacksCount > 0 && ` + ${pack.tuitionPacksCount} Tuition Pack${pack.tuitionPacksCount > 1 ? 's' : ''}`}
       </p>
 
       {price > 0 && (
@@ -99,10 +100,10 @@ export function TrackCard({ track }) {
       )}
 
       <div className="mt-auto flex items-center text-sm font-semibold text-blue-600 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-        View Track <ArrowRight size={16} className="ml-1" />
+        View Pack <ArrowRight size={16} className="ml-1" />
       </div>
     </Link>
   );
 }
 
-export default TrackCard;
+export default PackCard;

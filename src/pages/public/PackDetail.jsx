@@ -1,6 +1,6 @@
 /**
- * Track Detail Page
- * Shows track information and its courses
+ * Pack Detail Page
+ * Shows learning pack information with its courses and tuition packs
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,34 +12,36 @@ import SafeHTML from '../../components/SafeHTML';
 import {
   BookOpen, Clock, Users, CheckCircle, Award,
   ShoppingCart, Loader2, AlertCircle, ArrowLeft,
-  GraduationCap, Check, ExternalLink
+  GraduationCap, Check, ExternalLink, CreditCard
 } from 'lucide-react';
 
-function TrackDetail() {
+function PackDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { addItem, isInCart, ITEM_TYPES } = useCart();
 
-  const [track, setTrack] = useState(null);
+  const [pack, setPack] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [tuitionPacks, setTuitionPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addedToCart, setAddedToCart] = useState({});
 
   useEffect(() => {
-    fetchTrackData();
+    fetchPackData();
   }, [slug]);
 
-  const fetchTrackData = async () => {
+  const fetchPackData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get(`/tracks/${slug}`);
-      setTrack(response.track);
+      const response = await apiClient.get(`/packs/${slug}`);
+      setPack(response.pack);
       setCourses(response.courses || []);
+      setTuitionPacks(response.tuitionPacks || []);
     } catch (err) {
-      console.error('Error fetching track:', err);
-      setError(err.message || 'Failed to load track');
+      console.error('Error fetching pack:', err);
+      setError(err.message || 'Failed to load learning pack');
     } finally {
       setLoading(false);
     }
@@ -61,32 +63,35 @@ function TrackDetail() {
     }, 2000);
   };
 
-  const handleAddAllToCart = () => {
-    courses.forEach(course => {
-      if (!isInCart(course.id, ITEM_TYPES.COURSE)) {
-        addItem({
-          id: course.id,
-          type: ITEM_TYPES.COURSE,
-          name: course.title,
-          price: parseFloat(course.price) || 0,
-          description: course.description,
-          duration: course.duration,
-          image: course.image,
-        });
-      }
+  const handleAddPackToCart = () => {
+    addItem({
+      id: pack.id,
+      type: ITEM_TYPES.PACK,
+      name: pack.title,
+      price: parseFloat(pack.price) || 0,
+      originalPrice: parseFloat(pack.originalPrice) || 0,
+      description: pack.description,
+      image: pack.image,
+      coursesCount: courses.length,
+      tuitionPacksCount: tuitionPacks.length,
     });
     navigate('/cart');
   };
 
   // Calculate total stats
   const totalLessons = courses.reduce((sum, c) => sum + (c.lessons || 0), 0);
-  const allInCart = courses.length > 0 && courses.every(c => isInCart(c.id, ITEM_TYPES.COURSE));
+  const packInCart = pack ? isInCart(pack.id, ITEM_TYPES.PACK) : false;
 
-  // Get pricing info from track (calculated by backend)
-  const trackPrice = parseFloat(track?.price || 0);
-  const originalPrice = parseFloat(track?.originalPrice || 0);
-  const savings = parseFloat(track?.savings || 0);
+  // Get pricing info from pack (calculated by backend)
+  const packPrice = parseFloat(pack?.price || 0);
+  const originalPrice = parseFloat(pack?.originalPrice || 0);
+  const savings = parseFloat(pack?.savings || 0);
   const hasDiscount = savings > 0;
+
+  // Calculate total tuition credits
+  const totalCredits = tuitionPacks.reduce((sum, tp) => {
+    return sum + (tp.creditsIncluded || 0) * (tp.quantity || 1);
+  }, 0);
 
   if (loading) {
     return (
@@ -100,14 +105,14 @@ function TrackDetail() {
     );
   }
 
-  if (error || !track) {
+  if (error || !pack) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
             <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Track Not Found</h2>
-            <p className="text-gray-600 mb-6">{error || 'The requested learning track could not be found.'}</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Learning Pack Not Found</h2>
+            <p className="text-gray-600 mb-6">{error || 'The requested learning pack could not be found.'}</p>
             <Link
               to="/courses"
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700"
@@ -131,7 +136,7 @@ function TrackDetail() {
             <span className="mx-2">/</span>
             <Link to="/courses" className="hover:text-blue-600">Courses</Link>
             <span className="mx-2">/</span>
-            <span className="text-gray-900 font-medium truncate">{track.title}</span>
+            <span className="text-gray-900 font-medium truncate">{pack.title}</span>
           </div>
         </div>
       </div>
@@ -143,10 +148,10 @@ function TrackDetail() {
             <div>
               <div className="inline-flex items-center px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium mb-4">
                 <GraduationCap size={16} className="mr-2" />
-                Learning Track
+                Learning Pack
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-6">{track.title}</h1>
-              <SafeHTML html={track.description} className="text-xl text-blue-100 mb-8" />
+              <h1 className="text-4xl md:text-5xl font-bold mb-6">{pack.title}</h1>
+              <SafeHTML html={pack.description} className="text-xl text-blue-100 mb-8" />
 
               <div className="flex flex-wrap items-center gap-6 text-blue-100">
                 <div className="flex items-center gap-2">
@@ -157,20 +162,26 @@ function TrackDetail() {
                   <Clock size={20} />
                   <span>{totalLessons} Total Lessons</span>
                 </div>
-                {track.level && (
+                {totalCredits > 0 && (
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={20} />
+                    <span>{totalCredits} Tuition Credits</span>
+                  </div>
+                )}
+                {pack.level && (
                   <div className="flex items-center gap-2">
                     <Award size={20} />
-                    <span>{track.level}</span>
+                    <span>{pack.level}</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="lg:text-right">
-              {track.image && (
+              {pack.image && (
                 <img
-                  src={track.image}
-                  alt={track.title}
+                  src={pack.image}
+                  alt={pack.title}
                   className="w-full max-w-md mx-auto lg:ml-auto rounded-2xl shadow-2xl"
                 />
               )}
@@ -185,13 +196,13 @@ function TrackDetail() {
           {/* Course List */}
           <div className="lg:col-span-2">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Courses in this Track ({courses.length})
+              Courses in this Pack ({courses.length})
             </h2>
 
             {courses.length === 0 ? (
               <div className="bg-gray-50 rounded-2xl p-8 text-center">
                 <BookOpen size={48} className="text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No courses available in this track yet.</p>
+                <p className="text-gray-600">No courses available in this pack yet.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -302,13 +313,59 @@ function TrackDetail() {
                 })}
               </div>
             )}
+
+            {/* Tuition Packs Section */}
+            {tuitionPacks.length > 0 && (
+              <div className="mt-12">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  Included Tuition Packs ({tuitionPacks.length})
+                </h2>
+                <div className="space-y-4">
+                  {tuitionPacks.map((tp) => (
+                    <div
+                      key={tp.id}
+                      className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-6"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <CreditCard className="text-purple-600" size={20} />
+                            <h3 className="text-lg font-bold text-gray-900">{tp.name}</h3>
+                            {tp.quantity > 1 && (
+                              <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2 py-1 rounded-full">
+                                x{tp.quantity}
+                              </span>
+                            )}
+                          </div>
+                          {tp.description && (
+                            <p className="text-gray-600 text-sm mb-3">{tp.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span>{tp.creditsIncluded * (tp.quantity || 1)} credits</span>
+                            <span>Valid for {tp.validityDays} days</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-lg font-bold text-purple-600">
+                            ${(parseFloat(tp.price) * (tp.quantity || 1)).toFixed(2)}
+                          </span>
+                          {tp.quantity > 1 && (
+                            <p className="text-xs text-gray-500">${parseFloat(tp.price).toFixed(2)} each</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
               <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Track Summary</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Pack Summary</h3>
 
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between items-center text-sm">
@@ -319,9 +376,15 @@ function TrackDetail() {
                     <span className="text-gray-600">Total Lessons</span>
                     <span className="font-semibold">{totalLessons}</span>
                   </div>
+                  {totalCredits > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Tuition Credits</span>
+                      <span className="font-semibold">{totalCredits}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Level</span>
-                    <span className="font-semibold">{track.level || 'All Levels'}</span>
+                    <span className="font-semibold">{pack.level || 'All Levels'}</span>
                   </div>
                   <div className="border-t border-gray-200 pt-4">
                     {hasDiscount && (
@@ -331,8 +394,8 @@ function TrackDetail() {
                       </div>
                     )}
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-900 font-semibold">Track Price</span>
-                      <span className="text-2xl font-bold text-blue-600">${trackPrice.toFixed(2)}</span>
+                      <span className="text-gray-900 font-semibold">Pack Price</span>
+                      <span className="text-2xl font-bold text-blue-600">${packPrice.toFixed(2)}</span>
                     </div>
                     {hasDiscount && (
                       <div className="mt-2 bg-green-50 text-green-700 text-center py-2 px-3 rounded-lg text-sm font-medium">
@@ -342,9 +405,9 @@ function TrackDetail() {
                   </div>
                 </div>
 
-                {courses.length > 0 && (
+                {(courses.length > 0 || tuitionPacks.length > 0) && (
                   <>
-                    {allInCart ? (
+                    {packInCart ? (
                       <Link
                         to="/cart"
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700"
@@ -354,11 +417,11 @@ function TrackDetail() {
                       </Link>
                     ) : (
                       <button
-                        onClick={handleAddAllToCart}
+                        onClick={handleAddPackToCart}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700"
                       >
                         <ShoppingCart size={20} />
-                        Enroll in All Courses
+                        Add Pack to Cart
                       </button>
                     )}
 
@@ -384,6 +447,12 @@ function TrackDetail() {
                       <CheckCircle size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
                       <span>Downloadable study materials</span>
                     </li>
+                    {totalCredits > 0 && (
+                      <li className="flex items-start gap-3 text-sm text-gray-600">
+                        <CheckCircle size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
+                        <span>{totalCredits} tutoring credits for 1-on-1 sessions</span>
+                      </li>
+                    )}
                     <li className="flex items-start gap-3 text-sm text-gray-600">
                       <CheckCircle size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
                       <span>Certificate of completion</span>
@@ -403,4 +472,4 @@ function TrackDetail() {
   );
 }
 
-export default TrackDetail;
+export default PackDetail;

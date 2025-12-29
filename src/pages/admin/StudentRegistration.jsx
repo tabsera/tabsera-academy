@@ -15,7 +15,7 @@ import { adminApi } from '@/api/admin';
 const StudentRegistration = () => {
   const [students, setStudents] = useState([]);
   const [centers, setCenters] = useState([]);
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +56,7 @@ const StudentRegistration = () => {
   }, [searchQuery, filterCenter, filterStatus]);
 
   useEffect(() => {
-    fetchCentersAndTracks();
+    fetchCentersAndPacks();
   }, []);
 
   const fetchData = async () => {
@@ -94,16 +94,16 @@ const StudentRegistration = () => {
     }
   };
 
-  const fetchCentersAndTracks = async () => {
+  const fetchCentersAndPacks = async () => {
     try {
-      const [centersRes, tracksRes] = await Promise.all([
+      const [centersRes, packsRes] = await Promise.all([
         adminApi.getCenters(),
-        adminApi.getTracks({ limit: 100 }),
+        adminApi.getPacks({ limit: 100 }),
       ]);
       setCenters(centersRes.centers || []);
-      setTracks(tracksRes.tracks || []);
+      setPacks(packsRes.packs || []);
     } catch (err) {
-      console.error('Error fetching centers/tracks:', err);
+      console.error('Error fetching centers/packs:', err);
     }
   };
 
@@ -528,7 +528,7 @@ const StudentRegistration = () => {
                   <div className="space-y-2">
                     {selectedStudent.enrollments.map(e => (
                       <div key={e.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="font-medium">{e.course?.title || e.track?.title}</span>
+                        <span className="font-medium">{e.course?.title || e.learningPack?.title}</span>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           e.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                         }`}>

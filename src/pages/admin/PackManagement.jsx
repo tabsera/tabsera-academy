@@ -1,6 +1,6 @@
 /**
- * Track Management Page
- * Manage learning tracks and course assignments
+ * Learning Pack Management Page
+ * Manage learning packs - bundles of courses and tuition packs
  */
 
 import React, { useState, useEffect } from 'react';
@@ -8,29 +8,30 @@ import { Link } from 'react-router-dom';
 import {
   Layers, Search, Plus, Edit, Trash2, MoreVertical, Eye,
   BookOpen, Users, DollarSign, Clock, ChevronDown, X,
-  CheckCircle, XCircle, Star, Copy, ExternalLink, Loader2, Play, Pause
+  CheckCircle, XCircle, Star, Copy, ExternalLink, Loader2, Play, Pause, CreditCard
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import ImageUpload from '@/components/ImageUpload';
 import RichTextEditor from '@/components/RichTextEditor';
 
-function TrackManagement() {
-  const [tracks, setTracks] = useState([]);
+function PackManagement() {
+  const [packs, setPacks] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [tuitionPacks, setTuitionPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showTrackModal, setShowTrackModal] = useState(false);
-  const [editingTrack, setEditingTrack] = useState(null);
+  const [showPackModal, setShowPackModal] = useState(false);
+  const [editingPack, setEditingPack] = useState(null);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-  const [deleteConfirmTrack, setDeleteConfirmTrack] = useState(null);
+  const [deleteConfirmPack, setDeleteConfirmPack] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Form state
-  const [trackForm, setTrackForm] = useState({
+  const [packForm, setPackForm] = useState({
     title: '',
     slug: '',
     description: '',
@@ -40,6 +41,7 @@ function TrackManagement() {
     level: '',
     image: '',
     courses: [],
+    tuitionPacks: [], // Array of { id, quantity }
   });
 
   // Fetch data on mount
@@ -51,25 +53,27 @@ function TrackManagement() {
     try {
       setLoading(true);
       setError(null);
-      const [tracksRes, coursesRes] = await Promise.all([
-        adminApi.getTracks({ limit: 100 }),
+      const [packsRes, coursesRes, tuitionPacksRes] = await Promise.all([
+        adminApi.getPacks({ limit: 100 }),
         adminApi.getCourses({ limit: 100 }),
+        adminApi.getTuitionPacks({ limit: 100 }),
       ]);
-      setTracks(tracksRes.tracks || []);
+      setPacks(packsRes.packs || []);
       setCourses(coursesRes.courses || []);
+      setTuitionPacks(tuitionPacksRes.packs || []);
     } catch (err) {
-      setError(err.message || 'Failed to load tracks');
+      setError(err.message || 'Failed to load learning packs');
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredTracks = tracks.filter(track => {
-    const matchesSearch = track.title.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredPacks = packs.filter(pack => {
+    const matchesSearch = pack.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' ||
-      (statusFilter === 'active' && track.isActive) ||
-      (statusFilter === 'inactive' && !track.isActive);
+      (statusFilter === 'active' && pack.isActive) ||
+      (statusFilter === 'inactive' && !pack.isActive);
     return matchesSearch && matchesStatus;
   });
 
@@ -90,23 +94,24 @@ function TrackManagement() {
     );
   };
 
-  const openTrackModal = (track = null) => {
-    if (track) {
-      setEditingTrack(track);
-      setTrackForm({
-        title: track.title,
-        slug: track.slug,
-        description: track.description || '',
-        isActive: track.isActive,
-        discountPercentage: parseFloat(track.discountPercentage) || 0,
-        duration: track.duration || '',
-        level: track.level || '',
-        image: track.image || '',
-        courses: track.courses?.map(c => c.id) || [],
+  const openPackModal = (pack = null) => {
+    if (pack) {
+      setEditingPack(pack);
+      setPackForm({
+        title: pack.title,
+        slug: pack.slug,
+        description: pack.description || '',
+        isActive: pack.isActive,
+        discountPercentage: parseFloat(pack.discountPercentage) || 0,
+        duration: pack.duration || '',
+        level: pack.level || '',
+        image: pack.image || '',
+        courses: pack.courses?.map(c => c.id) || [],
+        tuitionPacks: pack.tuitionPacks?.map(tp => ({ id: tp.id, quantity: tp.quantity || 1 })) || [],
       });
     } else {
-      setEditingTrack(null);
-      setTrackForm({
+      setEditingPack(null);
+      setPackForm({
         title: '',
         slug: '',
         description: '',
@@ -116,108 +121,116 @@ function TrackManagement() {
         level: '',
         image: '',
         courses: [],
+        tuitionPacks: [],
       });
     }
-    setShowTrackModal(true);
+    setShowPackModal(true);
   };
 
   const generateSlug = (name) => {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   };
 
-  const handleSaveTrack = async () => {
-    if (!trackForm.title.trim() || !trackForm.slug.trim()) {
+  const handleSavePack = async () => {
+    if (!packForm.title.trim() || !packForm.slug.trim()) {
       alert('Title and slug are required');
       return;
     }
 
     setIsSaving(true);
     try {
-      if (editingTrack) {
-        await adminApi.updateTrack(editingTrack.id, {
-          title: trackForm.title,
-          slug: trackForm.slug,
-          description: trackForm.description,
-          isActive: trackForm.isActive,
-          discountPercentage: trackForm.discountPercentage,
-          duration: trackForm.duration,
-          level: trackForm.level,
-          image: trackForm.image,
+      const tuitionPackIds = packForm.tuitionPacks.map(tp => ({
+        tuitionPackId: tp.id,
+        quantity: tp.quantity || 1,
+      }));
+
+      if (editingPack) {
+        await adminApi.updatePack(editingPack.id, {
+          title: packForm.title,
+          slug: packForm.slug,
+          description: packForm.description,
+          isActive: packForm.isActive,
+          discountPercentage: packForm.discountPercentage,
+          duration: packForm.duration,
+          level: packForm.level,
+          image: packForm.image,
+          tuitionPackIds,
         });
         // Update course assignments
-        await adminApi.updateTrackCourses(editingTrack.id, trackForm.courses);
+        await adminApi.updatePackCourses(editingPack.id, packForm.courses);
       } else {
-        const result = await adminApi.createTrack({
-          title: trackForm.title,
-          slug: trackForm.slug,
-          description: trackForm.description,
-          isActive: trackForm.isActive,
-          discountPercentage: trackForm.discountPercentage,
-          duration: trackForm.duration,
-          level: trackForm.level,
-          image: trackForm.image,
+        const result = await adminApi.createPack({
+          title: packForm.title,
+          slug: packForm.slug,
+          description: packForm.description,
+          isActive: packForm.isActive,
+          discountPercentage: packForm.discountPercentage,
+          duration: packForm.duration,
+          level: packForm.level,
+          image: packForm.image,
+          tuitionPackIds,
         });
         // Assign courses if any selected
-        if (trackForm.courses.length > 0 && result.track) {
-          await adminApi.updateTrackCourses(result.track.id, trackForm.courses);
+        if (packForm.courses.length > 0 && result.pack) {
+          await adminApi.updatePackCourses(result.pack.id, packForm.courses);
         }
       }
       await fetchData();
-      setShowTrackModal(false);
+      setShowPackModal(false);
     } catch (err) {
-      alert(err.message || 'Failed to save track');
+      alert(err.message || 'Failed to save learning pack');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteClick = (track) => {
-    setDeleteConfirmTrack(track);
+  const handleDeleteClick = (pack) => {
+    setDeleteConfirmPack(pack);
     setShowActionMenu(null);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteConfirmTrack) return;
+    if (!deleteConfirmPack) return;
     try {
       setIsDeleting(true);
-      await adminApi.deleteTrack(deleteConfirmTrack.id);
+      await adminApi.deletePack(deleteConfirmPack.id);
       await fetchData();
-      setDeleteConfirmTrack(null);
+      setDeleteConfirmPack(null);
     } catch (err) {
-      alert(err.message || 'Failed to delete track');
+      alert(err.message || 'Failed to delete learning pack');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleDuplicate = async (trackId) => {
+  const handleDuplicate = async (packId) => {
     try {
-      setActionLoading(trackId);
-      await adminApi.duplicateTrack(trackId);
+      setActionLoading(packId);
+      await adminApi.duplicatePack(packId);
       await fetchData();
       setShowActionMenu(null);
     } catch (err) {
-      alert(err.message || 'Failed to duplicate track');
+      alert(err.message || 'Failed to duplicate learning pack');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleToggleActive = async (trackId, currentStatus) => {
+  const handleToggleActive = async (packId, currentStatus) => {
     try {
-      setActionLoading(trackId);
-      await adminApi.updateTrack(trackId, { isActive: !currentStatus });
+      setActionLoading(packId);
+      await adminApi.updatePack(packId, { isActive: !currentStatus });
       await fetchData();
       setShowActionMenu(null);
     } catch (err) {
-      alert(err.message || 'Failed to update track');
+      alert(err.message || 'Failed to update learning pack');
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleCourseToggle = (courseId) => {
-    setTrackForm(prev => ({
+    setPackForm(prev => ({
       ...prev,
       courses: prev.courses.includes(courseId)
         ? prev.courses.filter(id => id !== courseId)
@@ -225,11 +238,36 @@ function TrackManagement() {
     }));
   };
 
-  const trackStats = {
-    total: tracks.length,
-    active: tracks.filter(t => t.isActive).length,
-    totalCourses: tracks.reduce((sum, t) => sum + (t.coursesCount || 0), 0),
-    totalEnrollments: tracks.reduce((sum, t) => sum + (t.enrollmentCount || 0), 0),
+  const handleTuitionPackToggle = (tuitionPackId) => {
+    setPackForm(prev => {
+      const exists = prev.tuitionPacks.find(tp => tp.id === tuitionPackId);
+      if (exists) {
+        return {
+          ...prev,
+          tuitionPacks: prev.tuitionPacks.filter(tp => tp.id !== tuitionPackId)
+        };
+      }
+      return {
+        ...prev,
+        tuitionPacks: [...prev.tuitionPacks, { id: tuitionPackId, quantity: 1 }]
+      };
+    });
+  };
+
+  const handleTuitionPackQuantity = (tuitionPackId, quantity) => {
+    setPackForm(prev => ({
+      ...prev,
+      tuitionPacks: prev.tuitionPacks.map(tp =>
+        tp.id === tuitionPackId ? { ...tp, quantity: Math.max(1, parseInt(quantity) || 1) } : tp
+      )
+    }));
+  };
+
+  const packStats = {
+    total: packs.length,
+    active: packs.filter(p => p.isActive).length,
+    totalCourses: packs.reduce((sum, p) => sum + (p.coursesCount || 0), 0),
+    totalEnrollments: packs.reduce((sum, p) => sum + (p.enrollmentCount || 0), 0),
   };
 
   if (loading) {
@@ -237,7 +275,7 @@ function TrackManagement() {
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 size={40} className="animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-500">Loading tracks...</p>
+          <p className="text-gray-500">Loading learning packs...</p>
         </div>
       </div>
     );
@@ -248,7 +286,7 @@ function TrackManagement() {
       <div className="p-6 lg:p-8">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
           <XCircle size={40} className="text-red-500 mx-auto mb-4" />
-          <p className="text-red-700 font-medium mb-2">Failed to load tracks</p>
+          <p className="text-red-700 font-medium mb-2">Failed to load learning packs</p>
           <p className="text-red-600 text-sm mb-4">{error}</p>
           <button
             onClick={fetchData}
@@ -266,8 +304,8 @@ function TrackManagement() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Learning Tracks</h1>
-          <p className="text-gray-500">Organize courses into structured learning paths</p>
+          <h1 className="text-2xl font-bold text-gray-900">Learning Packs</h1>
+          <p className="text-gray-500">Bundle courses and tuition credits together</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -278,11 +316,11 @@ function TrackManagement() {
             Refresh
           </button>
           <button
-            onClick={() => openTrackModal()}
+            onClick={() => openPackModal()}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700"
           >
             <Plus size={18} />
-            Create Track
+            Create Pack
           </button>
         </div>
       </div>
@@ -295,8 +333,8 @@ function TrackManagement() {
               <Layers size={24} className="text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{trackStats.total}</p>
-              <p className="text-sm text-gray-500">Total Tracks</p>
+              <p className="text-2xl font-bold text-gray-900">{packStats.total}</p>
+              <p className="text-sm text-gray-500">Total Packs</p>
             </div>
           </div>
         </div>
@@ -306,7 +344,7 @@ function TrackManagement() {
               <CheckCircle size={24} className="text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{trackStats.active}</p>
+              <p className="text-2xl font-bold text-gray-900">{packStats.active}</p>
               <p className="text-sm text-gray-500">Active</p>
             </div>
           </div>
@@ -317,7 +355,7 @@ function TrackManagement() {
               <BookOpen size={24} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{trackStats.totalCourses}</p>
+              <p className="text-2xl font-bold text-gray-900">{packStats.totalCourses}</p>
               <p className="text-sm text-gray-500">Total Courses</p>
             </div>
           </div>
@@ -328,7 +366,7 @@ function TrackManagement() {
               <Users size={24} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{trackStats.totalEnrollments}</p>
+              <p className="text-2xl font-bold text-gray-900">{packStats.totalEnrollments}</p>
               <p className="text-sm text-gray-500">Enrollments</p>
             </div>
           </div>
@@ -342,7 +380,7 @@ function TrackManagement() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search tracks..."
+              placeholder="Search learning packs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
@@ -363,58 +401,58 @@ function TrackManagement() {
         </div>
       </div>
 
-      {/* Tracks Grid */}
+      {/* Packs Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        {filteredTracks.map(track => (
-          <div key={track.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            {/* Track Header */}
+        {filteredPacks.map(pack => (
+          <div key={pack.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            {/* Pack Header */}
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  {getStatusBadge(track.isActive)}
+                  {getStatusBadge(pack.isActive)}
                 </div>
                 <div className="relative">
                   <button
-                    onClick={() => setShowActionMenu(showActionMenu === track.id ? null : track.id)}
+                    onClick={() => setShowActionMenu(showActionMenu === pack.id ? null : pack.id)}
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                    disabled={actionLoading === track.id}
+                    disabled={actionLoading === pack.id}
                   >
-                    {actionLoading === track.id ? (
+                    {actionLoading === pack.id ? (
                       <Loader2 size={18} className="animate-spin" />
                     ) : (
                       <MoreVertical size={18} />
                     )}
                   </button>
-                  {showActionMenu === track.id && (
+                  {showActionMenu === pack.id && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowActionMenu(null)} />
                       <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
                         <button
-                          onClick={() => { openTrackModal(track); setShowActionMenu(null); }}
+                          onClick={() => { openPackModal(pack); setShowActionMenu(null); }}
                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <Edit size={16} />
-                          Edit Track
+                          Edit Pack
                         </button>
                         <button
-                          onClick={() => handleDuplicate(track.id)}
+                          onClick={() => handleDuplicate(pack.id)}
                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <Copy size={16} />
                           Duplicate
                         </button>
                         <button
-                          onClick={() => handleToggleActive(track.id, track.isActive)}
+                          onClick={() => handleToggleActive(pack.id, pack.isActive)}
                           className={`w-full flex items-center gap-3 px-4 py-2 text-sm ${
-                            track.isActive ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50'
+                            pack.isActive ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50'
                           }`}
                         >
-                          {track.isActive ? <Pause size={16} /> : <Play size={16} />}
-                          {track.isActive ? 'Deactivate' : 'Activate'}
+                          {pack.isActive ? <Pause size={16} /> : <Play size={16} />}
+                          {pack.isActive ? 'Deactivate' : 'Activate'}
                         </button>
                         <div className="border-t border-gray-100 my-2"></div>
                         <button
-                          onClick={() => handleDeleteClick(track)}
+                          onClick={() => handleDeleteClick(pack)}
                           className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                         >
                           <Trash2 size={16} />
@@ -425,42 +463,42 @@ function TrackManagement() {
                   )}
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">{track.title}</h3>
-              <p className="text-gray-500 text-sm line-clamp-2">{track.description || 'No description'}</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{pack.title}</h3>
+              <p className="text-gray-500 text-sm line-clamp-2">{pack.description || 'No description'}</p>
             </div>
 
-            {/* Track Stats */}
+            {/* Pack Stats */}
             <div className="p-6 bg-gray-50">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="flex items-center gap-2">
                   <BookOpen size={18} className="text-gray-400" />
-                  <span className="text-sm text-gray-600">{track.coursesCount || 0} courses</span>
+                  <span className="text-sm text-gray-600">{pack.coursesCount || 0} courses</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Clock size={18} className="text-gray-400" />
-                  <span className="text-sm text-gray-600">{track.duration || 'Not set'}</span>
+                  <CreditCard size={18} className="text-gray-400" />
+                  <span className="text-sm text-gray-600">{pack.tuitionPacksCount || 0} tuition packs</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users size={18} className="text-gray-400" />
-                  <span className="text-sm text-gray-600">{track.enrollmentCount || 0} enrolled</span>
+                  <span className="text-sm text-gray-600">{pack.enrollmentCount || 0} enrolled</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <DollarSign size={18} className="text-gray-400" />
                   <div className="text-sm">
-                    <span className="text-gray-900 font-medium">${parseFloat(track.price || 0).toFixed(2)}</span>
-                    {parseFloat(track.discountPercentage) > 0 && (
-                      <span className="text-green-600 ml-1">({track.discountPercentage}% off)</span>
+                    <span className="text-gray-900 font-medium">${parseFloat(pack.price || 0).toFixed(2)}</span>
+                    {parseFloat(pack.discountPercentage) > 0 && (
+                      <span className="text-green-600 ml-1">({pack.discountPercentage}% off)</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Courses Preview */}
-              {track.courses && track.courses.length > 0 && (
-                <div className="space-y-2">
+              {pack.courses && pack.courses.length > 0 && (
+                <div className="space-y-2 mb-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase">Included Courses</p>
                   <div className="space-y-1">
-                    {track.courses.slice(0, 3).map((course, idx) => (
+                    {pack.courses.slice(0, 3).map((course, idx) => (
                       <div key={course.id} className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded text-xs font-medium flex items-center justify-center">
                           {idx + 1}
@@ -468,9 +506,23 @@ function TrackManagement() {
                         {course.title}
                       </div>
                     ))}
-                    {track.courses.length > 3 && (
-                      <p className="text-xs text-gray-400">+{track.courses.length - 3} more courses</p>
+                    {pack.courses.length > 3 && (
+                      <p className="text-xs text-gray-400">+{pack.courses.length - 3} more courses</p>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tuition Packs Preview */}
+              {pack.tuitionPacks && pack.tuitionPacks.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Included Tuition Credits</p>
+                  <div className="flex flex-wrap gap-2">
+                    {pack.tuitionPacks.map((tp) => (
+                      <span key={tp.id} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium">
+                        {tp.quantity > 1 ? `${tp.quantity}x ` : ''}{tp.name}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
@@ -479,14 +531,14 @@ function TrackManagement() {
             {/* Actions */}
             <div className="p-4 flex gap-2 border-t border-gray-100">
               <button
-                onClick={() => openTrackModal(track)}
+                onClick={() => openPackModal(pack)}
                 className="flex-1 py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
               >
                 <Edit size={16} className="inline mr-2" />
                 Edit
               </button>
               <Link
-                to={`/tracks/${track.slug}`}
+                to={`/packs/${pack.slug}`}
                 target="_blank"
                 className="flex-1 py-2 px-4 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg text-center"
               >
@@ -494,11 +546,11 @@ function TrackManagement() {
                 View
               </Link>
               <button
-                onClick={() => handleDeleteClick(track)}
-                disabled={actionLoading === track.id}
+                onClick={() => handleDeleteClick(pack)}
+                disabled={actionLoading === pack.id}
                 className="flex-1 py-2 px-4 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
               >
-                {actionLoading === track.id ? (
+                {actionLoading === pack.id ? (
                   <Loader2 size={16} className="inline mr-2 animate-spin" />
                 ) : (
                   <Trash2 size={16} className="inline mr-2" />
@@ -510,32 +562,32 @@ function TrackManagement() {
         ))}
       </div>
 
-      {filteredTracks.length === 0 && (
+      {filteredPacks.length === 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Layers size={24} className="text-gray-400" />
           </div>
-          <p className="text-gray-500 mb-4">No tracks found</p>
+          <p className="text-gray-500 mb-4">No learning packs found</p>
           <button
-            onClick={() => openTrackModal()}
+            onClick={() => openPackModal()}
             className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
           >
-            Create Your First Track
+            Create Your First Learning Pack
           </button>
         </div>
       )}
 
-      {/* Track Modal */}
-      {showTrackModal && (
+      {/* Pack Modal */}
+      {showPackModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowTrackModal(false)} />
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowPackModal(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <h3 className="text-xl font-bold text-gray-900">
-                {editingTrack ? 'Edit Track' : 'Create New Track'}
+                {editingPack ? 'Edit Learning Pack' : 'Create Learning Pack'}
               </h3>
               <button
-                onClick={() => setShowTrackModal(false)}
+                onClick={() => setShowPackModal(false)}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
               >
                 <X size={20} />
@@ -545,18 +597,18 @@ function TrackManagement() {
             <div className="p-6 space-y-6">
               {/* Basic Info */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Track Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Pack Name *</label>
                 <input
                   type="text"
-                  value={trackForm.title}
+                  value={packForm.title}
                   onChange={(e) => {
-                    setTrackForm(f => ({
+                    setPackForm(f => ({
                       ...f,
                       title: e.target.value,
-                      slug: editingTrack ? f.slug : generateSlug(e.target.value)
+                      slug: editingPack ? f.slug : generateSlug(e.target.value)
                     }));
                   }}
-                  placeholder="e.g., Cambridge IGCSE O Level"
+                  placeholder="e.g., IGCSE Complete Bundle"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -564,11 +616,11 @@ function TrackManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">URL Slug *</label>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500">/tracks/</span>
+                  <span className="text-gray-500">/packs/</span>
                   <input
                     type="text"
-                    value={trackForm.slug}
-                    onChange={(e) => setTrackForm(f => ({ ...f, slug: e.target.value }))}
+                    value={packForm.slug}
+                    onChange={(e) => setPackForm(f => ({ ...f, slug: e.target.value }))}
                     className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -577,9 +629,9 @@ function TrackManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <RichTextEditor
-                  value={trackForm.description}
-                  onChange={(value) => setTrackForm(f => ({ ...f, description: value }))}
-                  placeholder="Describe what students will learn..."
+                  value={packForm.description}
+                  onChange={(value) => setPackForm(f => ({ ...f, description: value }))}
+                  placeholder="Describe what students will get..."
                 />
               </div>
 
@@ -592,20 +644,20 @@ function TrackManagement() {
                       min="0"
                       max="100"
                       step="1"
-                      value={trackForm.discountPercentage}
-                      onChange={(e) => setTrackForm(f => ({ ...f, discountPercentage: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+                      value={packForm.discountPercentage}
+                      onChange={(e) => setPackForm(f => ({ ...f, discountPercentage: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
                       className="w-full pl-4 pr-8 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Discount off the total price of included courses</p>
+                  <p className="text-xs text-gray-500 mt-1">Discount off the total bundle price</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
                   <input
                     type="text"
-                    value={trackForm.duration}
-                    onChange={(e) => setTrackForm(f => ({ ...f, duration: e.target.value }))}
+                    value={packForm.duration}
+                    onChange={(e) => setPackForm(f => ({ ...f, duration: e.target.value }))}
                     placeholder="e.g., 12 months"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                   />
@@ -617,8 +669,8 @@ function TrackManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
                   <input
                     type="text"
-                    value={trackForm.level}
-                    onChange={(e) => setTrackForm(f => ({ ...f, level: e.target.value }))}
+                    value={packForm.level}
+                    onChange={(e) => setPackForm(f => ({ ...f, level: e.target.value }))}
                     placeholder="e.g., Beginner to Advanced"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                   />
@@ -627,8 +679,8 @@ function TrackManagement() {
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={trackForm.isActive}
-                      onChange={(e) => setTrackForm(f => ({ ...f, isActive: e.target.checked }))}
+                      checked={packForm.isActive}
+                      onChange={(e) => setPackForm(f => ({ ...f, isActive: e.target.checked }))}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <span className="font-medium text-gray-900">Active (Published)</span>
@@ -637,18 +689,18 @@ function TrackManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Track Image</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Pack Image</label>
                 <ImageUpload
-                  value={trackForm.image}
-                  onChange={(url) => setTrackForm(f => ({ ...f, image: url }))}
-                  folder="tracks"
+                  value={packForm.image}
+                  onChange={(url) => setPackForm(f => ({ ...f, image: url }))}
+                  folder="packs"
                 />
               </div>
 
               {/* Course Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Included Courses</label>
-                <div className="border border-gray-200 rounded-xl p-4 max-h-64 overflow-y-auto">
+                <div className="border border-gray-200 rounded-xl p-4 max-h-48 overflow-y-auto">
                   {courses.length === 0 ? (
                     <p className="text-gray-500 text-sm text-center py-4">No courses available</p>
                   ) : (
@@ -660,39 +712,81 @@ function TrackManagement() {
                         >
                           <input
                             type="checkbox"
-                            checked={trackForm.courses.includes(course.id)}
+                            checked={packForm.courses.includes(course.id)}
                             onChange={() => handleCourseToggle(course.id)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
                           <span className="text-gray-700">{course.title}</span>
-                          {course.track && course.track.id !== editingTrack?.id && (
-                            <span className="text-xs text-gray-400">(in {course.track.title})</span>
-                          )}
+                          <span className="text-gray-400 text-sm">${parseFloat(course.price || 0).toFixed(2)}</span>
                         </label>
                       ))}
                     </div>
                   )}
                 </div>
                 <p className="text-sm text-gray-500 mt-2">
-                  {trackForm.courses.length} courses selected
+                  {packForm.courses.length} courses selected
+                </p>
+              </div>
+
+              {/* Tuition Pack Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Included Tuition Packs</label>
+                <div className="border border-gray-200 rounded-xl p-4 max-h-48 overflow-y-auto">
+                  {tuitionPacks.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4">No tuition packs available</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {tuitionPacks.map(tp => {
+                        const selected = packForm.tuitionPacks.find(p => p.id === tp.id);
+                        return (
+                          <div
+                            key={tp.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!selected}
+                              onChange={() => handleTuitionPackToggle(tp.id)}
+                              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <span className="text-gray-700 flex-1">{tp.name}</span>
+                            <span className="text-gray-400 text-sm">{tp.creditsIncluded} credits</span>
+                            {selected && (
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={selected.quantity}
+                                onChange={(e) => handleTuitionPackQuantity(tp.id, e.target.value)}
+                                className="w-16 px-2 py-1 border border-gray-200 rounded text-sm text-center"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  {packForm.tuitionPacks.length} tuition pack(s) selected
                 </p>
               </div>
             </div>
 
             <div className="p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
               <button
-                onClick={() => setShowTrackModal(false)}
+                onClick={() => setShowPackModal(false)}
                 className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleSaveTrack}
-                disabled={isSaving || !trackForm.title.trim() || !trackForm.slug.trim()}
+                onClick={handleSavePack}
+                disabled={isSaving || !packForm.title.trim() || !packForm.slug.trim()}
                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSaving && <Loader2 size={18} className="animate-spin" />}
-                {editingTrack ? 'Save Changes' : 'Create Track'}
+                {editingPack ? 'Save Changes' : 'Create Pack'}
               </button>
             </div>
           </div>
@@ -700,72 +794,54 @@ function TrackManagement() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmTrack && (
+      {deleteConfirmPack && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => !isDeleting && setDeleteConfirmTrack(null)} />
+          <div className="absolute inset-0 bg-black/50" onClick={() => !isDeleting && setDeleteConfirmPack(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            {/* Header */}
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                   <Trash2 size={24} className="text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">Delete Track</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Delete Learning Pack</h3>
                   <p className="text-sm text-gray-500">This action cannot be undone</p>
                 </div>
               </div>
             </div>
 
-            {/* Track Info */}
             <div className="p-6">
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-1">{deleteConfirmTrack.title}</h4>
-                <p className="text-sm text-gray-500 line-clamp-2">{deleteConfirmTrack.description || 'No description'}</p>
+                <h4 className="font-semibold text-gray-900 mb-1">{deleteConfirmPack.title}</h4>
+                <p className="text-sm text-gray-500 line-clamp-2">{deleteConfirmPack.description || 'No description'}</p>
               </div>
 
-              {/* Statistics */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-blue-50 rounded-xl p-4 text-center">
                   <div className="flex items-center justify-center gap-2 text-blue-600 mb-1">
                     <BookOpen size={18} />
-                    <span className="text-2xl font-bold">{deleteConfirmTrack.coursesCount || 0}</span>
+                    <span className="text-2xl font-bold">{deleteConfirmPack.coursesCount || 0}</span>
                   </div>
                   <p className="text-xs text-blue-600 font-medium">Courses</p>
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4 text-center">
                   <div className="flex items-center justify-center gap-2 text-purple-600 mb-1">
                     <Users size={18} />
-                    <span className="text-2xl font-bold">{deleteConfirmTrack.enrollmentCount || 0}</span>
+                    <span className="text-2xl font-bold">{deleteConfirmPack.enrollmentCount || 0}</span>
                   </div>
                   <p className="text-xs text-purple-600 font-medium">Enrollments</p>
                 </div>
-                <div className="bg-green-50 rounded-xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
-                    <DollarSign size={18} />
-                    <span className="text-2xl font-bold">${parseFloat(deleteConfirmTrack.price || 0).toFixed(0)}</span>
-                  </div>
-                  <p className="text-xs text-green-600 font-medium">Price</p>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 text-orange-600 mb-1">
-                    <Clock size={18} />
-                    <span className="text-sm font-bold">{deleteConfirmTrack.duration || 'N/A'}</span>
-                  </div>
-                  <p className="text-xs text-orange-600 font-medium">Duration</p>
-                </div>
               </div>
 
-              {/* Warning */}
-              {(deleteConfirmTrack.coursesCount > 0 || deleteConfirmTrack.enrollmentCount > 0) && (
+              {(deleteConfirmPack.coursesCount > 0 || deleteConfirmPack.enrollmentCount > 0) && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
                   <div className="flex items-start gap-3">
                     <XCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium text-yellow-800">Warning</p>
                       <p className="text-yellow-700">
-                        {deleteConfirmTrack.coursesCount > 0 && `This track contains ${deleteConfirmTrack.coursesCount} course(s). `}
-                        {deleteConfirmTrack.enrollmentCount > 0 && `${deleteConfirmTrack.enrollmentCount} student(s) are enrolled. `}
+                        {deleteConfirmPack.coursesCount > 0 && `This pack contains ${deleteConfirmPack.coursesCount} course(s). `}
+                        {deleteConfirmPack.enrollmentCount > 0 && `${deleteConfirmPack.enrollmentCount} student(s) are enrolled. `}
                         Deleting will remove all associations.
                       </p>
                     </div>
@@ -774,14 +850,13 @@ function TrackManagement() {
               )}
 
               <p className="text-sm text-gray-600 text-center">
-                Are you sure you want to delete <strong>{deleteConfirmTrack.title}</strong>?
+                Are you sure you want to delete <strong>{deleteConfirmPack.title}</strong>?
               </p>
             </div>
 
-            {/* Actions */}
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
               <button
-                onClick={() => setDeleteConfirmTrack(null)}
+                onClick={() => setDeleteConfirmPack(null)}
                 disabled={isDeleting}
                 className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 disabled:opacity-50"
               >
@@ -800,7 +875,7 @@ function TrackManagement() {
                 ) : (
                   <>
                     <Trash2 size={18} />
-                    Delete Track
+                    Delete Pack
                   </>
                 )}
               </button>
@@ -812,4 +887,4 @@ function TrackManagement() {
   );
 }
 
-export default TrackManagement;
+export default PackManagement;

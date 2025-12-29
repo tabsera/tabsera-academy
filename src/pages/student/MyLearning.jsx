@@ -1,6 +1,6 @@
 /**
  * My Learning Page
- * Lists enrolled tracks and courses with links to EdX platform
+ * Lists enrolled packs and courses with links to EdX platform
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,10 +18,10 @@ const EDX_BASE_URL = 'https://learn.tabsera.com';
 function MyLearning() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [data, setData] = useState({ tracks: [], courses: [], stats: {} });
+  const [data, setData] = useState({ packs: [], courses: [], stats: {} });
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedTracks, setExpandedTracks] = useState([]);
+  const [expandedPacks, setExpandedPacks] = useState([]);
 
   // Fetch learning data
   useEffect(() => {
@@ -31,8 +31,8 @@ function MyLearning() {
         setError(null);
         const response = await apiClient.get('/enrollments/my-learning');
         setData(response);
-        // Expand all tracks by default
-        setExpandedTracks(response.tracks.map(t => t.id));
+        // Expand all packs by default
+        setExpandedPacks(response.packs?.map(p => p.id) || []);
       } catch (err) {
         console.error('Failed to fetch learning data:', err);
         setError(err.message || 'Failed to load your learning data');
@@ -44,11 +44,11 @@ function MyLearning() {
     fetchLearningData();
   }, []);
 
-  const toggleTrack = (trackId) => {
-    setExpandedTracks(prev =>
-      prev.includes(trackId)
-        ? prev.filter(id => id !== trackId)
-        : [...prev, trackId]
+  const togglePack = (packId) => {
+    setExpandedPacks(prev =>
+      prev.includes(packId)
+        ? prev.filter(id => id !== packId)
+        : [...prev, packId]
     );
   };
 
@@ -147,8 +147,8 @@ function MyLearning() {
     );
   }
 
-  const { tracks, courses: individualCourses, stats } = data;
-  const hasEnrollments = tracks.length > 0 || individualCourses.length > 0;
+  const { packs, courses: individualCourses, stats } = data;
+  const hasEnrollments = packs.length > 0 || individualCourses.length > 0;
 
   return (
     <div className="p-6 lg:p-8">
@@ -156,7 +156,7 @@ function MyLearning() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">My Learning</h1>
-          <p className="text-gray-500">Access your enrolled tracks and courses</p>
+          <p className="text-gray-500">Access your enrolled packs and courses</p>
         </div>
         <a
           href={EDX_BASE_URL}
@@ -214,8 +214,8 @@ function MyLearning() {
                   <BookOpen size={20} className="text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalTracks || 0}</p>
-                  <p className="text-sm text-gray-500">Enrolled Tracks</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalPacks || 0}</p>
+                  <p className="text-sm text-gray-500">Enrolled Packs</p>
                 </div>
               </div>
             </div>
@@ -254,49 +254,49 @@ function MyLearning() {
             </div>
           </div>
 
-          {/* Enrolled Tracks */}
-          {tracks.length > 0 && (
+          {/* Enrolled Packs */}
+          {packs.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Enrolled Tracks</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Enrolled Packs</h2>
               <div className="space-y-4">
-                {tracks.map(track => {
-                  const isExpanded = expandedTracks.includes(track.id);
-                  const filteredCourses = filterCourses(track.courses);
+                {packs.map(pack => {
+                  const isExpanded = expandedPacks.includes(pack.id);
+                  const filteredCourses = filterCourses(pack.courses);
 
                   return (
-                    <div key={track.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                      {/* Track Header */}
+                    <div key={pack.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      {/* Pack Header */}
                       <div
                         className="p-5 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleTrack(track.id)}
+                        onClick={() => togglePack(pack.id)}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-4">
                             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center text-white text-2xl overflow-hidden">
-                              {track.image ? (
-                                <img src={track.image} alt={track.title} className="w-full h-full object-cover" />
+                              {pack.image ? (
+                                <img src={pack.image} alt={pack.title} className="w-full h-full object-cover" />
                               ) : (
                                 <BookOpen size={28} />
                               )}
                             </div>
                             <div>
-                              <h3 className="font-bold text-gray-900 text-lg">{track.title}</h3>
-                              {track.description && (
-                                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{track.description}</p>
+                              <h3 className="font-bold text-gray-900 text-lg">{pack.title}</h3>
+                              {pack.description && (
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{pack.description}</p>
                               )}
                               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                                 <span className="flex items-center gap-1">
                                   <Calendar size={14} />
-                                  Enrolled: {formatDate(track.enrolledAt)}
+                                  Enrolled: {formatDate(pack.enrolledAt)}
                                 </span>
                                 <span>•</span>
-                                <span>{track.completedCourses}/{track.totalCourses} courses completed</span>
+                                <span>{pack.completedCourses}/{pack.totalCourses} courses completed</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right hidden md:block">
-                              <p className="text-2xl font-bold text-blue-600">{track.progress}%</p>
+                              <p className="text-2xl font-bold text-blue-600">{pack.progress}%</p>
                               <p className="text-xs text-gray-500">Complete</p>
                             </div>
                             <button className="p-2 hover:bg-gray-100 rounded-lg">
@@ -310,13 +310,13 @@ function MyLearning() {
                           <div className="w-full bg-gray-100 rounded-full h-2">
                             <div
                               className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                              style={{ width: `${track.progress}%` }}
+                              style={{ width: `${pack.progress}%` }}
                             />
                           </div>
                         </div>
                       </div>
 
-                      {/* Track Actions */}
+                      {/* Pack Actions */}
                       <div className="px-5 pb-4 flex gap-3">
                         <a
                           href={`${EDX_BASE_URL}/dashboard`}
@@ -341,7 +341,7 @@ function MyLearning() {
                         <div className="border-t border-gray-100">
                           <div className="p-4 bg-gray-50">
                             <p className="text-sm font-medium text-gray-700 mb-3">
-                              Courses in this track ({filteredCourses.length})
+                              Courses in this pack ({filteredCourses.length})
                             </p>
                             <div className="space-y-2">
                               {filteredCourses.length === 0 ? (
@@ -480,7 +480,7 @@ function MyLearning() {
             <BookOpen size={32} className="text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No courses yet</h3>
-          <p className="text-gray-500 mb-6">Start your learning journey by enrolling in a track or course</p>
+          <p className="text-gray-500 mb-6">Start your learning journey by enrolling in a pack or course</p>
           <Link
             to="/courses"
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"

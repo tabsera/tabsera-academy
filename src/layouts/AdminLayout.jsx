@@ -46,7 +46,7 @@ const AdminLayout = () => {
     ]},
     { section: 'Content', items: [
       { path: '/admin/courses', icon: BookOpen, label: 'Courses' },
-      { path: '/admin/tracks', icon: Layers, label: 'Learning Tracks' },
+      { path: '/admin/packs', icon: Layers, label: 'Learning Packs' },
     ]},
     { section: 'Partners', items: [
       { path: '/admin/partners', icon: Building2, label: 'Learning Centers' },

@@ -9,7 +9,7 @@ const CartContext = createContext(null);
 
 // Cart item types
 export const ITEM_TYPES = {
-  TRACK: 'track',
+  PACK: 'pack',
   COURSE: 'course',
   TUITION_PACK: 'tuition_pack',
 };
@@ -60,9 +60,10 @@ export function CartProvider({ children }) {
         originalPrice: item.originalPrice || item.price,
         image: item.image,
         description: item.description,
-        // Track/Course specific
+        // Pack/Course specific
         duration: item.duration,
         coursesCount: item.coursesCount,
+        tuitionPacksCount: item.tuitionPacksCount,
         // Tuition Pack specific
         creditsIncluded: item.creditsIncluded,
         validityDays: item.validityDays,

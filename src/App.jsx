@@ -27,8 +27,9 @@ import CourseDetail from './pages/public/CourseDetail';
 import LearningCentersListing from './pages/public/LearningCentersListing';
 import LearningCenterDetail from './pages/public/LearningCenterDetail';
 import BecomePartner from './pages/public/BecomePartner';
-import TrackDetail from './pages/public/TrackDetail';
+import PackDetail from './pages/public/PackDetail';
 import Tutors from './pages/public/Tutors';
+import TutorDetail from './pages/public/TutorDetail';
 import TuitionPacks from './pages/public/TuitionPacks';
 
 // Admin Pages
@@ -39,7 +40,7 @@ import PartnerSettlementsOverview from './pages/admin/PartnerSettlementsOverview
 import CenterSettlementDetails from './pages/admin/CenterSettlementDetails';
 import ProcessSettlement from './pages/admin/ProcessSettlement';
 import StudentRegistration from './pages/admin/StudentRegistration';
-import TrackEnrollment from './pages/admin/TrackEnrollment';
+import PackEnrollment from './pages/admin/PackEnrollment';
 import PasswordResetCenter from './pages/admin/PasswordResetCenter';
 import AnalyticsDashboard from './pages/admin/AnalyticsDashboard';
 import UserManagement from './pages/admin/UserManagement';
@@ -48,15 +49,20 @@ import SystemSettings from './pages/admin/SystemSettings';
 import CourseList from './pages/admin/CourseList';
 import CourseEditor from './pages/admin/CourseEditor';
 import CurriculumBuilder from './pages/admin/CurriculumBuilder';
-import TrackManagement from './pages/admin/TrackManagement';
+import PackManagement from './pages/admin/PackManagement';
 import OrderManagement from './pages/admin/OrderManagement';
 import CountryManagement from './pages/admin/CountryManagement';
 import TutorManagement from './pages/admin/TutorManagement';
 import TuitionPackManagement from './pages/admin/TuitionPackManagement';
 
 // Tutor Pages
+import TutorLayout from './layouts/TutorLayout';
 import TutorRegistration from './pages/tutor/TutorRegistration';
 import TutorPending from './pages/tutor/TutorPending';
+import TutorDashboard from './pages/tutor/TutorDashboard';
+import TutorProfileEdit from './pages/tutor/TutorProfileEdit';
+import TutorAvailability from './pages/tutor/TutorAvailability';
+import TutorSessions from './pages/tutor/TutorSessions';
 
 // Center Pages
 import CenterDashboard from './pages/center/CenterDashboard';
@@ -72,12 +78,17 @@ import MyLearning from './pages/student/MyLearning';
 import MyPayments from './pages/student/MyPayments';
 import MyCertificates from './pages/student/MyCertificates';
 import StudentProfile from './pages/student/StudentProfile';
+import MySessions from './pages/student/MySessions';
 
 // Checkout Pages
 import Cart from './pages/checkout/Cart';
 import Checkout from './pages/checkout/Checkout';
 import OrderConfirmation from './pages/checkout/OrderConfirmation';
 import PaymentCallback from './pages/checkout/PaymentCallback';
+
+// Session Pages (LiveKit Video)
+import SessionRoom from './pages/session/SessionRoom';
+import SessionRecording from './pages/session/SessionRecording';
 
 // Role constants
 const ROLES = {
@@ -139,8 +150,9 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/courses" element={<Courses />} />
       <Route path="/courses/:id" element={<CourseDetail />} />
-      <Route path="/tracks/:slug" element={<TrackDetail />} />
+      <Route path="/packs/:slug" element={<PackDetail />} />
       <Route path="/tutors" element={<Tutors />} />
+      <Route path="/tutors/:id" element={<TutorDetail />} />
       <Route path="/tuition" element={<TuitionPacks />} />
       <Route path="/centers" element={<LearningCentersListing />} />
       <Route path="/centers/:id" element={<LearningCenterDetail />} />
@@ -173,6 +185,27 @@ function App() {
       <Route path="/payment/failure" element={<PaymentCallback />} />
 
       {/* ===================== */}
+      {/* VIDEO SESSION ROUTES */}
+      {/* LiveKit video rooms */}
+      {/* ===================== */}
+      <Route
+        path="/session/:sessionId"
+        element={
+          <ProtectedRoute roles={[ROLES.STUDENT, ROLES.TUTOR]}>
+            <SessionRoom />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/session/:sessionId/recording"
+        element={
+          <ProtectedRoute roles={[ROLES.STUDENT, ROLES.TUTOR, ROLES.TABSERA_ADMIN]}>
+            <SessionRecording />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ===================== */}
       {/* TUTOR ROUTES */}
       {/* ===================== */}
       <Route
@@ -191,6 +224,25 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ===================== */}
+      {/* TUTOR PORTAL ROUTES */}
+      {/* Protected: Approved Tutors only */}
+      {/* ===================== */}
+      <Route
+        path="/tutor"
+        element={
+          <ProtectedRoute roles={[ROLES.TUTOR]}>
+            <TutorLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<TutorDashboard />} />
+        <Route path="profile" element={<TutorProfileEdit />} />
+        <Route path="availability" element={<TutorAvailability />} />
+        <Route path="sessions" element={<TutorSessions />} />
+      </Route>
 
       {/* ===================== */}
       {/* ADMIN PORTAL ROUTES */}
@@ -214,7 +266,7 @@ function App() {
         <Route path="courses/new" element={<CourseEditor />} />
         <Route path="courses/:id" element={<CourseEditor />} />
         <Route path="courses/:id/curriculum" element={<CurriculumBuilder />} />
-        <Route path="tracks" element={<TrackManagement />} />
+        <Route path="packs" element={<PackManagement />} />
         <Route path="partners" element={<PartnersList />} />
         <Route path="partners/:id" element={<CenterContractConfiguration />} />
         <Route path="contracts/:id" element={<CenterContractConfiguration />} />
@@ -222,7 +274,7 @@ function App() {
         <Route path="settlements/:id" element={<CenterSettlementDetails />} />
         <Route path="settlements/process" element={<ProcessSettlement />} />
         <Route path="students" element={<StudentRegistration />} />
-        <Route path="students/enroll" element={<TrackEnrollment />} />
+        <Route path="students/enroll" element={<PackEnrollment />} />
         <Route path="password-reset" element={<PasswordResetCenter />} />
         <Route path="orders" element={<OrderManagement />} />
         <Route path="countries" element={<CountryManagement />} />
@@ -268,6 +320,7 @@ function App() {
         <Route path="payments" element={<MyPayments />} />
         <Route path="certificates" element={<MyCertificates />} />
         <Route path="profile" element={<StudentProfile />} />
+        <Route path="sessions" element={<MySessions />} />
       </Route>
 
       {/* ===================== */}

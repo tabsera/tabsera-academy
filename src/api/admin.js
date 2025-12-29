@@ -1,6 +1,6 @@
 /**
  * Admin API Service
- * Handles admin operations for courses and tracks management
+ * Handles admin operations for courses and learning packs management
  */
 
 import apiClient from './client';
@@ -14,10 +14,10 @@ export const adminApi = {
    * Get all courses (admin view)
    */
   async getCourses(params = {}) {
-    const { search, trackId, status, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+    const { search, packId, status, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = params;
     return apiClient.get('/admin/courses', {
       search,
-      trackId,
+      packId,
       status,
       limit,
       offset,
@@ -77,15 +77,15 @@ export const adminApi = {
   },
 
   // ============================================
-  // TRACKS
+  // LEARNING PACKS
   // ============================================
 
   /**
-   * Get all tracks (admin view)
+   * Get all learning packs (admin view)
    */
-  async getTracks(params = {}) {
+  async getPacks(params = {}) {
     const { search, status, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = params;
-    return apiClient.get('/admin/tracks', {
+    return apiClient.get('/admin/packs', {
       search,
       status,
       limit,
@@ -96,45 +96,52 @@ export const adminApi = {
   },
 
   /**
-   * Get single track by ID with courses
+   * Get single learning pack by ID with courses and tuition packs
    */
-  async getTrack(id) {
-    return apiClient.get(`/admin/tracks/${id}`);
+  async getPack(id) {
+    return apiClient.get(`/admin/packs/${id}`);
   },
 
   /**
-   * Create a new track
+   * Create a new learning pack
    */
-  async createTrack(data) {
-    return apiClient.post('/admin/tracks', data);
+  async createPack(data) {
+    return apiClient.post('/admin/packs', data);
   },
 
   /**
-   * Update a track
+   * Update a learning pack
    */
-  async updateTrack(id, data) {
-    return apiClient.put(`/admin/tracks/${id}`, data);
+  async updatePack(id, data) {
+    return apiClient.put(`/admin/packs/${id}`, data);
   },
 
   /**
-   * Delete a track
+   * Delete a learning pack
    */
-  async deleteTrack(id) {
-    return apiClient.delete(`/admin/tracks/${id}`);
+  async deletePack(id) {
+    return apiClient.delete(`/admin/packs/${id}`);
   },
 
   /**
-   * Update courses assigned to a track
+   * Update courses assigned to a learning pack
    */
-  async updateTrackCourses(id, courseIds) {
-    return apiClient.put(`/admin/tracks/${id}/courses`, { courseIds });
+  async updatePackCourses(id, courseIds) {
+    return apiClient.put(`/admin/packs/${id}/courses`, { courseIds });
   },
 
   /**
-   * Duplicate a track
+   * Update tuition packs assigned to a learning pack
    */
-  async duplicateTrack(id) {
-    return apiClient.post(`/admin/tracks/${id}/duplicate`);
+  async updatePackTuitionPacks(id, tuitionPackIds) {
+    return apiClient.put(`/admin/packs/${id}/tuition-packs`, { tuitionPackIds });
+  },
+
+  /**
+   * Duplicate a learning pack
+   */
+  async duplicatePack(id) {
+    return apiClient.post(`/admin/packs/${id}/duplicate`);
   },
 
   // ============================================
@@ -242,10 +249,10 @@ export const adminApi = {
    * Get all enrollments
    */
   async getEnrollments(params = {}) {
-    const { userId, trackId, courseId, status, search, limit = 50, offset = 0 } = params;
+    const { userId, learningPackId, courseId, status, search, limit = 50, offset = 0 } = params;
     return apiClient.get('/admin/enrollments', {
       userId,
-      trackId,
+      learningPackId,
       courseId,
       status,
       search,

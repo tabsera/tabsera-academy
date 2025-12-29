@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Hero } from '../../components/Hero';
-import { TrackCard } from '../../components/TrackCard';
+import { PackCard } from '../../components/PackCard';
 import { CourseCard } from '../../components/CourseCard';
 import apiClient from '../../api/client';
 import { tutorsApi } from '../../api/tutors';
@@ -12,14 +12,14 @@ import {
 } from 'lucide-react';
 
 function Home() {
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [courses, setCourses] = useState([]);
   const [tutors, setTutors] = useState([]);
   const [stats, setStats] = useState({
     students: 510,
     centers: 8,
     countries: 5,
-    tracks: 0,
+    packs: 0,
     courses: 0,
     tutors: 0,
   });
@@ -33,22 +33,22 @@ function Home() {
     try {
       setLoading(true);
 
-      const [coursesRes, tracksRes, tutorsRes] = await Promise.all([
+      const [coursesRes, packsRes, tutorsRes] = await Promise.all([
         apiClient.get('/courses', { limit: 6 }),
-        apiClient.get('/tracks'),
+        apiClient.get('/packs'),
         tutorsApi.listTutors({ limit: 6 }).catch(() => ({ tutors: [] })),
       ]);
 
-      const fetchedTracks = tracksRes.tracks || [];
+      const fetchedPacks = packsRes.packs || [];
       const fetchedCourses = coursesRes.courses || [];
       const fetchedTutors = tutorsRes.tutors || [];
 
-      setTracks(fetchedTracks);
+      setPacks(fetchedPacks);
       setCourses(fetchedCourses);
       setTutors(fetchedTutors);
       setStats(prev => ({
         ...prev,
-        tracks: fetchedTracks.length,
+        packs: fetchedPacks.length,
         courses: coursesRes.total || fetchedCourses.length,
         tutors: tutorsRes.pagination?.total || fetchedTutors.length,
       }));
@@ -65,12 +65,12 @@ function Home() {
     <Layout>
       <Hero />
 
-      {/* Top Tracks Section */}
+      {/* Learning Packs Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Learning Tracks</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Learning Packs</h2>
               <p className="text-gray-600">Complete programs designed for your success</p>
             </div>
             <Link to="/courses" className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1">
@@ -82,16 +82,16 @@ function Home() {
             <div className="flex justify-center py-12">
               <Loader2 size={32} className="animate-spin text-blue-600" />
             </div>
-          ) : tracks.length > 0 ? (
+          ) : packs.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {tracks.map(track => (
-                <TrackCard key={track.id} track={track} />
+              {packs.map(pack => (
+                <PackCard key={pack.id} pack={pack} />
               ))}
             </div>
           ) : (
             <div className="text-center py-12 text-gray-500">
               <BookOpen size={48} className="mx-auto mb-4 text-gray-400" />
-              <p>No tracks available yet.</p>
+              <p>No learning packs available yet.</p>
             </div>
           )}
         </div>
@@ -284,8 +284,8 @@ function Home() {
               <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
                 <Award size={32} />
               </div>
-              <p className="text-4xl font-bold mb-2">{stats.tracks}</p>
-              <p className="text-blue-100">Learning Tracks</p>
+              <p className="text-4xl font-bold mb-2">{stats.packs}</p>
+              <p className="text-blue-100">Learning Packs</p>
             </div>
           </div>
         </div>

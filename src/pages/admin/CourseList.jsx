@@ -17,12 +17,12 @@ import { useAuth } from '@/context/AuthContext';
 function CourseList() {
   const { openEdxAdmin } = useAuth();
   const [courses, setCourses] = useState([]);
-  const [tracks, setTracks] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [trackFilter, setTrackFilter] = useState('all');
+  const [packFilter, setPackFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [selectedCourses, setSelectedCourses] = useState([]);
@@ -75,12 +75,12 @@ function CourseList() {
     try {
       setLoading(true);
       setError(null);
-      const [coursesRes, tracksRes] = await Promise.all([
+      const [coursesRes, packsRes] = await Promise.all([
         adminApi.getCourses({ limit: 100 }),
-        adminApi.getTracks({ limit: 100 }),
+        adminApi.getPacks({ limit: 100 }),
       ]);
       setCourses(coursesRes.courses || []);
-      setTracks(tracksRes.tracks || []);
+      setPacks(packsRes.packs || []);
     } catch (err) {
       setError(err.message || 'Failed to load courses');
       console.error('Error fetching data:', err);
@@ -96,8 +96,8 @@ function CourseList() {
     const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'active' && course.isActive) ||
       (statusFilter === 'inactive' && !course.isActive);
-    const matchesTrack = trackFilter === 'all' || course.trackId === trackFilter;
-    return matchesSearch && matchesStatus && matchesTrack;
+    const matchesPack = packFilter === 'all' || course.learningPackId === packFilter;
+    return matchesSearch && matchesStatus && matchesPack;
   });
 
   const getStatusBadge = (isActive) => {
@@ -379,13 +379,13 @@ function CourseList() {
 
             <div className="relative">
               <select
-                value={trackFilter}
-                onChange={(e) => setTrackFilter(e.target.value)}
+                value={packFilter}
+                onChange={(e) => setPackFilter(e.target.value)}
                 className="pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl appearance-none cursor-pointer text-sm"
               >
-                <option value="all">All Tracks</option>
-                {tracks.map(track => (
-                  <option key={track.id} value={track.id}>{track.title}</option>
+                <option value="all">All Packs</option>
+                {packs.map(pack => (
+                  <option key={pack.id} value={pack.id}>{pack.title}</option>
                 ))}
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -473,8 +473,8 @@ function CourseList() {
               {/* Content */}
               <div className="p-5">
                 <div className="mb-3">
-                  {course.track && (
-                    <span className="text-xs font-medium text-blue-600">{course.track.title}</span>
+                  {course.learningPack && (
+                    <span className="text-xs font-medium text-blue-600">{course.learningPack.title}</span>
                   )}
                   <h3 className="font-bold text-gray-900 mt-1 line-clamp-2">{course.title}</h3>
                 </div>
@@ -602,7 +602,7 @@ function CourseList() {
                     />
                   </th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Course</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Track</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Pack</th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Enrolled</th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Price</th>
@@ -636,7 +636,7 @@ function CourseList() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {course.track?.title || '—'}
+                      {course.learningPack?.title || '—'}
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(course.isActive)}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{course.enrollmentCount || 0}</td>
