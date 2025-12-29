@@ -11,6 +11,7 @@ const { sanitizeDescription } = require('../utils/sanitize');
 const { sendTemplatedEmail } = require('../services/email');
 const recordingPipeline = require('../services/recordingPipeline');
 const vimeoService = require('../services/vimeo');
+const seedreamService = require('../services/seedream');
 
 const router = express.Router();
 
@@ -307,6 +308,57 @@ router.delete('/courses/:id', async (req, res, next) => {
     res.json({
       success: true,
       message: 'Course deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/courses/:id/generate-image
+ * Generate AI image for course using Seedream
+ */
+router.post('/courses/:id/generate-image', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { customPrompt } = req.body;
+
+    const course = await req.prisma.course.findUnique({
+      where: { id },
+      include: {
+        subject: { select: { name: true } },
+      },
+    });
+
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    let result;
+    if (customPrompt) {
+      result = await seedreamService.generateCustomImage(customPrompt, { aspectRatio: '16:9' });
+    } else {
+      result = await seedreamService.generateCourseImage(course);
+    }
+
+    if (!result.success) {
+      return res.status(500).json({
+        message: 'Failed to generate image',
+        error: result.error,
+      });
+    }
+
+    // Update course with new image URL
+    const updatedCourse = await req.prisma.course.update({
+      where: { id },
+      data: { image: result.imageUrl },
+    });
+
+    res.json({
+      success: true,
+      imageUrl: result.imageUrl,
+      course: updatedCourse,
+      message: 'Course image generated successfully',
     });
   } catch (error) {
     next(error);
@@ -985,6 +1037,54 @@ router.delete('/packs/:id', async (req, res, next) => {
     res.json({
       success: true,
       message: 'Learning pack deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/packs/:id/generate-image
+ * Generate AI image for learning pack using Seedream
+ */
+router.post('/packs/:id/generate-image', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { customPrompt } = req.body;
+
+    const pack = await req.prisma.learningPack.findUnique({
+      where: { id },
+    });
+
+    if (!pack) {
+      return res.status(404).json({ message: 'Learning pack not found' });
+    }
+
+    let result;
+    if (customPrompt) {
+      result = await seedreamService.generateCustomImage(customPrompt, { aspectRatio: '16:9' });
+    } else {
+      result = await seedreamService.generatePackImage(pack);
+    }
+
+    if (!result.success) {
+      return res.status(500).json({
+        message: 'Failed to generate image',
+        error: result.error,
+      });
+    }
+
+    // Update pack with new image URL
+    const updatedPack = await req.prisma.learningPack.update({
+      where: { id },
+      data: { image: result.imageUrl },
+    });
+
+    res.json({
+      success: true,
+      imageUrl: result.imageUrl,
+      pack: updatedPack,
+      message: 'Learning pack image generated successfully',
     });
   } catch (error) {
     next(error);

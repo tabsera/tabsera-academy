@@ -8,7 +8,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Save, BookOpen, Image, DollarSign, Globe,
   X, Plus, Trash2, CheckCircle, AlertCircle, Loader2,
-  Clock, ExternalLink, ChevronDown, Tag
+  Clock, ExternalLink, ChevronDown, Tag, Sparkles
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import { apiClient } from '@/api/client';
@@ -27,6 +27,7 @@ function CourseEditor() {
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -128,6 +129,30 @@ function CourseEditor() {
       alert(err.message || 'Failed to save course');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (isNew) {
+      alert('Please save the course first before generating an image.');
+      return;
+    }
+
+    if (!confirm('Generate a new AI image for this course? This will replace the current image.')) {
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await adminApi.generateCourseImage(id);
+      if (result.imageUrl) {
+        handleChange('image', result.imageUrl);
+        alert('Image generated successfully!');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to generate image');
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -381,14 +406,39 @@ function CourseEditor() {
         {activeTab === 'media' && (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Course Image
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Course Image
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateImage}
+                  disabled={isGeneratingImage || isNew}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generate with AI
+                    </>
+                  )}
+                </button>
+              </div>
               <ImageUpload
                 value={formData.image}
                 onChange={(url) => handleChange('image', url)}
                 folder="courses"
               />
+              {isNew && (
+                <p className="text-xs text-amber-600 mt-2">
+                  Save the course first to enable AI image generation
+                </p>
+              )}
             </div>
 
             <div>

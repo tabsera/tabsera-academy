@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import {
   Layers, Search, Plus, Edit, Trash2, MoreVertical, Eye,
   BookOpen, Users, DollarSign, Clock, ChevronDown, X,
-  CheckCircle, XCircle, Star, Copy, ExternalLink, Loader2, Play, Pause, CreditCard
+  CheckCircle, XCircle, Star, Copy, ExternalLink, Loader2, Play, Pause, CreditCard, Sparkles
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import ImageUpload from '@/components/ImageUpload';
@@ -29,6 +29,7 @@ function PackManagement() {
   const [actionLoading, setActionLoading] = useState(null);
   const [deleteConfirmPack, setDeleteConfirmPack] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Form state
   const [packForm, setPackForm] = useState({
@@ -200,6 +201,30 @@ function PackManagement() {
       alert(err.message || 'Failed to delete learning pack');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!editingPack) {
+      alert('Please save the pack first before generating an image.');
+      return;
+    }
+
+    if (!confirm('Generate a new AI image for this pack? This will replace the current image.')) {
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await adminApi.generatePackImage(editingPack.id);
+      if (result.imageUrl) {
+        setPackForm(f => ({ ...f, image: result.imageUrl }));
+        alert('Image generated successfully!');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to generate image');
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -689,12 +714,37 @@ function PackManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Pack Image</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Pack Image</label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateImage}
+                    disabled={isGeneratingImage || !editingPack}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {isGeneratingImage ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Generate with AI
+                      </>
+                    )}
+                  </button>
+                </div>
                 <ImageUpload
                   value={packForm.image}
                   onChange={(url) => setPackForm(f => ({ ...f, image: url }))}
                   folder="packs"
                 />
+                {!editingPack && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Save the pack first to enable AI image generation
+                  </p>
+                )}
               </div>
 
               {/* Course Selection */}

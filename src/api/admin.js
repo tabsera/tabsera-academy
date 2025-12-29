@@ -62,6 +62,13 @@ export const adminApi = {
   },
 
   /**
+   * Generate AI image for course using Seedream
+   */
+  async generateCourseImage(id, customPrompt = null) {
+    return apiClient.post(`/admin/courses/${id}/generate-image`, { customPrompt });
+  },
+
+  /**
    * Bulk action on courses
    */
   async bulkActionCourses(action, courseIds) {
@@ -121,6 +128,13 @@ export const adminApi = {
    */
   async deletePack(id) {
     return apiClient.delete(`/admin/packs/${id}`);
+  },
+
+  /**
+   * Generate AI image for learning pack using Seedream
+   */
+  async generatePackImage(id, customPrompt = null) {
+    return apiClient.post(`/admin/packs/${id}/generate-image`, { customPrompt });
   },
 
   /**
