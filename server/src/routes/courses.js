@@ -13,11 +13,12 @@ const router = express.Router();
  */
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { level, search, limit = 50, offset = 0 } = req.query;
+    const { level, search, subjectId, limit = 50, offset = 0 } = req.query;
 
     const where = {
       isActive: true,
       ...(level && { level }),
+      ...(subjectId && { subjectId }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
@@ -32,6 +33,17 @@ router.get('/', optionalAuth, async (req, res, next) => {
         orderBy: { createdAt: 'desc' },
         take: parseInt(limit),
         skip: parseInt(offset),
+        include: {
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              color: true,
+              icon: true,
+            },
+          },
+        },
       }),
       req.prisma.course.count({ where }),
     ]);
@@ -60,6 +72,17 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       where: {
         OR: [{ id }, { slug: id }],
         isActive: true,
+      },
+      include: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            icon: true,
+          },
+        },
       },
     });
 

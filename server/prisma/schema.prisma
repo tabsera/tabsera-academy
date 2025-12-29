@@ -81,6 +81,25 @@ model Country {
   @@map("countries")
 }
 
+// Subject model - for categorizing courses
+model Subject {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "Mathematics", "Physics"
+  slug        String   @unique // e.g., "mathematics", "physics"
+  description String?
+  icon        String?  // Icon name or URL
+  color       String?  // Hex color for UI display
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  courses     Course[]
+
+  @@map("subjects")
+}
+
 // User model
 model User {
   id                      String    @id @default(uuid())
@@ -202,12 +221,14 @@ model Course {
   externalUrl     String?  @map("external_url") // EdX or external platform course URL
   edxCourseId     String?  @map("edx_course_id") // Open edX course ID (e.g., "course-v1:TabseraX+CS101+2024")
   learningPackId  String?  @map("learning_pack_id")
+  subjectId       String?  @map("subject_id") // Subject category
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
   learningPack  LearningPack?  @relation(fields: [learningPackId], references: [id])
+  subject       Subject?       @relation(fields: [subjectId], references: [id])
   enrollments   Enrollment[]
   orderItems    OrderItem[]
   tutorCourses  TutorCourse[]

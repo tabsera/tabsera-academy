@@ -50,6 +50,7 @@ const edxRoutes = require('./routes/edx');
 const uploadRoutes = require('./routes/upload');
 const centersRoutes = require('./routes/centers');
 const countriesRoutes = require('./routes/countries');
+const subjectsRoutes = require('./routes/subjects');
 const tutorsRoutes = require('./routes/tutors');
 const webhooksRoutes = require('./routes/webhooks');
 
@@ -68,6 +69,7 @@ app.use('/api/edx', edxRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/centers', centersRoutes);
 app.use('/api/countries', countriesRoutes);
+app.use('/api/subjects', subjectsRoutes);
 app.use('/api/tutors', tutorsRoutes);
 
 // Health check

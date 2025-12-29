@@ -11,7 +11,7 @@ import apiClient from '../../api/client';
 import {
   GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
   ArrowRight, ArrowLeft, User, Phone, MapPin, Building2, CheckCircle,
-  FileText, Upload, Trash2, Plus, BookOpen, Clock, Check, Camera, X
+  FileText, Upload, Trash2, Plus, BookOpen, Clock, Check, Camera, X, Filter
 } from 'lucide-react';
 
 const TIMEZONES = [
@@ -48,9 +48,12 @@ function TutorSignup() {
   const [centers, setCenters] = useState([]);
   const [courses, setCourses] = useState([]);
   const [countries, setCountries] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loadingCenters, setLoadingCenters] = useState(true);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingCountries, setLoadingCountries] = useState(true);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('');
 
   // Form data
   const [formData, setFormData] = useState({
@@ -87,11 +90,12 @@ function TutorSignup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
 
-  // Fetch centers, courses, and countries on mount
+  // Fetch centers, courses, countries, and subjects on mount
   useEffect(() => {
     fetchCenters();
     fetchCourses();
     fetchCountries();
+    fetchSubjects();
   }, []);
 
   const fetchCenters = async () => {
@@ -127,6 +131,18 @@ function TutorSignup() {
       console.error('Failed to fetch countries:', err);
     } finally {
       setLoadingCountries(false);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      setLoadingSubjects(true);
+      const result = await apiClient.get('/subjects');
+      setSubjects(result.subjects || []);
+    } catch (err) {
+      console.error('Failed to fetch subjects:', err);
+    } finally {
+      setLoadingSubjects(false);
     }
   };
 
@@ -865,36 +881,81 @@ function TutorSignup() {
           {currentStep === 6 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Courses You Can Teach</h2>
-              <p className="text-gray-600 mb-6">Select the courses you are proficient in and can teach.</p>
+              <p className="text-gray-600 mb-4">Select the courses you are proficient in and can teach.</p>
 
-              {loadingCourses ? (
+              {/* Subject Filter */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <Filter size={18} className="text-gray-500" />
+                <select
+                  value={selectedSubjectFilter}
+                  onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                  className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-700 font-medium"
+                >
+                  <option value="">All Subjects</option>
+                  {subjects.map(subject => (
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
+                  ))}
+                </select>
+                {selectedSubjectFilter && (
+                  <button
+                    onClick={() => setSelectedSubjectFilter('')}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {loadingCourses || loadingSubjects ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 size={32} className="animate-spin text-green-600" />
                 </div>
               ) : (
-                <div className="grid gap-3 md:grid-cols-2 max-h-96 overflow-y-auto">
-                  {courses.map(course => (
-                    <label
-                      key={course.id}
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-                        formData.selectedCourses.includes(course.id)
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.selectedCourses.includes(course.id)}
-                        onChange={() => toggleCourse(course.id)}
-                        className="w-5 h-5 text-green-600 rounded"
-                      />
-                      <div>
-                        <p className="font-medium text-gray-900">{course.title}</p>
-                        {course.level && <p className="text-sm text-gray-500">{course.level}</p>}
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-3 md:grid-cols-2 max-h-96 overflow-y-auto">
+                    {courses
+                      .filter(course => !selectedSubjectFilter || course.subjectId === selectedSubjectFilter)
+                      .map(course => (
+                        <label
+                          key={course.id}
+                          className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                            formData.selectedCourses.includes(course.id)
+                              ? 'border-green-500 bg-green-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.selectedCourses.includes(course.id)}
+                            onChange={() => toggleCourse(course.id)}
+                            className="w-5 h-5 text-green-600 rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900">{course.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {course.subject && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                  style={{
+                                    backgroundColor: `${course.subject.color}20`,
+                                    color: course.subject.color,
+                                  }}
+                                >
+                                  {course.subject.name}
+                                </span>
+                              )}
+                              {course.level && (
+                                <span className="text-xs text-gray-500">{course.level}</span>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                  </div>
+                  {courses.filter(course => !selectedSubjectFilter || course.subjectId === selectedSubjectFilter).length === 0 && (
+                    <p className="text-center text-gray-500 py-4">No courses found for this subject</p>
+                  )}
+                </>
               )}
 
               {formErrors.courses && <p className="mt-2 text-sm text-red-600">{formErrors.courses}</p>}
