@@ -56,6 +56,7 @@ import OrderManagement from './pages/admin/OrderManagement';
 import CountryManagement from './pages/admin/CountryManagement';
 import TutorManagement from './pages/admin/TutorManagement';
 import TuitionPackManagement from './pages/admin/TuitionPackManagement';
+import SubjectManagement from './pages/admin/SubjectManagement';
 
 // Tutor Pages
 import TutorLayout from './layouts/TutorLayout';
@@ -284,6 +285,7 @@ function App() {
         <Route path="countries" element={<CountryManagement />} />
         <Route path="tutors" element={<TutorManagement />} />
         <Route path="tuition-packs" element={<TuitionPackManagement />} />
+        <Route path="subjects" element={<SubjectManagement />} />
       </Route>
 
       {/* ===================== */}

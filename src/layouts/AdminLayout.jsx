@@ -4,7 +4,7 @@ import {
   GraduationCap, Building2, LayoutDashboard, Users, FileText, Receipt,
   CircleDollarSign, Settings, Bell, Menu, X, ChevronDown, LogOut,
   Briefcase, UserPlus, KeyRound, BookOpen, BarChart3, FileCheck, Layers,
-  Globe
+  Globe, CreditCard, UserCheck, Tag
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -47,6 +47,9 @@ const AdminLayout = () => {
     { section: 'Content', items: [
       { path: '/admin/courses', icon: BookOpen, label: 'Courses' },
       { path: '/admin/packs', icon: Layers, label: 'Learning Packs' },
+      { path: '/admin/tuition-packs', icon: CreditCard, label: 'Tuition Packs' },
+      { path: '/admin/subjects', icon: Tag, label: 'Subjects' },
+      { path: '/admin/tutors', icon: UserCheck, label: 'Tutors' },
     ]},
     { section: 'Partners', items: [
       { path: '/admin/partners', icon: Building2, label: 'Learning Centers' },
