@@ -20,8 +20,8 @@ function BecomeTutor() {
   const benefits = [
     {
       icon: DollarSign,
-      title: 'Earn on Your Schedule',
-      description: 'Set your own hourly rates and earn money teaching subjects you love. Get paid for every session completed.'
+      title: 'Get Paid by TABSERA',
+      description: 'Qualifying tutors are paid directly by TABSERA Academy. Focus on teaching while we handle the payments.'
     },
     {
       icon: Clock,
@@ -40,13 +40,13 @@ function BecomeTutor() {
     },
     {
       icon: Shield,
-      title: 'Secure Payments',
-      description: 'Students pay upfront with tuition credits. You get paid reliably after each session.'
+      title: 'Reliable Compensation',
+      description: 'TABSERA Academy pays qualifying tutors directly. No chasing payments or dealing with individual students.'
     },
     {
       icon: TrendingUp,
       title: 'Grow Your Reputation',
-      description: 'Build your profile with ratings and reviews. Top tutors get featured and earn more.'
+      description: 'Build your profile with ratings and reviews. Top-rated tutors get more visibility and sessions.'
     },
   ];
 
@@ -69,7 +69,7 @@ function BecomeTutor() {
     {
       num: 4,
       title: 'Set Availability',
-      description: 'Configure your weekly schedule and hourly rate'
+      description: 'Configure your weekly schedule for tutoring sessions'
     },
     {
       num: 5,
@@ -94,16 +94,16 @@ function BecomeTutor() {
 
   const faqs = [
     {
-      q: 'How much can I earn as a tutor?',
-      a: 'You set your own hourly rate. Most tutors on our platform charge between $15-50 per hour depending on subject and experience. Top tutors earn $2,000+ monthly.'
+      q: 'How do tutors get paid?',
+      a: 'Qualifying tutors are paid directly by TABSERA Academy. Once approved, you will receive compensation based on completed sessions. Payment terms are discussed during the approval process.'
     },
     {
       q: 'What subjects can I teach?',
       a: 'We focus on Cambridge IGCSE subjects and Islamic Studies. If you have expertise in any of these areas, you can apply to teach them.'
     },
     {
-      q: 'How do I get paid?',
-      a: 'Earnings are calculated after each completed session. Payouts are processed weekly via bank transfer or mobile money.'
+      q: 'What does "qualifying tutor" mean?',
+      a: 'Qualifying tutors meet our standards for subject expertise, teaching ability, and availability. After submitting your application, our team will review your qualifications and discuss terms with approved candidates.'
     },
     {
       q: 'Do I need teaching experience?',
@@ -129,11 +129,11 @@ function BecomeTutor() {
               </div>
               <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
                 Share Your Knowledge,<br />
-                <span className="text-emerald-300">Earn While You Teach</span>
+                <span className="text-emerald-300">Make a Difference</span>
               </h1>
               <p className="text-xl text-green-100 mb-8 leading-relaxed">
                 Become a TABSERA tutor and help students across East Africa achieve their academic goals.
-                Teach online, set your own schedule, and earn competitive rates.
+                Qualifying tutors are paid directly by TABSERA Academy.
               </p>
               <div className="flex flex-wrap gap-4">
                 {isAuthenticated && isStudent ? (
@@ -207,7 +207,7 @@ function BecomeTutor() {
                     </div>
                   </div>
                   <p className="text-green-100 text-sm italic">
-                    "Teaching on TABSERA has been amazing. I've helped over 50 students improve their math grades while earning a steady income."
+                    "Teaching on TABSERA has been amazing. I've helped over 50 students improve their math grades. The platform makes everything easy."
                   </p>
                 </div>
               </div>
@@ -312,56 +312,6 @@ function BecomeTutor() {
               </ul>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Earnings Potential */}
-      <section className="py-20 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Your Earning Potential
-            </h2>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Set your own rates and earn based on your experience and demand
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center border border-white/10">
-              <div className="text-gray-400 font-medium mb-2">Starting Tutor</div>
-              <div className="text-4xl font-bold text-green-400 mb-2">$15-25</div>
-              <div className="text-gray-400 text-sm mb-4">per hour</div>
-              <div className="text-sm text-gray-300">
-                5-10 hours/week = <span className="text-white font-semibold">$300-1,000/month</span>
-              </div>
-            </div>
-
-            <div className="bg-green-600 rounded-2xl p-8 text-center relative transform scale-105 shadow-xl">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full">
-                MOST POPULAR
-              </div>
-              <div className="text-green-100 font-medium mb-2">Experienced Tutor</div>
-              <div className="text-4xl font-bold text-white mb-2">$25-40</div>
-              <div className="text-green-200 text-sm mb-4">per hour</div>
-              <div className="text-sm text-green-100">
-                10-20 hours/week = <span className="text-white font-semibold">$1,000-3,200/month</span>
-              </div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center border border-white/10">
-              <div className="text-gray-400 font-medium mb-2">Expert Tutor</div>
-              <div className="text-4xl font-bold text-green-400 mb-2">$40-60+</div>
-              <div className="text-gray-400 text-sm mb-4">per hour</div>
-              <div className="text-sm text-gray-300">
-                20+ hours/week = <span className="text-white font-semibold">$3,200-5,000+/month</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-center text-gray-400 mt-8 text-sm">
-            * Earnings vary based on subject demand, ratings, and availability
-          </p>
         </div>
       </section>
 
