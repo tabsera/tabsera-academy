@@ -14,17 +14,6 @@ import {
   FileText, Upload, Trash2, Plus, BookOpen, Clock, Check, Camera, X
 } from 'lucide-react';
 
-// Countries list
-const COUNTRIES = [
-  { code: 'SO', name: 'Somalia', flag: '🇸🇴' },
-  { code: 'KE', name: 'Kenya', flag: '🇰🇪' },
-  { code: 'ET', name: 'Ethiopia', flag: '🇪🇹' },
-  { code: 'UG', name: 'Uganda', flag: '🇺🇬' },
-  { code: 'TZ', name: 'Tanzania', flag: '🇹🇿' },
-  { code: 'DJ', name: 'Djibouti', flag: '🇩🇯' },
-  { code: 'OTHER', name: 'Other', flag: '🌍' },
-];
-
 const TIMEZONES = [
   { value: 'Africa/Mogadishu', label: 'East Africa Time (Mogadishu)' },
   { value: 'Africa/Nairobi', label: 'East Africa Time (Nairobi)' },
@@ -58,8 +47,10 @@ function TutorSignup() {
   // Data fetching
   const [centers, setCenters] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [countries, setCountries] = useState([]);
   const [loadingCenters, setLoadingCenters] = useState(true);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingCountries, setLoadingCountries] = useState(true);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -96,10 +87,11 @@ function TutorSignup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
 
-  // Fetch centers and courses on mount
+  // Fetch centers, courses, and countries on mount
   useEffect(() => {
     fetchCenters();
     fetchCourses();
+    fetchCountries();
   }, []);
 
   const fetchCenters = async () => {
@@ -123,6 +115,18 @@ function TutorSignup() {
       console.error('Failed to fetch courses:', err);
     } finally {
       setLoadingCourses(false);
+    }
+  };
+
+  const fetchCountries = async () => {
+    try {
+      setLoadingCountries(true);
+      const result = await apiClient.get('/countries');
+      setCountries(result.countries || []);
+    } catch (err) {
+      console.error('Failed to fetch countries:', err);
+    } finally {
+      setLoadingCountries(false);
     }
   };
 
@@ -480,18 +484,25 @@ function TutorSignup() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
                 <div className="relative">
                   <MapPin size={18} className="absolute left-4 top-3.5 text-gray-400" />
-                  <select
-                    value={formData.country}
-                    onChange={(e) => handleChange('country', e.target.value)}
-                    className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 appearance-none ${
-                      formErrors.country ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <option value="">Select your country</option>
-                    {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
+                  {loadingCountries ? (
+                    <div className="flex items-center gap-2 pl-11 py-3 text-gray-500">
+                      <Loader2 size={18} className="animate-spin" />
+                      Loading countries...
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.country}
+                      onChange={(e) => handleChange('country', e.target.value)}
+                      className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 appearance-none ${
+                        formErrors.country ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <option value="">Select your country</option>
+                      {countries.map(c => (
+                        <option key={c.code} value={c.code}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 {formErrors.country && <p className="mt-1 text-sm text-red-600">{formErrors.country}</p>}
               </div>
