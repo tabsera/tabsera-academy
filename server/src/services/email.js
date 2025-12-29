@@ -1,30 +1,28 @@
 /**
- * Email Service using AWS SES via SMTP
+ * Email Service using SendGrid
  */
 
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-// Create transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
+// Configure SendGrid
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+if (SENDGRID_API_KEY) {
+  sgMail.setApiKey(SENDGRID_API_KEY);
+}
 
-// Verify connection on startup
+const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@tabsera.com';
+const FROM_NAME = process.env.EMAIL_FROM_NAME || 'Tabsera Academy';
+
+/**
+ * Verify connection (SendGrid doesn't require verification, but we log the status)
+ */
 const verifyConnection = async () => {
-  try {
-    await transporter.verify();
-    console.log('Email server connection verified');
+  if (SENDGRID_API_KEY && SENDGRID_API_KEY.startsWith('SG.')) {
+    console.log('SendGrid API key configured');
     return true;
-  } catch (error) {
-    console.error('Email server connection failed:', error.message);
-    return false;
   }
+  console.error('SendGrid API key not configured');
+  return false;
 };
 
 /**
@@ -32,23 +30,31 @@ const verifyConnection = async () => {
  */
 const sendEmail = async ({ to, subject, text, html }) => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'noreply@tabsera.com',
+    const msg = {
       to,
+      from: {
+        email: FROM_EMAIL,
+        name: FROM_NAME,
+      },
       subject,
       text,
       html,
-    });
-    console.log('Email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    };
+
+    const response = await sgMail.send(msg);
+    console.log('Email sent to:', to);
+    return { success: true, messageId: response[0]?.headers?.['x-message-id'] };
   } catch (error) {
     console.error('Email send error:', error.message);
+    if (error.response) {
+      console.error('SendGrid error details:', error.response.body);
+    }
     return { success: false, error: error.message };
   }
 };
 
 /**
- * Send bulk emails (with rate limiting for SES)
+ * Send bulk emails (with rate limiting)
  */
 const sendBulkEmails = async (emails, options = {}) => {
   const { delayMs = 100, batchSize = 50 } = options;
@@ -211,7 +217,7 @@ const templates = {
 
           <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0; font-size: 14px; color: #92400e;">
-              <strong>⚠️ Important:</strong> Please change your password after your first login for security.
+              <strong>Important:</strong> Please change your password after your first login for security.
             </p>
           </div>
 
@@ -274,12 +280,27 @@ const sendTemplatedEmail = async (templateName, to, data) => {
     return { success: false, error: `Template "${templateName}" not found` };
   }
 
-  const { subject, text, html } = template(data);
+  // Handle different template function signatures
+  let emailContent;
+  if (templateName === 'passwordReset') {
+    emailContent = template(data.user || data, data.resetLink || data);
+  } else if (templateName === 'orderConfirmation') {
+    emailContent = template(data.order || data, data.user || data);
+  } else if (templateName === 'enrollmentConfirmation') {
+    emailContent = template(data.enrollment || data, data.user || data, data.course || data);
+  } else if (templateName === 'edxCredentials') {
+    emailContent = template(data.user || data, data);
+  } else if (templateName === 'announcement') {
+    emailContent = template(data.user || data, data);
+  } else {
+    emailContent = template(data);
+  }
+
+  const { subject, text, html } = emailContent;
   return sendEmail({ to, subject, text, html });
 };
 
 module.exports = {
-  transporter,
   verifyConnection,
   sendEmail,
   sendBulkEmails,

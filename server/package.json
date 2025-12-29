@@ -18,6 +18,7 @@
     "@aws-sdk/client-s3": "^3.958.0",
     "@livekit/components-react": "^2.9.17",
     "@prisma/client": "^5.22.0",
+    "@sendgrid/mail": "^8.1.4",
     "axios": "^1.7.9",
     "@tldraw/tldraw": "^4.2.1",
     "@vimeo/vimeo": "^3.0.3",
