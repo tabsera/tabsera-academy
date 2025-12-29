@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, X, Building2, Shield, LogOut, ChevronDown } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, Building2, Shield, LogOut, ChevronDown, GraduationCap } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,8 +39,13 @@ export function Header() {
     const role = user.role?.toLowerCase();
     if (role === 'tabsera_admin') return '/admin/dashboard';
     if (role === 'center_admin') return '/center/dashboard';
+    if (role === 'tutor') return '/tutor/dashboard';
     return '/student/dashboard';
   };
+
+  // Check if user is a tutor
+  const isTutor = user?.role?.toLowerCase() === 'tutor';
+  const isStudent = user?.role?.toLowerCase() === 'student';
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm border-b border-gray-100">
@@ -164,14 +169,35 @@ export function Header() {
                         </Link>
 
                         {/* Role-specific links */}
-                        {user?.role?.toLowerCase() === 'student' && (
+                        {isStudent && (
+                          <>
+                            <Link
+                              to="/student/my-learning"
+                              onClick={() => setShowPortalMenu(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              <Building2 size={16} />
+                              My Learning
+                            </Link>
+                            <Link
+                              to="/tutor/register"
+                              onClick={() => setShowPortalMenu(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50"
+                            >
+                              <GraduationCap size={16} />
+                              Become a Tutor
+                            </Link>
+                          </>
+                        )}
+
+                        {isTutor && (
                           <Link
-                            to="/student/my-learning"
+                            to="/tutor/dashboard"
                             onClick={() => setShowPortalMenu(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                           >
-                            <Building2 size={16} />
-                            My Learning
+                            <GraduationCap size={16} />
+                            Tutor Portal
                           </Link>
                         )}
 
@@ -207,6 +233,23 @@ export function Header() {
                         </Link>
                         <div className="border-t border-gray-100 my-2"></div>
                         <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Partners</p>
+                        <Link
+                          to="/tutor/register"
+                          onClick={() => setShowPortalMenu(false)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+                        >
+                          <GraduationCap size={16} />
+                          Become a Tutor
+                        </Link>
+                        <Link
+                          to="/login"
+                          state={{ redirectTo: '/tutor/dashboard' }}
+                          onClick={() => setShowPortalMenu(false)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <GraduationCap size={16} />
+                          Tutor Portal
+                        </Link>
                         <Link
                           to="/login"
                           state={{ redirectTo: '/center/dashboard' }}
@@ -286,6 +329,24 @@ export function Header() {
                   >
                     My Dashboard
                   </Link>
+                  {isStudent && (
+                    <Link
+                      to="/tutor/register"
+                      className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Become a Tutor
+                    </Link>
+                  )}
+                  {isTutor && (
+                    <Link
+                      to="/tutor/dashboard"
+                      className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Tutor Portal
+                    </Link>
+                  )}
                   <button
                     onClick={() => { handleLogout(); setIsMenuOpen(false); }}
                     className="w-full text-left px-3 py-3 text-base font-medium text-red-600 hover:bg-red-50 rounded-md"
@@ -302,10 +363,17 @@ export function Header() {
                   <Link to="/register" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                     Create Account
                   </Link>
-                  <Link to="/center/dashboard" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <p className="px-3 py-2 mt-2 text-xs font-semibold text-gray-400 uppercase">Partners</p>
+                  <Link to="/tutor/register" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                    Become a Tutor
+                  </Link>
+                  <Link to="/login" state={{ redirectTo: '/tutor/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                    Tutor Portal
+                  </Link>
+                  <Link to="/login" state={{ redirectTo: '/center/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                     Learning Center Portal
                   </Link>
-                  <Link to="/admin/dashboard" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" state={{ redirectTo: '/admin/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                     Admin Portal
                   </Link>
                 </>
