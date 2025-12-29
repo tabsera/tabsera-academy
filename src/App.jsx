@@ -31,6 +31,7 @@ import PackDetail from './pages/public/PackDetail';
 import Tutors from './pages/public/Tutors';
 import TutorDetail from './pages/public/TutorDetail';
 import TuitionPacks from './pages/public/TuitionPacks';
+import BecomeTutor from './pages/public/BecomeTutor';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -157,6 +158,7 @@ function App() {
       <Route path="/centers" element={<LearningCentersListing />} />
       <Route path="/centers/:id" element={<LearningCenterDetail />} />
       <Route path="/partner" element={<BecomePartner />} />
+      <Route path="/become-tutor" element={<BecomeTutor />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<Privacy />} />

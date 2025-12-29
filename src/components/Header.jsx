@@ -103,8 +103,8 @@ export function Header() {
               Become a Partner
             </Link>
             <Link
-              to="/tutor/register"
-              className={`text-sm font-medium transition-colors hover:text-green-600 ${isActive('/tutor/register') ? 'text-green-600' : 'text-gray-700'}`}
+              to="/become-tutor"
+              className={`text-sm font-medium transition-colors hover:text-green-600 ${isActive('/become-tutor') ? 'text-green-600' : 'text-gray-700'}`}
             >
               Become a Tutor
             </Link>
@@ -186,7 +186,7 @@ export function Header() {
                               My Learning
                             </Link>
                             <Link
-                              to="/tutor/register"
+                              to="/become-tutor"
                               onClick={() => setShowPortalMenu(false)}
                               className="flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50"
                             >
@@ -306,7 +306,7 @@ export function Header() {
             <Link to="/partner" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Become a Partner
             </Link>
-            <Link to="/tutor/register" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/become-tutor" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Become a Tutor
             </Link>
             <Link to="/cart" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
@@ -332,7 +332,7 @@ export function Header() {
                   </Link>
                   {isStudent && (
                     <Link
-                      to="/tutor/register"
+                      to="/become-tutor"
                       className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md"
                       onClick={() => setIsMenuOpen(false)}
                     >
