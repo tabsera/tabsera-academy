@@ -13,11 +13,10 @@ const router = express.Router();
  */
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { trackId, level, search, limit = 50, offset = 0 } = req.query;
+    const { level, search, limit = 50, offset = 0 } = req.query;
 
     const where = {
       isActive: true,
-      ...(trackId && { trackId }),
       ...(level && { level }),
       ...(search && {
         OR: [
@@ -30,11 +29,6 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const [courses, total] = await Promise.all([
       req.prisma.course.findMany({
         where,
-        include: {
-          track: {
-            select: { id: true, title: true, slug: true },
-          },
-        },
         orderBy: { createdAt: 'desc' },
         take: parseInt(limit),
         skip: parseInt(offset),
@@ -66,11 +60,6 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       where: {
         OR: [{ id }, { slug: id }],
         isActive: true,
-      },
-      include: {
-        track: {
-          select: { id: true, title: true, slug: true },
-        },
       },
     });
 

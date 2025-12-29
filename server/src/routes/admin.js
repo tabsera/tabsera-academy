@@ -29,7 +29,6 @@ router.use(requireRole('TABSERA_ADMIN', 'CENTER_ADMIN', 'tabsera_admin', 'center
 router.get('/courses', async (req, res, next) => {
   try {
     const {
-      trackId,
       level,
       search,
       status,
@@ -40,7 +39,6 @@ router.get('/courses', async (req, res, next) => {
     } = req.query;
 
     const where = {
-      ...(trackId && { trackId }),
       ...(level && { level }),
       ...(status === 'active' && { isActive: true }),
       ...(status === 'inactive' && { isActive: false }),
@@ -57,9 +55,6 @@ router.get('/courses', async (req, res, next) => {
       req.prisma.course.findMany({
         where,
         include: {
-          track: {
-            select: { id: true, title: true, slug: true },
-          },
           _count: {
             select: { enrollments: true, orderItems: true },
           },
@@ -104,7 +99,6 @@ router.get('/courses/:id', async (req, res, next) => {
         OR: [{ id }, { slug: id }],
       },
       include: {
-        track: true,
         _count: {
           select: { enrollments: true, orderItems: true },
         },
@@ -145,7 +139,6 @@ router.post('/courses', async (req, res, next) => {
       lessons,
       image,
       externalUrl,
-      trackId,
       isActive = true,
     } = req.body;
 
@@ -178,13 +171,7 @@ router.post('/courses', async (req, res, next) => {
         lessons: lessons || 0,
         image,
         externalUrl,
-        trackId: trackId || null,
         isActive,
-      },
-      include: {
-        track: {
-          select: { id: true, title: true, slug: true },
-        },
       },
     });
 
@@ -215,7 +202,6 @@ router.put('/courses/:id', async (req, res, next) => {
       lessons,
       image,
       externalUrl,
-      trackId,
       isActive,
     } = req.body;
 
@@ -253,13 +239,7 @@ router.put('/courses/:id', async (req, res, next) => {
         ...(lessons !== undefined && { lessons }),
         ...(image !== undefined && { image }),
         ...(externalUrl !== undefined && { externalUrl }),
-        ...(trackId !== undefined && { trackId: trackId || null }),
         ...(isActive !== undefined && { isActive }),
-      },
-      include: {
-        track: {
-          select: { id: true, title: true, slug: true },
-        },
       },
     });
 
