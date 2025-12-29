@@ -102,6 +102,12 @@ export function Header() {
             >
               Become a Partner
             </Link>
+            <Link
+              to="/tutor/register"
+              className={`text-sm font-medium transition-colors hover:text-green-600 ${isActive('/tutor/register') ? 'text-green-600' : 'text-gray-700'}`}
+            >
+              Become a Tutor
+            </Link>
           </nav>
 
           {/* Right Actions */}
@@ -232,15 +238,7 @@ export function Header() {
                           Create Account
                         </Link>
                         <div className="border-t border-gray-100 my-2"></div>
-                        <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Partners</p>
-                        <Link
-                          to="/tutor/register"
-                          onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-                        >
-                          <GraduationCap size={16} />
-                          Become a Tutor
-                        </Link>
+                        <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Partner Portals</p>
                         <Link
                           to="/login"
                           state={{ redirectTo: '/tutor/dashboard' }}
@@ -308,6 +306,9 @@ export function Header() {
             <Link to="/partner" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Become a Partner
             </Link>
+            <Link to="/tutor/register" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+              Become a Tutor
+            </Link>
             <Link to="/cart" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
               Cart {itemCount > 0 && `(${itemCount})`}
             </Link>
@@ -363,10 +364,7 @@ export function Header() {
                   <Link to="/register" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                     Create Account
                   </Link>
-                  <p className="px-3 py-2 mt-2 text-xs font-semibold text-gray-400 uppercase">Partners</p>
-                  <Link to="/tutor/register" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
-                    Become a Tutor
-                  </Link>
+                  <p className="px-3 py-2 mt-2 text-xs font-semibold text-gray-400 uppercase">Partner Portals</p>
                   <Link to="/login" state={{ redirectTo: '/tutor/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
                     Tutor Portal
                   </Link>
