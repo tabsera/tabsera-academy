@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { tutorsApi } from '../../api/tutors';
-import { adminApi } from '../../api/admin';
 import apiClient from '../../api/client';
 import {
   GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
@@ -118,7 +117,7 @@ function TutorSignup() {
   const fetchCourses = async () => {
     try {
       setLoadingCourses(true);
-      const result = await adminApi.getCourses({ status: 'active', limit: 100 });
+      const result = await apiClient.get('/courses', { limit: 100 });
       setCourses(result.courses || []);
     } catch (err) {
       console.error('Failed to fetch courses:', err);
