@@ -12,6 +12,7 @@ import AuthLayout from './layouts/AuthLayout';
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import TutorSignup from './pages/auth/TutorSignup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
@@ -159,6 +160,7 @@ function App() {
       <Route path="/centers/:id" element={<LearningCenterDetail />} />
       <Route path="/partner" element={<BecomePartner />} />
       <Route path="/become-tutor" element={<BecomeTutor />} />
+      <Route path="/tutor/signup" element={<TutorSignup />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<Privacy />} />

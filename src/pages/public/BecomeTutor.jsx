@@ -150,11 +150,10 @@ function BecomeTutor() {
                 ) : (
                   <>
                     <Link
-                      to="/register"
-                      state={{ redirectTo: '/tutor/register' }}
+                      to="/tutor/signup"
                       className="inline-flex items-center gap-2 px-8 py-4 bg-white text-green-800 font-bold rounded-xl hover:bg-green-50 transition-colors"
                     >
-                      Get Started <ArrowRight size={20} />
+                      Apply as New Tutor <ArrowRight size={20} />
                     </Link>
                     <Link
                       to="/login"
@@ -342,8 +341,7 @@ function BecomeTutor() {
             Ready to Start Teaching?
           </h2>
           <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
-            Join our community of tutors and make a difference in students' lives
-            while earning on your own terms.
+            Join our community of tutors and make a difference in students' lives.
           </p>
           {isAuthenticated && isStudent ? (
             <Link
@@ -359,11 +357,10 @@ function BecomeTutor() {
           ) : (
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                to="/register"
-                state={{ redirectTo: '/tutor/register' }}
+                to="/tutor/signup"
                 className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-white text-green-700 font-bold rounded-xl hover:bg-green-50 transition-colors text-lg"
               >
-                Create Account & Apply <ArrowRight size={24} />
+                Apply as New Tutor <ArrowRight size={24} />
               </Link>
               <Link
                 to="/login"
