@@ -406,37 +406,97 @@ function CourseEditor() {
         {activeTab === 'media' && (
           <div className="space-y-6">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Course Image
-                </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course Image
+              </label>
+
+              {/* Show current image if exists */}
+              {formData.image && (
+                <div className="mb-4">
+                  <div className="relative inline-block">
+                    <img
+                      src={formData.image}
+                      alt="Course cover"
+                      className="w-full max-w-md h-48 object-cover rounded-xl border border-gray-200"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleChange('image', '')}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-3 mb-4">
                 <button
                   type="button"
                   onClick={handleGenerateImage}
                   disabled={isGeneratingImage || isNew}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl text-sm font-medium hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {isGeneratingImage ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={18} className="animate-spin" />
                       Generating...
                     </>
                   ) : (
                     <>
-                      <Sparkles size={16} />
+                      <Sparkles size={18} />
                       Generate with AI
                     </>
                   )}
                 </button>
+
+                <label className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 cursor-pointer transition-colors">
+                  <Image size={18} />
+                  Upload Image
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const formDataUpload = new FormData();
+                        formDataUpload.append('image', file);
+                        formDataUpload.append('folder', 'courses');
+                        try {
+                          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/upload/image`, {
+                            method: 'POST',
+                            body: formDataUpload,
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            },
+                          });
+                          const result = await response.json();
+                          if (result.success) {
+                            handleChange('image', result.url);
+                          }
+                        } catch (err) {
+                          alert('Failed to upload image');
+                        }
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
               </div>
-              <ImageUpload
-                value={formData.image}
-                onChange={(url) => handleChange('image', url)}
-                folder="courses"
-              />
+
               {isNew && (
-                <p className="text-xs text-amber-600 mt-2">
+                <p className="text-xs text-amber-600">
                   Save the course first to enable AI image generation
+                </p>
+              )}
+
+              {!formData.image && (
+                <p className="text-xs text-gray-500">
+                  No image set. Generate one with AI or upload your own.
                 </p>
               )}
             </div>
