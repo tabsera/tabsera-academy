@@ -99,6 +99,12 @@ router.get('/courses/:id', async (req, res, next) => {
         OR: [{ id }, { slug: id }],
       },
       include: {
+        subject: {
+          select: { id: true, name: true, slug: true, color: true, icon: true },
+        },
+        learningPack: {
+          select: { id: true, title: true },
+        },
         _count: {
           select: { enrollments: true, orderItems: true },
         },
@@ -140,6 +146,9 @@ router.post('/courses', async (req, res, next) => {
       image,
       externalUrl,
       isActive = true,
+      subjectId,
+      learningPackId,
+      creditsFactor,
     } = req.body;
 
     // Validate required fields
@@ -172,6 +181,9 @@ router.post('/courses', async (req, res, next) => {
         image,
         externalUrl,
         isActive,
+        subjectId: subjectId || null,
+        learningPackId: learningPackId || null,
+        creditsFactor: creditsFactor || 1,
       },
     });
 
@@ -203,6 +215,9 @@ router.put('/courses/:id', async (req, res, next) => {
       image,
       externalUrl,
       isActive,
+      subjectId,
+      learningPackId,
+      creditsFactor,
     } = req.body;
 
     // Check if course exists
@@ -240,6 +255,9 @@ router.put('/courses/:id', async (req, res, next) => {
         ...(image !== undefined && { image }),
         ...(externalUrl !== undefined && { externalUrl }),
         ...(isActive !== undefined && { isActive }),
+        ...(subjectId !== undefined && { subjectId: subjectId || null }),
+        ...(learningPackId !== undefined && { learningPackId: learningPackId || null }),
+        ...(creditsFactor !== undefined && { creditsFactor }),
       },
     });
 

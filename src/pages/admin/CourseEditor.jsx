@@ -8,9 +8,10 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Save, BookOpen, Image, DollarSign, Globe,
   X, Plus, Trash2, CheckCircle, AlertCircle, Loader2,
-  Clock, ExternalLink, ChevronDown
+  Clock, ExternalLink, ChevronDown, Tag
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
+import { apiClient } from '@/api/client';
 import ImageUpload from '@/components/ImageUpload';
 import RichTextEditor from '@/components/RichTextEditor';
 
@@ -22,6 +23,7 @@ function CourseEditor() {
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState(null);
   const [packs, setPacks] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -32,6 +34,7 @@ function CourseEditor() {
     slug: '',
     description: '',
     learningPackId: '',
+    subjectId: '',
     price: 0,
     creditsFactor: 1,
     duration: '',
@@ -52,9 +55,13 @@ function CourseEditor() {
       setLoading(true);
       setError(null);
 
-      // Fetch packs
-      const packsRes = await adminApi.getPacks({ limit: 100 });
+      // Fetch packs and subjects
+      const [packsRes, subjectsRes] = await Promise.all([
+        adminApi.getPacks({ limit: 100 }),
+        apiClient.get('/subjects'),
+      ]);
       setPacks(packsRes.packs || []);
+      setSubjects(subjectsRes.subjects || []);
 
       // Fetch course if editing
       if (!isNew && id) {
@@ -65,6 +72,7 @@ function CourseEditor() {
             slug: courseRes.course.slug || '',
             description: courseRes.course.description || '',
             learningPackId: courseRes.course.learningPackId || '',
+            subjectId: courseRes.course.subjectId || '',
             price: parseFloat(courseRes.course.price) || 0,
             creditsFactor: courseRes.course.creditsFactor || 1,
             duration: courseRes.course.duration || '',
@@ -105,6 +113,7 @@ function CourseEditor() {
         ...formData,
         isActive: publish ? true : formData.isActive,
         learningPackId: formData.learningPackId || null,
+        subjectId: formData.subjectId || null,
       };
 
       if (isNew) {
@@ -313,22 +322,43 @@ function CourseEditor() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Learning Pack
-              </label>
-              <div className="relative">
-                <select
-                  value={formData.learningPackId}
-                  onChange={(e) => handleChange('learningPackId', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">No Pack (Standalone Course)</option>
-                  {packs.map(pack => (
-                    <option key={pack.id} value={pack.id}>{pack.title}</option>
-                  ))}
-                </select>
-                <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Learning Pack
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.learningPackId}
+                    onChange={(e) => handleChange('learningPackId', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">No Pack (Standalone Course)</option>
+                    {packs.map(pack => (
+                      <option key={pack.id} value={pack.id}>{pack.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.subjectId}
+                    onChange={(e) => handleChange('subjectId', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Subject</option>
+                    {subjects.map(subject => (
+                      <option key={subject.id} value={subject.id}>{subject.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
 
