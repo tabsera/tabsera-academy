@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import AdminLayout from '../../layouts/AdminLayout';
 import { adminApi } from '../../api/admin';
 import {
   GraduationCap, Search, Filter, Eye, Check, X, Clock,
@@ -143,8 +142,7 @@ function TutorManagement() {
   };
 
   return (
-    <AdminLayout>
-      <div className="p-6 lg:p-8">
+    <div className="p-6 lg:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
@@ -538,8 +536,7 @@ function TutorManagement() {
             </div>
           </div>
         )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 }
 
