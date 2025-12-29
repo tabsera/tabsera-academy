@@ -95,14 +95,18 @@ const optionalAuth = async (req, res, next) => {
 
 /**
  * Require specific role(s)
+ * Accepts either: requireRole('ADMIN') or requireRole(['ADMIN', 'MANAGER'])
  */
-const requireRole = (...roles) => {
+const requireRole = (roles) => {
+  // Normalize roles to always be an array
+  const allowedRoles = Array.isArray(roles) ? roles : [roles];
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
