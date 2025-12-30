@@ -134,9 +134,10 @@ function OrderConfirmation() {
   };
 
   const getPaymentMethodText = () => {
-    switch (paymentMethod) {
+    const method = paymentMethod?.toLowerCase();
+    switch (method) {
       case 'mobile_money':
-        return `Mobile Money (${mobileProvider?.toUpperCase() || 'Mobile'})`;
+        return `Mobile Money (${orderDetails.mobileProvider?.toUpperCase() || 'Mobile'})`;
       case 'pay_at_center':
         return 'Pay at Learning Center';
       case 'bank_transfer':
@@ -149,7 +150,8 @@ function OrderConfirmation() {
   };
 
   const getNextSteps = () => {
-    switch (paymentMethod) {
+    const method = paymentMethod?.toLowerCase();
+    switch (method) {
       case 'mobile_money':
         return [
           'Check your phone for a payment prompt',
@@ -223,8 +225,10 @@ function OrderConfirmation() {
               {items.map((item, idx) => (
                 <div key={idx} className="flex items-center gap-4">
                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                    item.type === 'track' 
-                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500' 
+                    item.type === 'track'
+                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                      : item.type === 'pack' || item.type === 'tuition_pack'
+                      ? 'bg-gradient-to-br from-green-500 to-emerald-500'
                       : 'bg-gradient-to-br from-purple-500 to-pink-500'
                   }`}>
                     <BookOpen size={24} className="text-white" />
@@ -232,7 +236,9 @@ function OrderConfirmation() {
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{item.name}</p>
                     <p className="text-sm text-gray-500 capitalize">
-                      {item.type === 'track' ? 'Learning Track' : 'Individual Course'}
+                      {item.type === 'track' ? 'Learning Track' :
+                       item.type === 'pack' || item.type === 'tuition_pack' ? 'Tuition Pack' :
+                       'Individual Course'}
                       {item.coursesCount && ` • ${item.coursesCount} courses`}
                     </p>
                   </div>
