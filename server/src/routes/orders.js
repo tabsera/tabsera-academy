@@ -280,7 +280,7 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
         where: { orderId: order.id },
         include: {
           course: true,
-          track: {
+          learningPack: {
             include: {
               courses: true,
             },
@@ -338,19 +338,19 @@ router.patch('/:referenceId/payment', authenticate, async (req, res, next) => {
 
       // Process each order item
       for (const item of orderItems) {
-        // If it's a track, enroll in all courses of the track
-        if (item.trackId && item.track) {
-          // Create track enrollment
+        // If it's a learning pack, enroll in all courses of the pack
+        if (item.learningPackId && item.learningPack) {
+          // Create learning pack enrollment
           await req.prisma.enrollment.create({
             data: {
               userId: req.user.id,
-              trackId: item.trackId,
+              learningPackId: item.learningPackId,
               status: 'active',
             },
           });
 
-          // Enroll in each course of the track
-          for (const course of item.track.courses || []) {
+          // Enroll in each course of the learning pack
+          for (const course of item.learningPack.courses || []) {
             enrolledCourses.push({ title: course.title, edxCourseId: course.edxCourseId });
 
             const enrollment = await req.prisma.enrollment.create({

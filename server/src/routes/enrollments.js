@@ -34,23 +34,23 @@ router.get('/check/:courseId', optionalAuth, async (req, res, next) => {
       return res.json({ enrolled: true, enrollmentId: courseEnrollment.id });
     }
 
-    // Check if course is part of a track the user is enrolled in
+    // Check if course is part of a learning pack the user is enrolled in
     const course = await req.prisma.course.findUnique({
       where: { id: courseId },
-      select: { trackId: true },
+      select: { learningPackId: true },
     });
 
-    if (course?.trackId) {
-      const trackEnrollment = await req.prisma.enrollment.findFirst({
+    if (course?.learningPackId) {
+      const packEnrollment = await req.prisma.enrollment.findFirst({
         where: {
           userId: req.user.id,
-          trackId: course.trackId,
+          learningPackId: course.learningPackId,
           status: 'active',
         },
       });
 
-      if (trackEnrollment) {
-        return res.json({ enrolled: true, enrollmentId: trackEnrollment.id, enrolledViaTrack: true });
+      if (packEnrollment) {
+        return res.json({ enrolled: true, enrollmentId: packEnrollment.id, enrolledViaTrack: true });
       }
     }
 
@@ -77,7 +77,7 @@ router.get('/', authenticate, async (req, res, next) => {
       req.prisma.enrollment.findMany({
         where,
         include: {
-          track: {
+          learningPack: {
             select: {
               id: true,
               title: true,
@@ -132,7 +132,7 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
     const allEnrollments = await req.prisma.enrollment.findMany({
       where: { userId },
       include: {
-        track: {
+        learningPack: {
           include: {
             courses: {
               where: { isActive: true },
@@ -148,8 +148,8 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
     // Collect all edX course IDs for batch progress fetch
     const allEdxCourseIds = [];
     allEnrollments.forEach(e => {
-      if (e.track?.courses) {
-        e.track.courses.forEach(c => {
+      if (e.learningPack?.courses) {
+        e.learningPack.courses.forEach(c => {
           if (c.edxCourseId) allEdxCourseIds.push(c.edxCourseId);
         });
       }
@@ -170,25 +170,25 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
       }
     }
 
-    // Separate track enrollments and individual course enrollments
-    const trackEnrollments = allEnrollments.filter(e => e.trackId && e.track);
-    const courseOnlyEnrollments = allEnrollments.filter(e => e.courseId && !e.trackId && e.course);
+    // Separate learning pack enrollments and individual course enrollments
+    const packEnrollments = allEnrollments.filter(e => e.learningPackId && e.learningPack);
+    const courseOnlyEnrollments = allEnrollments.filter(e => e.courseId && !e.learningPackId && e.course);
 
     // Build enrolled tracks with their courses and progress
     const enrolledTracks = [];
-    const processedTrackIds = new Set();
+    const processedPackIds = new Set();
 
-    for (const enrollment of trackEnrollments) {
-      if (processedTrackIds.has(enrollment.trackId)) continue;
-      processedTrackIds.add(enrollment.trackId);
+    for (const enrollment of packEnrollments) {
+      if (processedPackIds.has(enrollment.learningPackId)) continue;
+      processedPackIds.add(enrollment.learningPackId);
 
-      const track = enrollment.track;
+      const pack = enrollment.learningPack;
 
-      // Get course-level enrollments for this track's courses
+      // Get course-level enrollments for this pack's courses
       const courseEnrollments = await req.prisma.enrollment.findMany({
         where: {
           userId,
-          courseId: { in: track.courses.map(c => c.id) },
+          courseId: { in: pack.courses.map(c => c.id) },
         },
       });
 
@@ -198,8 +198,8 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
         courseEnrollmentMap[ce.courseId] = ce;
       });
 
-      // Calculate track progress with edX data
-      const coursesWithProgress = track.courses.map(course => {
+      // Calculate pack progress with edX data
+      const coursesWithProgress = pack.courses.map(course => {
         const courseEnrollment = courseEnrollmentMap[course.id];
         const edxProgress = course.edxCourseId ? edxProgressMap[course.edxCourseId] : null;
 
@@ -241,19 +241,19 @@ router.get('/my-learning', authenticate, async (req, res, next) => {
         : 0;
 
       enrolledTracks.push({
-        id: track.id,
-        title: track.title,
-        slug: track.slug,
-        description: track.description,
-        image: track.image,
-        duration: track.duration,
-        level: track.level,
+        id: pack.id,
+        title: pack.title,
+        slug: pack.slug,
+        description: pack.description,
+        image: pack.image,
+        duration: pack.duration,
+        level: pack.level,
         enrollmentId: enrollment.id,
         enrolledAt: enrollment.startDate,
         status: enrollment.status,
         progress: totalProgress,
         completedCourses,
-        totalCourses: track.courses.length,
+        totalCourses: pack.courses.length,
         courses: coursesWithProgress,
       });
     }
@@ -337,7 +337,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
         userId: req.user.id,
       },
       include: {
-        track: true,
+        learningPack: true,
         course: true,
       },
     });
