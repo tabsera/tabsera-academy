@@ -147,7 +147,7 @@ function MyLearning() {
     );
   }
 
-  const { packs, courses: individualCourses, stats } = data;
+  const { tracks: packs = [], courses: individualCourses = [], stats = {} } = data;
   const hasEnrollments = packs.length > 0 || individualCourses.length > 0;
 
   return (
