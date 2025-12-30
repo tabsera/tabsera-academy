@@ -595,6 +595,309 @@ router.post('/availability', authenticate, async (req, res, next) => {
 });
 
 // ============================================
+// UNAVAILABILITY (temporary time-off)
+// ============================================
+
+/**
+ * GET /api/tutors/unavailability
+ * Get tutor's current and upcoming unavailability periods
+ */
+router.get('/unavailability', authenticate, async (req, res, next) => {
+  try {
+    const profile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    const now = new Date();
+
+    // Get current active unavailability (now is between start and end)
+    const current = await req.prisma.tutorUnavailability.findFirst({
+      where: {
+        tutorProfileId: profile.id,
+        isActive: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+    });
+
+    // Get upcoming unavailability periods (starts in the future)
+    const upcoming = await req.prisma.tutorUnavailability.findMany({
+      where: {
+        tutorProfileId: profile.id,
+        isActive: true,
+        startDate: { gt: now },
+      },
+      orderBy: { startDate: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      current,
+      upcoming,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/unavailability
+ * Set a new unavailability period (auto-cancels affected sessions)
+ */
+router.post('/unavailability', authenticate, async (req, res, next) => {
+  try {
+    const { preset, startDate, endDate, reason } = req.body;
+
+    const profile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    // Calculate dates based on preset or use provided dates
+    let start, end;
+    const now = new Date();
+
+    if (preset) {
+      switch (preset) {
+        case 'today':
+          start = now;
+          end = new Date(now);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case 'tomorrow':
+          start = new Date(now);
+          start.setDate(start.getDate() + 1);
+          start.setHours(0, 0, 0, 0);
+          end = new Date(start);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case 'this_week':
+          start = now;
+          end = new Date(now);
+          // Set to end of week (Saturday)
+          const daysUntilSaturday = 6 - now.getDay();
+          end.setDate(end.getDate() + daysUntilSaturday);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case 'this_month':
+          start = now;
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          break;
+        default:
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid preset value',
+          });
+      }
+    } else if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Either preset or startDate/endDate is required',
+      });
+    }
+
+    // Create unavailability record
+    const unavailability = await req.prisma.tutorUnavailability.create({
+      data: {
+        tutorProfileId: profile.id,
+        startDate: start,
+        endDate: end,
+        reason: reason || 'personal',
+        isActive: true,
+      },
+    });
+
+    // Find and cancel affected sessions
+    const affectedSessions = await req.prisma.tutorSession.findMany({
+      where: {
+        tutorProfileId: profile.id,
+        status: 'SCHEDULED',
+        scheduledAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    const cancelledSessions = [];
+
+    // Cancel each session and refund credits
+    for (const session of affectedSessions) {
+      // Update session status
+      await req.prisma.tutorSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: 'Tutor unavailable',
+          cancelledAt: new Date(),
+        },
+      });
+
+      // Refund credits if applicable
+      if (session.creditsConsumed > 0 && session.purchaseId) {
+        await req.prisma.tuitionPackPurchase.update({
+          where: { id: session.purchaseId },
+          data: {
+            creditsRemaining: { increment: session.creditsConsumed },
+            creditsReserved: { decrement: session.creditsConsumed },
+          },
+        });
+      }
+
+      cancelledSessions.push({
+        id: session.id,
+        studentName: `${session.student.firstName} ${session.student.lastName}`,
+        studentEmail: session.student.email,
+        scheduledAt: session.scheduledAt,
+        creditsRefunded: session.creditsConsumed,
+      });
+
+      // TODO: Send cancellation email to student
+    }
+
+    res.json({
+      success: true,
+      unavailability,
+      cancelledSessions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/tutors/unavailability/:id
+ * Cancel/end an unavailability period (resume availability)
+ */
+router.delete('/unavailability/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const profile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    // Find the unavailability record
+    const unavailability = await req.prisma.tutorUnavailability.findFirst({
+      where: {
+        id,
+        tutorProfileId: profile.id,
+      },
+    });
+
+    if (!unavailability) {
+      return res.status(404).json({
+        success: false,
+        message: 'Unavailability period not found',
+      });
+    }
+
+    // Soft delete by setting isActive to false
+    await req.prisma.tutorUnavailability.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    res.json({
+      success: true,
+      message: 'Availability resumed',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/sessions/affected
+ * Get sessions that would be affected by a date range (preview before setting unavailable)
+ */
+router.get('/sessions/affected', authenticate, async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
+    }
+
+    const profile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const sessions = await req.prisma.tutorSession.findMany({
+      where: {
+        tutorProfileId: profile.id,
+        status: 'SCHEDULED',
+        scheduledAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      sessions: sessions.map(s => ({
+        id: s.id,
+        studentName: `${s.student.firstName} ${s.student.lastName}`,
+        scheduledAt: s.scheduledAt,
+        creditsConsumed: s.creditsConsumed,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // SESSIONS (for tutors)
 // ============================================
 
@@ -911,6 +1214,27 @@ router.get('/:id/slots', async (req, res, next) => {
     // Parse date and get day of week
     const requestedDate = new Date(date);
     const dayOfWeek = requestedDate.getDay();
+
+    // Check if tutor is unavailable on this date
+    const unavailability = await req.prisma.tutorUnavailability.findFirst({
+      where: {
+        tutorProfileId: id,
+        isActive: true,
+        startDate: { lte: requestedDate },
+        endDate: { gte: requestedDate },
+      },
+    });
+
+    if (unavailability) {
+      return res.json({
+        success: true,
+        slots: [],
+        blocked: true,
+        blockedUntil: unavailability.endDate,
+        blockedReason: unavailability.reason,
+        message: 'Tutor is temporarily unavailable',
+      });
+    }
 
     // Get availability for this day
     const dayAvailability = tutor.availability.filter(a => a.dayOfWeek === dayOfWeek);

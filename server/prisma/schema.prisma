@@ -405,6 +405,7 @@ model TutorProfile {
   certifications  TutorCertification[]
   courses         TutorCourse[]
   availability    TutorAvailability[]
+  unavailability  TutorUnavailability[]
   sessions        TutorSession[]
 
   @@index([status])
@@ -466,6 +467,25 @@ model TutorAvailability {
 
   @@unique([tutorProfileId, dayOfWeek, startTime])
   @@map("tutor_availability")
+}
+
+// Tutor Unavailability model - date-specific unavailability periods (vacations, sick days, etc.)
+model TutorUnavailability {
+  id              String       @id @default(uuid())
+  tutorProfileId  String       @map("tutor_profile_id")
+  startDate       DateTime     @map("start_date")
+  endDate         DateTime     @map("end_date")
+  reason          String?      // sick, vacation, personal, other
+  note            String?      @db.Text
+  isActive        Boolean      @default(true) @map("is_active")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  tutorProfile    TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([tutorProfileId, startDate, endDate])
+  @@map("tutor_unavailability")
 }
 
 // Tuition Pack model - purchasable packages of tutoring credits

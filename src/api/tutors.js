@@ -108,6 +108,39 @@ export const tutorsApi = {
   },
 
   // ============================================
+  // UNAVAILABILITY (TEMPORARY TIME-OFF)
+  // ============================================
+
+  /**
+   * Get current and upcoming unavailability periods
+   */
+  async getUnavailability() {
+    return apiClient.get('/tutors/unavailability');
+  },
+
+  /**
+   * Set unavailable for a period
+   * @param {Object} data - { preset, startDate, endDate, reason }
+   */
+  async setUnavailable(data) {
+    return apiClient.post('/tutors/unavailability', data);
+  },
+
+  /**
+   * Resume availability (cancel/end an unavailability period)
+   */
+  async resumeAvailability(unavailabilityId) {
+    return apiClient.delete(`/tutors/unavailability/${unavailabilityId}`);
+  },
+
+  /**
+   * Get sessions that would be affected by a date range
+   */
+  async getAffectedSessions(startDate, endDate) {
+    return apiClient.get(`/tutors/sessions/affected?startDate=${startDate}&endDate=${endDate}`);
+  },
+
+  // ============================================
   // SESSIONS (FOR TUTORS)
   // ============================================
 
