@@ -379,10 +379,12 @@ function TutorProfileEdit() {
         </h2>
         {courses.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {courses.map(course => (
-              <div key={course.id} className="p-3 bg-gray-50 rounded-xl">
-                <p className="font-medium text-gray-900">{course.title}</p>
-                {course.level && <p className="text-sm text-gray-500">{course.level}</p>}
+            {courses.map(tc => (
+              <div key={tc.id || tc.course?.id} className="p-3 bg-gray-50 rounded-xl">
+                <p className="font-medium text-gray-900">{tc.course?.title || tc.title}</p>
+                {(tc.course?.level || tc.level) && (
+                  <p className="text-sm text-gray-500">{tc.course?.level || tc.level}</p>
+                )}
               </div>
             ))}
           </div>
