@@ -16,8 +16,15 @@ import {
 function OrderConfirmation() {
   const { orderId } = useParams();
   const location = useLocation();
-  const [orderDetails, setOrderDetails] = useState(location.state?.orderDetails || null);
-  const [loading, setLoading] = useState(!orderDetails);
+  const initialOrderDetails = location.state?.orderDetails || null;
+
+  // Log initial state for debugging
+  console.log('OrderConfirmation - orderId:', orderId);
+  console.log('OrderConfirmation - location.state:', location.state);
+  console.log('OrderConfirmation - initialOrderDetails:', initialOrderDetails);
+
+  const [orderDetails, setOrderDetails] = useState(initialOrderDetails);
+  const [loading, setLoading] = useState(!initialOrderDetails);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -31,10 +38,11 @@ function OrderConfirmation() {
     try {
       setLoading(true);
       const result = await ordersApi.getOrder(orderId);
+      console.log('Order API result:', result);
       if (result.success && result.order) {
         // Map API response to expected format
         const order = result.order;
-        setOrderDetails({
+        const mappedOrder = {
           referenceId: order.referenceId,
           items: order.items?.map(item => ({
             id: item.id,
@@ -55,10 +63,13 @@ function OrderConfirmation() {
           },
           paymentMethod: order.paymentMethod,
           paymentStatus: order.paymentStatus,
+          mobileProvider: order.mobileProvider,
           createdAt: order.createdAt,
-        });
+        };
+        console.log('Mapped order:', mappedOrder);
+        setOrderDetails(mappedOrder);
       } else {
-        setError('Order not found');
+        setError(result.error || 'Order not found');
       }
     } catch (err) {
       console.error('Error fetching order:', err);
