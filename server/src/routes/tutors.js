@@ -116,6 +116,7 @@ router.get('/profile', authenticate, async (req, res, next) => {
             firstName: true,
             lastName: true,
             phone: true,
+            country: true,
             avatar: true,
           },
         },

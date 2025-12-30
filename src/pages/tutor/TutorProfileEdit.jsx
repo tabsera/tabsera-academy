@@ -7,8 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Save, Upload, Trash2, FileText,
-  CheckCircle, User, BookOpen, Award, Camera, X
+  CheckCircle, User, BookOpen, Award, Camera, X, Mail, Phone, MapPin
 } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 function TutorProfileEdit() {
   const [profile, setProfile] = useState(null);
@@ -151,6 +153,15 @@ function TutorProfileEdit() {
     }
   };
 
+  // Get full avatar URL
+  const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    // If it's a relative path, prepend the API base URL (without /api)
+    const baseUrl = API_URL.replace('/api', '');
+    return `${baseUrl}${avatar}`;
+  };
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
@@ -180,10 +191,52 @@ function TutorProfileEdit() {
         </div>
       )}
 
+      {/* Personal Information (Read-only) */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <User size={20} /> Personal Information
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <User size={18} className="text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Full Name</p>
+              <p className="font-medium text-gray-900">
+                {profile?.user?.firstName} {profile?.user?.lastName}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <Mail size={18} className="text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Email</p>
+              <p className="font-medium text-gray-900">{profile?.user?.email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <Phone size={18} className="text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Phone</p>
+              <p className="font-medium text-gray-900">{profile?.user?.phone || 'Not provided'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <MapPin size={18} className="text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Country</p>
+              <p className="font-medium text-gray-900">{profile?.user?.country || 'Not provided'}</p>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-4">
+          To update your personal information, please contact support.
+        </p>
+      </div>
+
       {/* Profile Form */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <User size={20} /> Basic Information
+          <User size={20} /> Tutor Profile
         </h2>
         <div className="space-y-4">
           {/* Avatar Upload */}
@@ -199,10 +252,10 @@ function TutorProfileEdit() {
                       alt="Avatar preview"
                       className="w-full h-full object-cover"
                     />
-                  ) : profile?.user?.avatar ? (
+                  ) : getAvatarUrl(profile?.user?.avatar) ? (
                     <img
-                      src={profile.user.avatar}
-                      alt="Current avatar"
+                      src={getAvatarUrl(profile.user.avatar)}
+                      alt="Profile photo"
                       className="w-full h-full object-cover"
                     />
                   ) : (
