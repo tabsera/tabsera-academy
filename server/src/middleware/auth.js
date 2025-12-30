@@ -34,6 +34,7 @@ const authenticate = async (req, res, next) => {
         role: true,
         centerId: true,
         isActive: true,
+        emailVerified: true,
         edxUsername: true,
         edxPassword: true,
         edxRegistered: true,
