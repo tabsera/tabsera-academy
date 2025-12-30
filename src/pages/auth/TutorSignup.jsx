@@ -36,7 +36,7 @@ const STEPS = [
 ];
 
 function TutorSignup() {
-  const { register, login } = useAuth();
+  const { register, login, updateUser } = useAuth();
   const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -272,7 +272,7 @@ function TutorSignup() {
     setError(null);
 
     try {
-      // Step 1: Register account
+      // Step 1: Register account as TUTOR
       const registerResult = await register({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -281,6 +281,7 @@ function TutorSignup() {
         country: formData.country,
         centerId: formData.workRemotely ? null : formData.centerId,
         password: formData.password,
+        role: 'tutor',
       });
 
       if (!registerResult.success) {
@@ -303,12 +304,17 @@ function TutorSignup() {
       }
 
       // Step 4: Register tutor profile
-      await tutorsApi.register({
+      const tutorResult = await tutorsApi.register({
         headline: formData.headline,
         bio: formData.bio,
         timezone: formData.timezone,
         courses: formData.selectedCourses,
       });
+
+      // Update auth context with new TUTOR role
+      if (tutorResult.user) {
+        updateUser(tutorResult.user);
+      }
 
       // Step 5: Upload certifications
       for (const cert of certifications) {

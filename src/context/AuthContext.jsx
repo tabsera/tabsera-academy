@@ -13,6 +13,7 @@ export const ROLES = {
   STUDENT: 'student',
   CENTER_ADMIN: 'center_admin',
   TABSERA_ADMIN: 'tabsera_admin',
+  TUTOR: 'tutor',
 };
 
 // Role-based redirect paths
@@ -20,6 +21,7 @@ const ROLE_REDIRECTS = {
   [ROLES.STUDENT]: '/student/dashboard',
   [ROLES.CENTER_ADMIN]: '/center/dashboard',
   [ROLES.TABSERA_ADMIN]: '/admin/dashboard',
+  [ROLES.TUTOR]: '/tutor/dashboard',
 };
 
 // Create context
@@ -72,6 +74,12 @@ export function AuthProvider({ children }) {
       setUser(response.user);
       setIsAuthenticated(true);
 
+      // Check if email verification is required
+      if (!response.user.emailVerified) {
+        navigate('/verify-pending', { replace: true });
+        return { success: true, user: response.user, requiresVerification: true };
+      }
+
       // Redirect based on role
       const role = response.user.role;
       const redirectPath = location.state?.from?.pathname || ROLE_REDIRECTS[role] || '/';
@@ -79,7 +87,7 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: response.user };
     } catch (error) {
-      // Check if email verification is required
+      // Check if email verification is required (legacy handling)
       if (error.requiresVerification) {
         return {
           success: false,
@@ -104,6 +112,12 @@ export function AuthProvider({ children }) {
       const response = await authApi.googleLogin(credential);
       setUser(response.user);
       setIsAuthenticated(true);
+
+      // Check if email verification is required
+      if (!response.user.emailVerified) {
+        navigate('/verify-pending', { replace: true });
+        return { success: true, user: response.user, requiresVerification: true };
+      }
 
       // Redirect based on role
       const role = response.user.role;
@@ -334,6 +348,12 @@ export function AuthProvider({ children }) {
     setError(null);
   }, []);
 
+  // Update user state (e.g., after role change)
+  const updateUser = useCallback((updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  }, []);
+
   // Context value
   const value = {
     user,
@@ -349,6 +369,7 @@ export function AuthProvider({ children }) {
     verifyEmail,
     resendVerification,
     updateProfile,
+    updateUser,
     hasRole,
     hasAnyRole,
     clearError,

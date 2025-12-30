@@ -125,6 +125,8 @@ model User {
   edxRegisteredAt         DateTime? @map("edx_registered_at")
   // OAuth fields
   googleId                String?   @unique @map("google_id")
+  // Admin permissions (JSON) - for TABSERA_ADMIN users
+  adminPermissions        Json?     @map("admin_permissions")
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 

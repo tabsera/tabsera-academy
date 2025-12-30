@@ -16,6 +16,7 @@ import TutorSignup from './pages/auth/TutorSignup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import VerificationPending from './pages/auth/VerificationPending';
 
 // Public Pages (Student-facing)
 import Home from './pages/public/Home';
@@ -57,6 +58,7 @@ import CountryManagement from './pages/admin/CountryManagement';
 import TutorManagement from './pages/admin/TutorManagement';
 import TuitionPackManagement from './pages/admin/TuitionPackManagement';
 import SubjectManagement from './pages/admin/SubjectManagement';
+import AdminManagement from './pages/admin/AdminManagement';
 
 // Tutor Pages
 import TutorLayout from './layouts/TutorLayout';
@@ -143,6 +145,14 @@ function App() {
         <Route
           path="/verify-email"
           element={<VerifyEmail />}
+        />
+        <Route
+          path="/verify-pending"
+          element={
+            <ProtectedRoute>
+              <VerificationPending />
+            </ProtectedRoute>
+          }
         />
       </Route>
 
@@ -286,6 +296,7 @@ function App() {
         <Route path="tutors" element={<TutorManagement />} />
         <Route path="tuition-packs" element={<TuitionPackManagement />} />
         <Route path="subjects" element={<SubjectManagement />} />
+        <Route path="admin-users" element={<AdminManagement />} />
       </Route>
 
       {/* ===================== */}

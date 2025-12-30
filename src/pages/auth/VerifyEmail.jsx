@@ -14,7 +14,7 @@ import {
 function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { verifyEmail, resendVerification, isLoading, isAuthenticated, user } = useAuth();
+  const { verifyEmail, resendVerification, updateUser, isLoading, isAuthenticated, user } = useAuth();
 
   const [status, setStatus] = useState('idle'); // idle, verifying, success, error, expired
   const [message, setMessage] = useState('');
@@ -33,6 +33,11 @@ function VerifyEmail() {
       setStatus('success');
       setMessage('Your email has been verified successfully!');
       if (emailParam) setEmail(emailParam);
+
+      // Refresh user data to update emailVerified status in auth context
+      if (isAuthenticated) {
+        refreshUserData();
+      }
       return;
     }
 
@@ -47,6 +52,26 @@ function VerifyEmail() {
       handleVerification();
     }
   }, [token, successParam, errorParam]);
+
+  // Refresh user data from server to get updated emailVerified status
+  const refreshUserData = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          // Update user in auth context with fresh data (includes emailVerified: true)
+          updateUser(data.user);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to refresh user data:', err);
+    }
+  };
 
   const handleVerification = async () => {
     setStatus('verifying');
@@ -63,6 +88,7 @@ function VerifyEmail() {
           const role = result.user.role;
           const redirectPath = role === 'student' ? '/student/dashboard' :
                               role === 'center_admin' ? '/center/dashboard' :
+                              role === 'tutor' ? '/tutor/dashboard' :
                               role === 'tabsera_admin' ? '/admin/dashboard' : '/';
           navigate(redirectPath);
         }, 2000);
@@ -114,7 +140,8 @@ function VerifyEmail() {
         </div>
         <Link
           to={user.role === 'student' ? '/student/dashboard' :
-              user.role === 'center_admin' ? '/center/dashboard' : '/admin/dashboard'}
+              user.role === 'center_admin' ? '/center/dashboard' :
+              user.role === 'tutor' ? '/tutor/dashboard' : '/admin/dashboard'}
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700"
         >
           Go to Dashboard

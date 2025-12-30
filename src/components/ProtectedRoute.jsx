@@ -34,6 +34,11 @@ export function ProtectedRoute({ children, roles, redirectTo = '/login' }) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
+  // Check if email is verified (unless already on verify-pending page)
+  if (user && !user.emailVerified && location.pathname !== '/verify-pending') {
+    return <Navigate to="/verify-pending" replace />;
+  }
+
   // Check role requirements
   if (roles) {
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
@@ -43,6 +48,7 @@ export function ProtectedRoute({ children, roles, redirectTo = '/login' }) {
         student: '/student/dashboard',
         center_admin: '/center/dashboard',
         tabsera_admin: '/admin/dashboard',
+        tutor: '/tutor/dashboard',
       };
       const userDashboard = roleRedirects[user?.role] || '/';
       return <Navigate to={userDashboard} replace />;
@@ -74,18 +80,24 @@ export function PublicRoute({ children, redirectTo }) {
     );
   }
 
-  // Already authenticated - redirect to appropriate dashboard
+  // Already authenticated - redirect appropriately
   if (isAuthenticated && user) {
+    // If email not verified, go to verify-pending page
+    if (!user.emailVerified) {
+      return <Navigate to="/verify-pending" replace />;
+    }
+
     const roleRedirects = {
       student: '/student/dashboard',
       center_admin: '/center/dashboard',
       tabsera_admin: '/admin/dashboard',
+      tutor: '/tutor/dashboard',
     };
 
     // Use provided redirect or role-based redirect
-    const destination = redirectTo || 
-                        location.state?.from?.pathname || 
-                        roleRedirects[user.role] || 
+    const destination = redirectTo ||
+                        location.state?.from?.pathname ||
+                        roleRedirects[user.role] ||
                         '/';
 
     return <Navigate to={destination} replace />;

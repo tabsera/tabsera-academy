@@ -73,7 +73,7 @@ const sendVerificationEmail = async (user, token) => {
  */
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName, phone, country } = req.body;
+    const { email, password, firstName, lastName, phone, country, role } = req.body;
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
@@ -81,6 +81,10 @@ router.post('/register', async (req, res, next) => {
         message: 'Email, password, first name, and last name are required',
       });
     }
+
+    // Only allow STUDENT or TUTOR roles for public registration
+    const allowedRoles = ['STUDENT', 'TUTOR'];
+    const userRole = role && allowedRoles.includes(role.toUpperCase()) ? role.toUpperCase() : 'STUDENT';
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,7 +148,7 @@ router.post('/register', async (req, res, next) => {
         lastName,
         phone: phone || null,
         country: country || null,
-        role: 'STUDENT',
+        role: userRole,
         emailVerified: false,
         emailVerificationToken: verificationToken,
         emailVerificationExpires: verificationExpires,
@@ -332,13 +336,24 @@ router.post('/resend-verification', async (req, res, next) => {
     });
 
     // Send verification email
-    await sendVerificationEmail(user, verificationToken);
+    console.log('Sending verification email to:', user.email);
+    const emailResult = await sendVerificationEmail(user, verificationToken);
+    console.log('Verification email result:', emailResult);
+
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email. Please try again.',
+      });
+    }
 
     res.json({
       success: true,
       message: 'Verification email has been sent. Please check your inbox.',
     });
   } catch (error) {
+    console.error('Resend verification error:', error);
     next(error);
   }
 });
@@ -369,15 +384,6 @@ router.post('/login', async (req, res, next) => {
 
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    // Check if email is verified
-    if (!user.emailVerified) {
-      return res.status(403).json({
-        message: 'Please verify your email before logging in.',
-        requiresVerification: true,
-        email: user.email,
-      });
     }
 
     if (!user.isActive) {
@@ -414,6 +420,7 @@ router.post('/login', async (req, res, next) => {
         edxUsername: user.edxUsername,
         edxPassword,
         edxRegistered: user.edxRegistered,
+        emailVerified: user.emailVerified,
       },
       token,
     });
@@ -529,6 +536,7 @@ router.post('/google', async (req, res, next) => {
         edxUsername: user.edxUsername,
         edxPassword,
         edxRegistered: user.edxRegistered,
+        emailVerified: user.emailVerified,
       },
       token,
     });
@@ -698,6 +706,7 @@ router.get('/me', authenticate, async (req, res) => {
       last_name: req.user.lastName,
       role: req.user.role.toLowerCase(),
       edxPassword, // Return decrypted password
+      emailVerified: req.user.emailVerified,
     },
   });
 });
@@ -760,7 +769,9 @@ router.put('/profile', authenticate, async (req, res, next) => {
  */
 router.post('/change-password', authenticate, async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    // Support both camelCase and snake_case
+    const currentPassword = req.body.currentPassword || req.body.current_password;
+    const newPassword = req.body.newPassword || req.body.new_password;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({

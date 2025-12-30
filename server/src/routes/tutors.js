@@ -48,6 +48,22 @@ router.post('/register', authenticate, async (req, res, next) => {
       },
     });
 
+    // Update user role to TUTOR
+    const updatedUser = await req.prisma.user.update({
+      where: { id: userId },
+      data: { role: 'TUTOR' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        avatar: true,
+        role: true,
+        isVerified: true,
+      },
+    });
+
     // Add selected courses if provided
     if (courses && courses.length > 0) {
       await req.prisma.tutorCourse.createMany({
@@ -77,6 +93,7 @@ router.post('/register', authenticate, async (req, res, next) => {
       success: true,
       message: 'Tutor registration submitted for review',
       profile,
+      user: updatedUser,
     });
   } catch (error) {
     next(error);

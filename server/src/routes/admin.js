@@ -1383,6 +1383,7 @@ router.get('/users', async (req, res, next) => {
           centerId: true,
           createdAt: true,
           updatedAt: true,
+          adminPermissions: true,
           center: {
             select: { id: true, name: true },
           },
@@ -1490,6 +1491,7 @@ router.post('/users', async (req, res, next) => {
       centerId,
       isActive = true,
       sendWelcomeEmail = true,
+      adminPermissions,
     } = req.body;
 
     // Validate required fields
@@ -1525,6 +1527,7 @@ router.post('/users', async (req, res, next) => {
         centerId: centerId || null,
         isActive,
         emailVerified: true, // Admin-created users are verified
+        adminPermissions: role.toUpperCase() === 'TABSERA_ADMIN' ? adminPermissions : null,
       },
       select: {
         id: true,
@@ -1537,6 +1540,7 @@ router.post('/users', async (req, res, next) => {
         emailVerified: true,
         centerId: true,
         createdAt: true,
+        adminPermissions: true,
         center: {
           select: { id: true, name: true },
         },
@@ -1581,6 +1585,7 @@ router.put('/users/:id', async (req, res, next) => {
       role,
       centerId,
       isActive,
+      adminPermissions,
     } = req.body;
 
     // Check if user exists
@@ -1614,6 +1619,7 @@ router.put('/users/:id', async (req, res, next) => {
         ...(role && { role: role.toUpperCase() }),
         ...(centerId !== undefined && { centerId: centerId || null }),
         ...(isActive !== undefined && { isActive }),
+        ...(adminPermissions !== undefined && { adminPermissions }),
       },
       select: {
         id: true,
@@ -1627,6 +1633,7 @@ router.put('/users/:id', async (req, res, next) => {
         centerId: true,
         createdAt: true,
         updatedAt: true,
+        adminPermissions: true,
         center: {
           select: { id: true, name: true },
         },

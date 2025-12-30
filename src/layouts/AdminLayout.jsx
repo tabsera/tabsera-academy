@@ -4,7 +4,7 @@ import {
   GraduationCap, Building2, LayoutDashboard, Users, FileText, Receipt,
   CircleDollarSign, Settings, Bell, Menu, X, ChevronDown, LogOut,
   Briefcase, UserPlus, KeyRound, BookOpen, BarChart3, FileCheck, Layers,
-  Globe, CreditCard, UserCheck, Tag
+  Globe, CreditCard, UserCheck, Tag, Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -69,6 +69,7 @@ const AdminLayout = () => {
     ]},
     { section: 'System', items: [
       { path: '/admin/countries', icon: Globe, label: 'Countries' },
+      { path: '/admin/admin-users', icon: Shield, label: 'Admin Users' },
       { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ]},
   ];
