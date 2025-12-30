@@ -288,7 +288,7 @@ function TutorAvailability() {
               <div>
                 <p className="font-semibold text-red-800">Bookings Paused</p>
                 <p className="text-sm text-red-600">
-                  Until {formatDate(currentUnavailability.endDate)}
+                  {formatDate(currentUnavailability.startDate)} - {formatDate(currentUnavailability.endDate)}
                   {currentUnavailability.reason && ` • ${currentUnavailability.reason.charAt(0).toUpperCase() + currentUnavailability.reason.slice(1)}`}
                 </p>
               </div>
