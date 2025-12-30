@@ -286,7 +286,7 @@ function TutorAvailability() {
             <div className="flex items-center gap-3">
               <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
               <div>
-                <p className="font-semibold text-red-800">You are currently unavailable</p>
+                <p className="font-semibold text-red-800">Bookings Paused</p>
                 <p className="text-sm text-red-600">
                   Until {formatDate(currentUnavailability.endDate)}
                   {currentUnavailability.reason && ` • ${currentUnavailability.reason.charAt(0).toUpperCase() + currentUnavailability.reason.slice(1)}`}
@@ -297,7 +297,7 @@ function TutorAvailability() {
               onClick={() => handleResumeAvailability(currentUnavailability.id)}
               className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
             >
-              Resume Availability
+              Resume Bookings
             </button>
           </div>
 
@@ -330,9 +330,9 @@ function TutorAvailability() {
         <div className="mb-6 bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <span className="w-3 h-3 bg-green-500 rounded-full" />
-            <p className="font-semibold text-gray-900">You are currently available</p>
+            <p className="font-semibold text-gray-900">Accepting Bookings</p>
           </div>
-          <p className="text-gray-600 mb-4">Need to take a break? Set yourself as temporarily unavailable:</p>
+          <p className="text-gray-600 mb-4">Need to take a break? Block your calendar temporarily:</p>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((preset) => (
               <button
