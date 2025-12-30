@@ -44,7 +44,7 @@ function TutorProfileEdit() {
         tutorsApi.getProfile(),
         tutorsApi.getCourses(),
       ]);
-      const tutor = profileRes.tutor;
+      const tutor = profileRes.profile;
       setProfile(tutor);
       setCourses(coursesRes.courses || []);
       setFormData({

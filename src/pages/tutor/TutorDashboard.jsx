@@ -28,7 +28,7 @@ function TutorDashboard() {
         tutorsApi.getProfile(),
         tutorsApi.getSessions({ upcoming: true, limit: 5 }),
       ]);
-      setProfile(profileRes.tutor);
+      setProfile(profileRes.profile);
       setSessions(sessionsRes.sessions || []);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard');
