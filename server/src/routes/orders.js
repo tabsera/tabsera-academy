@@ -73,22 +73,36 @@ router.post('/', authenticate, async (req, res, next) => {
             name: item.name,
             price: item.price,
             quantity: 1,
-            ...(item.type === 'track' && { trackId: item.id }),
+            ...(item.type === 'track' && { learningPackId: item.id }),
             ...(item.type === 'course' && { courseId: item.id }),
+            ...(item.type === 'pack' && { tuitionPackId: item.id }),
           })),
         },
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            learningPack: true,
+            course: true,
+            tuitionPack: true,
+          },
+        },
       },
     });
 
+    // Add type to items for frontend
+    const orderWithTypes = {
+      ...order,
+      paymentMethod,
+      items: order.items.map(item => ({
+        ...item,
+        type: item.tuitionPackId ? 'pack' : item.learningPackId ? 'track' : 'course',
+      })),
+    };
+
     res.status(201).json({
       success: true,
-      order: {
-        ...order,
-        paymentMethod,
-      },
+      order: orderWithTypes,
     });
   } catch (error) {
     next(error);
@@ -145,8 +159,22 @@ router.get('/:referenceId', authenticate, async (req, res, next) => {
         userId: req.user.id,
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            learningPack: true,
+            course: true,
+            tuitionPack: true,
+          },
+        },
         payments: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
       },
     });
 
@@ -154,7 +182,16 @@ router.get('/:referenceId', authenticate, async (req, res, next) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    res.json({ success: true, order });
+    // Add type to items for frontend
+    const orderWithTypes = {
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        type: item.tuitionPackId ? 'pack' : item.learningPackId ? 'track' : 'course',
+      })),
+    };
+
+    res.json({ success: true, order: orderWithTypes });
   } catch (error) {
     next(error);
   }
