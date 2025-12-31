@@ -42,8 +42,8 @@ export const tutorsApi = {
    */
   async uploadAvatar(file) {
     const formData = new FormData();
+    formData.append('folder', 'avatars');  // Must be before 'file' for multer
     formData.append('file', file);
-    formData.append('folder', 'avatars');
 
     return apiClient.upload('/tutors/avatar', formData);
   },
@@ -55,10 +55,10 @@ export const tutorsApi = {
    */
   async uploadCertification(file, data) {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'certifications');
+    formData.append('folder', 'certifications');  // Must be before 'file' for multer
     if (data.title) formData.append('title', data.title);
     if (data.institution) formData.append('institution', data.institution);
+    formData.append('file', file);
 
     return apiClient.upload('/tutors/certifications', formData);
   },
