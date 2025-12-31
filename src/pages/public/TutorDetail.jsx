@@ -107,7 +107,7 @@ function TutorDetail() {
     setIsBooking(true);
     try {
       await tutorsApi.bookSession(id, {
-        scheduledAt: selectedSlot.startTime,
+        scheduledAt: selectedSlot.time,
         courseId: bookingData.courseId || undefined,
         topic: bookingData.topic || undefined,
       });
@@ -235,15 +235,19 @@ function TutorDetail() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Courses I Teach</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {tutor.courses.map(tc => (
-                    <div key={tc.course?.id || tc.courseId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <Link
+                      key={tc.course?.id || tc.courseId}
+                      to={`/courses/${tc.course?.slug || tc.courseId}`}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors"
+                    >
                       <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                         <BookOpen size={20} className="text-blue-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{tc.course?.title || 'Course'}</p>
+                        <p className="font-medium text-gray-900 hover:text-blue-600">{tc.course?.title || 'Course'}</p>
                         {tc.course?.level && <p className="text-sm text-gray-500">{tc.course.level}</p>}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -306,7 +310,7 @@ function TutorDetail() {
                         onClick={() => handleSlotClick(slot)}
                         className="px-3 py-2 text-sm font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
                       >
-                        {formatTime(slot.startTime)}
+                        {formatTime(slot.time)}
                       </button>
                     ))}
                   </div>
@@ -379,7 +383,7 @@ function TutorDetail() {
                     {selectedSlot && (
                       <div className="flex items-center gap-2 text-gray-700">
                         <Calendar size={16} />
-                        <span>{new Date(selectedSlot.startTime).toLocaleString()}</span>
+                        <span>{new Date(selectedSlot.time).toLocaleString()}</span>
                       </div>
                     )}
                   </div>
