@@ -373,7 +373,7 @@ function MyPayments() {
                         <div className="space-y-1">
                           {order.items?.slice(0, 2).map((item, idx) => (
                             <p key={idx} className="text-sm text-gray-900 truncate max-w-[200px]">
-                              {item.track?.title || item.course?.title}
+                              {item.name || item.track?.title || item.course?.title || 'Item'}
                             </p>
                           ))}
                           {order.items?.length > 2 && (
@@ -411,7 +411,7 @@ function MyPayments() {
                   <div className="mb-2">
                     {order.items?.slice(0, 2).map((item, idx) => (
                       <p key={idx} className="text-sm text-gray-900">
-                        {item.track?.title || item.course?.title}
+                        {item.name || item.track?.title || item.course?.title || 'Item'}
                       </p>
                     ))}
                   </div>
