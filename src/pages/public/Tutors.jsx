@@ -13,6 +13,16 @@ import {
   MapPin, Clock, Filter, X, ChevronDown, ArrowRight, User
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+// Get full avatar URL from relative path
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.startsWith('http')) return avatar;
+  const baseUrl = API_URL.replace('/api', '');
+  return `${baseUrl}${avatar}`;
+};
+
 function Tutors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -309,7 +319,7 @@ function Tutors() {
 // Tutor Card Component
 function TutorCard({ tutor }) {
   // Get avatar from user object or direct property
-  const avatar = tutor.user?.avatar || tutor.avatar;
+  const avatar = getAvatarUrl(tutor.user?.avatar || tutor.avatar);
   const name = tutor.name || `${tutor.user?.firstName || ''} ${tutor.user?.lastName || ''}`.trim();
 
   return (

@@ -14,6 +14,17 @@ import {
   User, GraduationCap, FileText, ArrowLeft
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+// Get full avatar URL from relative path
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.startsWith('http')) return avatar;
+  // If it's a relative path, prepend the API base URL (without /api)
+  const baseUrl = API_URL.replace('/api', '');
+  return `${baseUrl}${avatar}`;
+};
+
 function TutorDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -178,8 +189,8 @@ function TutorDetail() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-start gap-6">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold flex-shrink-0 overflow-hidden">
-                  {(tutor.user?.avatar || tutor.avatar) ? (
-                    <img src={tutor.user?.avatar || tutor.avatar} alt={tutor.name || `${tutor.user?.firstName} ${tutor.user?.lastName}`} className="w-full h-full object-cover" />
+                  {getAvatarUrl(tutor.user?.avatar || tutor.avatar) ? (
+                    <img src={getAvatarUrl(tutor.user?.avatar || tutor.avatar)} alt={tutor.name || `${tutor.user?.firstName} ${tutor.user?.lastName}`} className="w-full h-full object-cover" />
                   ) : (
                     (tutor.name || tutor.user?.firstName)?.charAt(0).toUpperCase() || 'T'
                   )}
@@ -223,14 +234,14 @@ function TutorDetail() {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Courses I Teach</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {tutor.courses.map(course => (
-                    <div key={course.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  {tutor.courses.map(tc => (
+                    <div key={tc.course?.id || tc.courseId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                       <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                         <BookOpen size={20} className="text-blue-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{course.title}</p>
-                        {course.level && <p className="text-sm text-gray-500">{course.level}</p>}
+                        <p className="font-medium text-gray-900">{tc.course?.title || 'Course'}</p>
+                        {tc.course?.level && <p className="text-sm text-gray-500">{tc.course.level}</p>}
                       </div>
                     </div>
                   ))}
@@ -354,8 +365,8 @@ function TutorDetail() {
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold overflow-hidden">
-                        {(tutor.user?.avatar || tutor.avatar) ? (
-                          <img src={tutor.user?.avatar || tutor.avatar} alt="" className="w-full h-full object-cover" />
+                        {getAvatarUrl(tutor.user?.avatar || tutor.avatar) ? (
+                          <img src={getAvatarUrl(tutor.user?.avatar || tutor.avatar)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           (tutor.name || tutor.user?.firstName)?.charAt(0).toUpperCase() || 'T'
                         )}
@@ -398,8 +409,8 @@ function TutorDetail() {
                         className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select a course</option>
-                        {tutor.courses.map(course => (
-                          <option key={course.id} value={course.id}>{course.title}</option>
+                        {tutor.courses.map(tc => (
+                          <option key={tc.course?.id || tc.courseId} value={tc.course?.id || tc.courseId}>{tc.course?.title || 'Course'}</option>
                         ))}
                       </select>
                     </div>
