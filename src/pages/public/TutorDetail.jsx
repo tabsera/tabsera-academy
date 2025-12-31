@@ -396,9 +396,9 @@ function TutorDetail() {
                     <div className="p-4 bg-blue-50 rounded-xl">
                       <div className="flex items-center justify-between">
                         <span className="text-blue-700 font-medium">Your Credits</span>
-                        <span className="text-2xl font-bold text-blue-700">{credits.totalCreditsRemaining || 0}</span>
+                        <span className="text-2xl font-bold text-blue-700">{credits.summary?.totalCreditsAvailable || 0}</span>
                       </div>
-                      {(credits.totalCreditsRemaining || 0) < 1 && (
+                      {(credits.summary?.totalCreditsAvailable || 0) < 1 && (
                         <p className="text-sm text-red-600 mt-2">
                           You need at least 1 credit to book. <Link to="/tuition" className="underline">Purchase credits</Link>
                         </p>
@@ -439,7 +439,7 @@ function TutorDetail() {
                 <div className="p-6 border-t bg-gray-50">
                   <button
                     onClick={handleBookSession}
-                    disabled={isBooking || (credits?.totalCreditsRemaining || 0) < 1}
+                    disabled={isBooking || (credits?.summary?.totalCreditsAvailable || 0) < 1}
                     className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isBooking ? (
