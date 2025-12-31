@@ -277,7 +277,10 @@ function TutorDetail() {
           {/* Right: Booking Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-24">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Book a Session</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Book a Session</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Times shown in your timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+              </p>
 
               {/* Date Navigation */}
               <div className="flex items-center justify-between mb-4">

@@ -12,6 +12,16 @@ const recordingPipeline = require('../services/recordingPipeline');
 
 const router = express.Router();
 
+/**
+ * Get timezone offset in minutes for a given timezone and date
+ * Returns positive for timezones ahead of UTC (e.g., +180 for UTC+3)
+ */
+function getTimezoneOffset(timezone, date) {
+  const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+  return (tzDate - utcDate) / 60000; // Convert ms to minutes
+}
+
 // ============================================
 // TUTOR REGISTRATION & PROFILE
 // ============================================
@@ -1267,18 +1277,30 @@ router.get('/:id/slots', async (req, res, next) => {
     });
 
     // Generate available slots (10-minute intervals)
+    // Convert tutor's local availability times to UTC
+    const tutorTz = tutor.timezone || 'UTC';
     const slots = [];
+
     for (const availability of dayAvailability) {
       const [startHour, startMin] = availability.startTime.split(':').map(Number);
       const [endHour, endMin] = availability.endTime.split(':').map(Number);
 
-      let current = new Date(date);
-      current.setHours(startHour, startMin, 0, 0);
+      // Create date string in tutor's timezone and convert to UTC
+      // Format: "2025-12-31T08:00:00" in tutor's timezone
+      const startDateStr = `${date}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`;
+      const endDateStr = `${date}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
 
-      const end = new Date(date);
-      end.setHours(endHour, endMin, 0, 0);
+      // Parse as tutor's local time and get UTC equivalent
+      let current = new Date(new Date(startDateStr).toLocaleString('en-US', { timeZone: tutorTz }));
+      const end = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: tutorTz }));
 
-      while (current < end) {
+      // Calculate timezone offset to convert tutor's local time to UTC
+      const tutorOffset = getTimezoneOffset(tutorTz, new Date(date));
+      current = new Date(startDateStr);
+      current = new Date(current.getTime() - tutorOffset * 60 * 1000);
+      const endUtc = new Date(new Date(endDateStr).getTime() - tutorOffset * 60 * 1000);
+
+      while (current < endUtc) {
         const slotTime = new Date(current);
         const slotEnd = new Date(current.getTime() + 10 * 60 * 1000);
 
@@ -1305,7 +1327,8 @@ router.get('/:id/slots', async (req, res, next) => {
     res.json({
       success: true,
       slots,
-      tutorTimezone: tutor.timezone,
+      tutorTimezone: tutorTz,
+      studentTimezone: studentTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
   } catch (error) {
     next(error);
