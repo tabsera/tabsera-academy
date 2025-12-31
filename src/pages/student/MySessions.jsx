@@ -159,16 +159,16 @@ function MySessions() {
       </div>
 
       {/* Credits Summary */}
-      {credits && (
+      {credits?.summary && (
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white mb-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-indigo-100 text-sm">Available Credits</p>
-              <p className="text-4xl font-bold">{credits.totalCreditsRemaining || 0}</p>
+              <p className="text-4xl font-bold">{credits.summary.totalCreditsAvailable || 0}</p>
             </div>
             <div className="text-right">
               <p className="text-indigo-100 text-sm">Used Credits</p>
-              <p className="text-2xl font-semibold">{credits.totalCreditsUsed || 0}</p>
+              <p className="text-2xl font-semibold">{credits.summary.totalCreditsUsed || 0}</p>
             </div>
             <Link
               to="/tuition"
