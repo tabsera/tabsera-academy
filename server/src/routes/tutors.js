@@ -1724,7 +1724,6 @@ router.post('/sessions/:id/rate', authenticate, async (req, res, next) => {
       where: { id: session.tutorProfileId },
       data: {
         avgRating: stats._avg.rating || 0,
-        totalReviews: stats._count.rating || 0,
       },
     });
 
