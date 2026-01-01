@@ -1707,7 +1707,6 @@ router.post('/sessions/:id/rate', authenticate, async (req, res, next) => {
       data: {
         rating: parseInt(rating),
         feedback: feedback || null,
-        ratedAt: new Date(),
       },
     });
 
