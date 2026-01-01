@@ -249,16 +249,16 @@ function TutorAvailability() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Availability</h1>
-          <p className="text-gray-500">Set your weekly schedule for tutoring sessions</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Availability</h1>
+          <p className="text-sm sm:text-base text-gray-500">Set your weekly schedule for tutoring sessions</p>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           Save Changes
@@ -281,13 +281,13 @@ function TutorAvailability() {
 
       {/* Unavailability Panel */}
       {currentUnavailability ? (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
-              <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+              <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
               <div>
-                <p className="font-semibold text-red-800">Bookings Paused</p>
-                <p className="text-sm text-red-600">
+                <p className="font-semibold text-red-800 text-sm sm:text-base">Bookings Paused</p>
+                <p className="text-xs sm:text-sm text-red-600">
                   {formatDate(currentUnavailability.startDate)} - {formatDate(currentUnavailability.endDate)}
                   {currentUnavailability.reason && ` • ${currentUnavailability.reason.charAt(0).toUpperCase() + currentUnavailability.reason.slice(1)}`}
                 </p>
@@ -295,7 +295,7 @@ function TutorAvailability() {
             </div>
             <button
               onClick={() => handleResumeAvailability(currentUnavailability.id)}
-              className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
+              className="px-4 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
             >
               Resume Bookings
             </button>
@@ -306,17 +306,17 @@ function TutorAvailability() {
               <p className="text-sm font-medium text-red-800 mb-2">Scheduled Time-Off</p>
               <div className="space-y-2">
                 {upcomingUnavailability.map((period) => (
-                  <div key={period.id} className="flex items-center justify-between bg-white/50 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-red-500" />
-                      <span className="text-sm text-red-700">
+                  <div key={period.id} className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 bg-white/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar size={16} className="text-red-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-red-700 truncate">
                         {formatDate(period.startDate)} - {formatDate(period.endDate)}
                         {period.reason && ` • ${period.reason.charAt(0).toUpperCase() + period.reason.slice(1)}`}
                       </span>
                     </div>
                     <button
                       onClick={() => handleResumeAvailability(period.id)}
-                      className="text-sm text-red-600 hover:text-red-800"
+                      className="text-sm text-red-600 hover:text-red-800 min-h-[44px] flex items-center justify-center px-3 -mx-3 xs:mx-0"
                     >
                       Cancel
                     </button>
@@ -327,25 +327,25 @@ function TutorAvailability() {
           )}
         </div>
       ) : (
-        <div className="mb-6 bg-white border border-gray-200 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="mb-4 sm:mb-6 bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-3 sm:mb-4">
             <span className="w-3 h-3 bg-green-500 rounded-full" />
-            <p className="font-semibold text-gray-900">Accepting Bookings</p>
+            <p className="font-semibold text-gray-900 text-sm sm:text-base">Accepting Bookings</p>
           </div>
-          <p className="text-gray-600 mb-4">Need to take a break? Block your calendar temporarily:</p>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">Need to take a break? Block your calendar temporarily:</p>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
             {PRESETS.map((preset) => (
               <button
                 key={preset.value}
                 onClick={() => handlePresetClick(preset.value)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors"
+                className="px-3 sm:px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors min-h-[44px] text-sm"
               >
                 {preset.label}
               </button>
             ))}
             <button
               onClick={handleCustomDatesClick}
-              className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg text-indigo-700 font-medium transition-colors"
+              className="col-span-2 sm:col-span-1 px-3 sm:px-4 py-2.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg text-indigo-700 font-medium transition-colors min-h-[44px] text-sm"
             >
               Custom Dates...
             </button>
@@ -356,17 +356,17 @@ function TutorAvailability() {
               <p className="text-sm font-medium text-gray-700 mb-2">Scheduled Time-Off</p>
               <div className="space-y-2">
                 {upcomingUnavailability.map((period) => (
-                  <div key={period.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-gray-500" />
-                      <span className="text-sm text-gray-700">
+                  <div key={period.id} className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 bg-gray-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar size={16} className="text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">
                         {formatDate(period.startDate)} - {formatDate(period.endDate)}
                         {period.reason && ` • ${period.reason.charAt(0).toUpperCase() + period.reason.slice(1)}`}
                       </span>
                     </div>
                     <button
                       onClick={() => handleResumeAvailability(period.id)}
-                      className="text-sm text-red-600 hover:text-red-800"
+                      className="text-sm text-red-600 hover:text-red-800 min-h-[44px] flex items-center justify-center px-3 -mx-3 xs:mx-0"
                     >
                       Cancel
                     </button>
@@ -380,19 +380,19 @@ function TutorAvailability() {
 
       {/* Set Unavailable Modal */}
       {showUnavailableModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Set Unavailable</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Set Unavailable</h3>
               <button
                 onClick={() => setShowUnavailableModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2.5 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {showCustomDates ? (
                 <div className="space-y-3">
                   <div>
@@ -402,7 +402,7 @@ function TutorAvailability() {
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
                     />
                   </div>
                   <div>
@@ -412,14 +412,14 @@ function TutorAvailability() {
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
                       min={customStartDate || new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
                     />
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Period:</p>
-                  <p className="font-medium text-gray-900">
+                <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-gray-600">Period:</p>
+                  <p className="font-medium text-gray-900 text-sm sm:text-base">
                     {customStartDate && customEndDate && (
                       customStartDate === customEndDate
                         ? formatDate(customStartDate)
@@ -434,7 +434,7 @@ function TutorAvailability() {
                 <select
                   value={selectedReason}
                   onChange={(e) => setSelectedReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base"
                 >
                   {REASONS.map((reason) => (
                     <option key={reason.value} value={reason.value}>{reason.label}</option>
@@ -447,11 +447,11 @@ function TutorAvailability() {
                   <Loader2 size={24} className="animate-spin text-indigo-600" />
                 </div>
               ) : affectedSessions.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="font-medium text-yellow-800 mb-2">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4">
+                  <p className="font-medium text-yellow-800 mb-2 text-sm sm:text-base">
                     {affectedSessions.length} session{affectedSessions.length !== 1 ? 's' : ''} will be auto-cancelled:
                   </p>
-                  <ul className="space-y-1 text-sm text-yellow-700">
+                  <ul className="space-y-1 text-xs sm:text-sm text-yellow-700">
                     {affectedSessions.slice(0, 5).map((session) => (
                       <li key={session.id}>
                         • {session.studentName} - {new Date(session.scheduledAt).toLocaleString('en-US', {
@@ -469,17 +469,17 @@ function TutorAvailability() {
               )}
             </div>
 
-            <div className="flex gap-3 p-6 border-t bg-gray-50 rounded-b-2xl">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 p-4 sm:p-6 border-t bg-gray-50 rounded-b-2xl flex-shrink-0">
               <button
                 onClick={() => setShowUnavailableModal(false)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-100"
+                className="flex-1 px-4 py-3 sm:py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-100 min-h-[44px] text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSetUnavailable}
                 disabled={settingUnavailable || (showCustomDates && (!customStartDate || !customEndDate))}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 sm:py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px] text-sm sm:text-base"
               >
                 {settingUnavailable ? (
                   <Loader2 size={18} className="animate-spin" />
@@ -494,36 +494,36 @@ function TutorAvailability() {
       )}
 
       {/* Weekly Availability Grid */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {DAYS.map((day, dayIndex) => {
           const daySlots = getSlotsByDay(dayIndex);
           return (
             <div key={day} className="border-b last:border-b-0">
-              <div className="flex items-start gap-4 p-4">
-                <div className="w-28 flex-shrink-0">
-                  <p className="font-medium text-gray-900">{day}</p>
-                  <p className="text-sm text-gray-500">{daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}</p>
+              <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 p-3 sm:p-4">
+                <div className="flex items-center justify-between sm:block sm:w-28 flex-shrink-0">
+                  <p className="font-medium text-gray-900 text-sm sm:text-base">{day}</p>
+                  <p className="text-xs sm:text-sm text-gray-500">{daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="flex-1">
                   {daySlots.length > 0 ? (
                     <div className="space-y-2">
                       {daySlots.map((slot) => (
-                        <div key={slot.originalIndex} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                          <Clock size={18} className="text-gray-400" />
+                        <div key={slot.originalIndex} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-xl">
+                          <Clock size={16} className="text-gray-400 flex-shrink-0 hidden sm:block" />
                           <select
                             value={slot.startTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'startTime', e.target.value)}
-                            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+                            className="flex-1 sm:flex-none px-2 sm:px-3 py-2 sm:py-1.5 border border-gray-200 rounded-lg text-sm min-h-[44px] sm:min-h-0"
                           >
                             {TIME_OPTIONS.map(t => (
                               <option key={t} value={t}>{t}</option>
                             ))}
                           </select>
-                          <span className="text-gray-500">to</span>
+                          <span className="text-gray-500 text-xs sm:text-sm">to</span>
                           <select
                             value={slot.endTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'endTime', e.target.value)}
-                            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
+                            className="flex-1 sm:flex-none px-2 sm:px-3 py-2 sm:py-1.5 border border-gray-200 rounded-lg text-sm min-h-[44px] sm:min-h-0"
                           >
                             {TIME_OPTIONS.map(t => (
                               <option key={t} value={t}>{t}</option>
@@ -531,7 +531,7 @@ function TutorAvailability() {
                           </select>
                           <button
                             onClick={() => removeSlot(slot.originalIndex)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                            className="p-2 sm:p-1.5 text-red-500 hover:bg-red-50 rounded-lg min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -539,11 +539,11 @@ function TutorAvailability() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400 py-2">No availability set</p>
+                    <p className="text-xs sm:text-sm text-gray-400 py-2">No availability set</p>
                   )}
                   <button
                     onClick={() => addSlot(dayIndex)}
-                    className="mt-2 flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+                    className="mt-2 flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 min-h-[44px] sm:min-h-0"
                   >
                     <Plus size={16} /> Add time slot
                   </button>
@@ -554,8 +554,8 @@ function TutorAvailability() {
         })}
       </div>
 
-      <div className="mt-6 p-4 bg-indigo-50 rounded-xl">
-        <p className="text-sm text-indigo-700">
+      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-indigo-50 rounded-xl">
+        <p className="text-xs sm:text-sm text-indigo-700">
           <strong>Note:</strong> Times are in your local timezone. Students will see these times converted to their timezone when booking.
         </p>
       </div>

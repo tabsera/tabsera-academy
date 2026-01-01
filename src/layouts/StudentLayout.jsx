@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 
 const StudentLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const location = useLocation();
@@ -58,7 +57,7 @@ const StudentLayout = () => {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0f172a] transform transition-transform duration-300 ease-in-out ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -101,6 +100,7 @@ const StudentLayout = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   isActive(item.path)
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
@@ -120,6 +120,7 @@ const StudentLayout = () => {
                 href="https://learn.tabsera.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 <ExternalLink size={20} />
@@ -127,6 +128,7 @@ const StudentLayout = () => {
               </a>
               <Link
                 to="/courses"
+                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 <BookOpen size={20} />
@@ -134,6 +136,7 @@ const StudentLayout = () => {
               </Link>
               <a
                 href="mailto:support@tabsera.com"
+                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 <HelpCircle size={20} />
@@ -145,7 +148,7 @@ const StudentLayout = () => {
           {/* Logout Button */}
           <div className="p-4 border-t border-gray-800">
             <button
-              onClick={handleLogout}
+              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
               className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-gray-400 hover:bg-red-600/10 hover:text-red-400 transition-colors"
             >
               <LogOut size={20} />
@@ -169,11 +172,11 @@ const StudentLayout = () => {
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between px-4 lg:px-8 h-16">
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)} 
-                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
-                <Menu size={24} />
+                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
               <div className="hidden sm:block">
                 <h1 className="text-lg font-semibold text-gray-900">Student Portal</h1>

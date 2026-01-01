@@ -75,11 +75,11 @@ function TutorDashboard() {
   ];
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {profile?.user?.firstName || 'Tutor'}!</h1>
-        <p className="text-gray-500">Here's an overview of your tutoring activity</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome back, {profile?.user?.firstName || 'Tutor'}!</h1>
+        <p className="text-sm sm:text-base text-gray-500">Here's an overview of your tutoring activity</p>
       </div>
 
       {/* Status Banner */}
@@ -104,47 +104,47 @@ function TutorDashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center`}>
-                <stat.icon size={20} className="text-white" />
+          <div key={idx} className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${stat.color} flex items-center justify-center`}>
+                <stat.icon size={18} className="text-white sm:w-5 sm:h-5" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            <p className="text-sm text-gray-500">{stat.label}</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</p>
+            <p className="text-xs sm:text-sm text-gray-500">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Upcoming Sessions */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Sessions</h2>
-            <Link to="/tutor/sessions" className="text-sm text-indigo-600 hover:underline flex items-center gap-1">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Upcoming Sessions</h2>
+            <Link to="/tutor/sessions" className="text-sm text-indigo-600 hover:underline flex items-center gap-1 min-h-[44px] items-center">
               View All <ArrowRight size={14} />
             </Link>
           </div>
 
           {sessions.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {sessions.slice(0, 5).map(session => {
                 const { date, time } = formatDateTime(session.scheduledAt);
                 return (
-                  <div key={session.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                  <div key={session.id} className="flex items-center gap-3 sm:gap-4 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
                       {session.student?.firstName?.charAt(0) || 'S'}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm sm:text-base truncate">
                         {session.student?.firstName} {session.student?.lastName}
                       </p>
-                      <p className="text-sm text-gray-500">{session.course?.title || 'General tutoring'}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 truncate">{session.course?.title || 'General tutoring'}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{time}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">{time}</p>
                       <p className="text-xs text-gray-500">{date}</p>
                     </div>
                   </div>
@@ -160,43 +160,43 @@ function TutorDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="space-y-3">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="space-y-2 sm:space-y-3">
             <Link
               to="/tutor/availability"
-              className="flex items-center gap-4 p-4 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
+              className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors min-h-[56px]"
             >
-              <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
                 <Calendar size={20} className="text-white" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Manage Availability</p>
-                <p className="text-sm text-gray-500">Set your weekly schedule</p>
+                <p className="font-medium text-gray-900 text-sm sm:text-base">Manage Availability</p>
+                <p className="text-xs sm:text-sm text-gray-500">Set your weekly schedule</p>
               </div>
             </Link>
             <Link
               to="/tutor/profile"
-              className="flex items-center gap-4 p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors"
+              className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors min-h-[56px]"
             >
-              <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
                 <Users size={20} className="text-white" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Update Profile</p>
-                <p className="text-sm text-gray-500">Edit bio and certifications</p>
+                <p className="font-medium text-gray-900 text-sm sm:text-base">Update Profile</p>
+                <p className="text-xs sm:text-sm text-gray-500">Edit bio and certifications</p>
               </div>
             </Link>
             <Link
               to="/tutor/sessions"
-              className="flex items-center gap-4 p-4 bg-green-50 rounded-xl hover:bg-green-100 transition-colors"
+              className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-green-50 rounded-xl hover:bg-green-100 transition-colors min-h-[56px]"
             >
-              <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0">
                 <Video size={20} className="text-white" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">View Sessions</p>
-                <p className="text-sm text-gray-500">Manage your sessions</p>
+                <p className="font-medium text-gray-900 text-sm sm:text-base">View Sessions</p>
+                <p className="text-xs sm:text-sm text-gray-500">Manage your sessions</p>
               </div>
             </Link>
           </div>

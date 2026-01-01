@@ -111,14 +111,14 @@ export function Header() {
           </nav>
 
           {/* Right Actions */}
-          <div className="hidden md:flex items-center space-x-4">
-            <button className="text-gray-500 hover:text-blue-600 transition-colors">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-4">
+            <button className="p-2.5 text-gray-500 hover:text-blue-600 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
               <Search size={20} />
             </button>
-            <Link to="/cart" className="text-gray-500 hover:text-blue-600 transition-colors relative">
+            <Link to="/cart" className="p-2.5 text-gray-500 hover:text-blue-600 transition-colors relative min-w-[44px] min-h-[44px] flex items-center justify-center">
               <ShoppingCart size={20} />
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                   {itemCount > 9 ? '9+' : itemCount}
                 </span>
               )}
@@ -128,7 +128,7 @@ export function Header() {
             <div className="relative">
               <button
                 onClick={() => setShowPortalMenu(!showPortalMenu)}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors p-1.5 min-h-[44px]"
               >
                 {isAuthenticated ? (
                   <>
@@ -150,15 +150,15 @@ export function Header() {
               {showPortalMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowPortalMenu(false)} />
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 max-h-[80vh] overflow-y-auto">
                     {isAuthenticated ? (
                       <>
                         {/* User Info */}
                         <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="font-semibold text-gray-900">
+                          <p className="font-semibold text-gray-900 text-sm sm:text-base">
                             {user?.firstName || user?.first_name || 'User'} {user?.lastName || user?.last_name || ''}
                           </p>
-                          <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+                          <p className="text-xs sm:text-sm text-gray-500 truncate">{user?.email}</p>
                           <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
                             {user?.role?.replace('_', ' ') || 'Student'}
                           </span>
@@ -168,7 +168,7 @@ export function Header() {
                         <Link
                           to={getDashboardLink()}
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                         >
                           <User size={16} />
                           My Dashboard
@@ -180,7 +180,7 @@ export function Header() {
                             <Link
                               to="/student/my-learning"
                               onClick={() => setShowPortalMenu(false)}
-                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                             >
                               <Building2 size={16} />
                               My Learning
@@ -188,7 +188,7 @@ export function Header() {
                             <Link
                               to="/become-tutor"
                               onClick={() => setShowPortalMenu(false)}
-                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50"
+                              className="flex items-center gap-3 px-4 py-3 text-sm text-green-600 hover:bg-green-50 min-h-[44px]"
                             >
                               <GraduationCap size={16} />
                               Become a Tutor
@@ -200,7 +200,7 @@ export function Header() {
                           <Link
                             to="/tutor/dashboard"
                             onClick={() => setShowPortalMenu(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                            className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                           >
                             <GraduationCap size={16} />
                             Tutor Portal
@@ -212,7 +212,7 @@ export function Header() {
                         {/* Logout */}
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 min-h-[44px]"
                         >
                           <LogOut size={16} />
                           Logout
@@ -224,7 +224,7 @@ export function Header() {
                         <Link
                           to="/login"
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                         >
                           <User size={16} />
                           Student Login
@@ -232,7 +232,7 @@ export function Header() {
                         <Link
                           to="/register"
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 min-h-[44px]"
                         >
                           <User size={16} />
                           Create Account
@@ -243,7 +243,7 @@ export function Header() {
                           to="/login"
                           state={{ redirectTo: '/tutor/dashboard' }}
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                         >
                           <GraduationCap size={16} />
                           Tutor Portal
@@ -252,7 +252,7 @@ export function Header() {
                           to="/login"
                           state={{ redirectTo: '/center/dashboard' }}
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                         >
                           <Building2 size={16} />
                           Learning Center Portal
@@ -261,7 +261,7 @@ export function Header() {
                           to="/login"
                           state={{ redirectTo: '/admin/dashboard' }}
                           onClick={() => setShowPortalMenu(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 min-h-[44px]"
                         >
                           <Shield size={16} />
                           TABSERA Admin Portal
@@ -276,7 +276,7 @@ export function Header() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-gray-600 hover:text-blue-600 transition-colors"
+            className="md:hidden p-2.5 text-gray-600 hover:text-blue-600 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -286,30 +286,30 @@ export function Header() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg">
-          <div className="px-4 pt-2 pb-6 space-y-2">
-            <Link to="/" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg max-h-[calc(100vh-80px)] overflow-y-auto">
+          <div className="px-4 pt-2 pb-6 space-y-1">
+            <Link to="/" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Home
             </Link>
-            <Link to="/courses" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/courses" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Courses
             </Link>
-            <Link to="/tuition" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/tuition" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Tuition
             </Link>
-            <Link to="/tutors" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/tutors" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Tutors
             </Link>
-            <Link to="/centers" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/centers" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Centers
             </Link>
-            <Link to="/partner" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/partner" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Become a Partner
             </Link>
-            <Link to="/become-tutor" className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/become-tutor" className="block px-3 py-3.5 text-base font-medium text-green-600 hover:bg-green-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Become a Tutor
             </Link>
-            <Link to="/cart" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/cart" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
               Cart {itemCount > 0 && `(${itemCount})`}
             </Link>
 
@@ -317,15 +317,15 @@ export function Header() {
               {isAuthenticated ? (
                 <>
                   {/* User Info */}
-                  <div className="px-3 py-3 bg-gray-50 rounded-md mb-2">
+                  <div className="px-3 py-3 bg-gray-50 rounded-lg mb-2">
                     <p className="font-semibold text-gray-900">
                       {user?.firstName || user?.first_name || 'User'} {user?.lastName || user?.last_name || ''}
                     </p>
-                    <p className="text-sm text-gray-500">{user?.email}</p>
+                    <p className="text-sm text-gray-500 truncate">{user?.email}</p>
                   </div>
                   <Link
                     to={getDashboardLink()}
-                    className="block px-3 py-3 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-md"
+                    className="block px-3 py-3.5 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-lg min-h-[44px]"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     My Dashboard
@@ -333,7 +333,7 @@ export function Header() {
                   {isStudent && (
                     <Link
                       to="/become-tutor"
-                      className="block px-3 py-3 text-base font-medium text-green-600 hover:bg-green-50 rounded-md"
+                      className="block px-3 py-3.5 text-base font-medium text-green-600 hover:bg-green-50 rounded-lg min-h-[44px]"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Become a Tutor
@@ -342,7 +342,7 @@ export function Header() {
                   {isTutor && (
                     <Link
                       to="/tutor/dashboard"
-                      className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md"
+                      className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Tutor Portal
@@ -350,7 +350,7 @@ export function Header() {
                   )}
                   <button
                     onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                    className="w-full text-left px-3 py-3 text-base font-medium text-red-600 hover:bg-red-50 rounded-md"
+                    className="w-full text-left px-3 py-3.5 text-base font-medium text-red-600 hover:bg-red-50 rounded-lg min-h-[44px]"
                   >
                     Logout
                   </button>
@@ -358,20 +358,20 @@ export function Header() {
               ) : (
                 <>
                   <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase">Account</p>
-                  <Link to="/login" className="block px-3 py-3 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" className="block px-3 py-3.5 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
                     Student Login
                   </Link>
-                  <Link to="/register" className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/register" className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
                     Create Account
                   </Link>
                   <p className="px-3 py-2 mt-2 text-xs font-semibold text-gray-400 uppercase">Partner Portals</p>
-                  <Link to="/login" state={{ redirectTo: '/tutor/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" state={{ redirectTo: '/tutor/dashboard' }} className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
                     Tutor Portal
                   </Link>
-                  <Link to="/login" state={{ redirectTo: '/center/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" state={{ redirectTo: '/center/dashboard' }} className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
                     Learning Center Portal
                   </Link>
-                  <Link to="/login" state={{ redirectTo: '/admin/dashboard' }} className="block px-3 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-md" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" state={{ redirectTo: '/admin/dashboard' }} className="block px-3 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-50 rounded-lg min-h-[44px]" onClick={() => setIsMenuOpen(false)}>
                     Admin Portal
                   </Link>
                 </>

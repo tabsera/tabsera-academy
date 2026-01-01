@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 
 const TutorLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const location = useLocation();
@@ -53,8 +52,8 @@ const TutorLayout = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e1b4b] transform transition-transform duration-300 ease-in-out ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      <aside className={`fixed inset-y-0 left-0 z-50 w-[280px] sm:w-64 bg-[#1e1b4b] transform transition-transform duration-300 ease-in-out ${
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -88,13 +87,14 @@ const TutorLayout = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-xl font-medium transition-all min-h-[48px] ${
                   isActive(item.path)
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
                     : 'text-indigo-200 hover:bg-indigo-800/50 hover:text-white'
                 }`}
               >
-                <item.icon size={20} />
+                <item.icon size={22} className="flex-shrink-0" />
                 <span>{item.label}</span>
               </Link>
             ))}
@@ -102,13 +102,17 @@ const TutorLayout = () => {
 
           {/* Bottom Links */}
           <div className="p-4 border-t border-indigo-800">
-            <Link to="/courses" className="flex items-center gap-3 px-4 py-2 text-indigo-300 hover:text-white transition-colors">
+            <Link
+              to="/courses"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-2 text-indigo-300 hover:text-white transition-colors"
+            >
               <BookOpen size={18} />
               <span className="text-sm">Browse Courses</span>
               <ExternalLink size={14} className="ml-auto" />
             </Link>
             <button
-              onClick={handleLogout}
+              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
               className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 transition-colors mt-2"
             >
               <LogOut size={18} />
@@ -127,19 +131,19 @@ const TutorLayout = () => {
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 lg:px-8 h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between px-3 sm:px-4 lg:px-8 h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="lg:hidden p-2.5 text-gray-600 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
-              <h1 className="text-lg font-semibold text-gray-900">Tutor Portal</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Tutor Portal</h1>
             </div>
 
-            <div className="flex items-center gap-4">
-              <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg relative">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-lg relative min-w-[44px] min-h-[44px] flex items-center justify-center">
                 <Bell size={20} />
               </button>
 
@@ -157,16 +161,16 @@ const TutorLayout = () => {
                 {showUserMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                    <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
                       <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="font-medium text-gray-900">{getUserName()}</p>
-                        <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+                        <p className="font-medium text-gray-900 text-sm sm:text-base">{getUserName()}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">{user?.email}</p>
                       </div>
-                      <Link to="/tutor/profile" onClick={() => setShowUserMenu(false)} className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        <User size={16} /> My Profile
+                      <Link to="/tutor/profile" onClick={() => setShowUserMenu(false)} className="flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-gray-50 min-h-[44px]">
+                        <User size={18} /> My Profile
                       </Link>
-                      <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50">
-                        <LogOut size={16} /> Logout
+                      <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 min-h-[44px]">
+                        <LogOut size={18} /> Logout
                       </button>
                     </div>
                   </>

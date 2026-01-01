@@ -86,14 +86,14 @@ function TutorSessions() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
-        <p className="text-gray-500">Manage your tutoring sessions</p>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sessions</h1>
+        <p className="text-sm sm:text-base text-gray-500">Manage your tutoring sessions</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b overflow-x-auto">
+      <div className="flex gap-1 sm:gap-2 mb-4 sm:mb-6 border-b overflow-x-auto pb-px -mx-4 px-4 sm:mx-0 sm:px-0">
         {[
           { id: 'upcoming', label: 'Upcoming' },
           { id: 'SCHEDULED', label: 'Scheduled' },
@@ -104,7 +104,7 @@ function TutorSessions() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
+            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base font-medium border-b-2 -mb-px whitespace-nowrap transition-colors min-h-[44px] ${
               activeTab === tab.id
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -131,71 +131,76 @@ function TutorSessions() {
             return (
               <div
                 key={session.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  {/* Student Info */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold">
-                      {session.student?.firstName?.charAt(0) || 'S'}
+                <div className="flex flex-col gap-4">
+                  {/* Student Info & Status Row */}
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                      <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-lg sm:text-xl font-bold flex-shrink-0">
+                        {session.student?.firstName?.charAt(0) || 'S'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                          {session.student?.firstName} {session.student?.lastName}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">{session.student?.email}</p>
+                        {session.course && (
+                          <p className="text-xs sm:text-sm text-indigo-600 flex items-center gap-1 mt-1 truncate">
+                            <BookOpen size={14} className="flex-shrink-0" />
+                            <span className="truncate">{session.course.title}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {session.student?.firstName} {session.student?.lastName}
-                      </h3>
-                      <p className="text-sm text-gray-500">{session.student?.email}</p>
-                      {session.course && (
-                        <p className="text-sm text-indigo-600 flex items-center gap-1 mt-1">
-                          <BookOpen size={14} />
-                          {session.course.title}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Date/Time & Status */}
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <p className="text-sm text-gray-500">{date}</p>
-                      <p className="text-lg font-semibold text-gray-900">{time}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(session.status)}`}>
+                    <span className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getStatusBadge(session.status)}`}>
                       {session.status.replace('_', ' ')}
                     </span>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {session.meetingUrl && isUpcoming && (
-                      <a
-                        href={session.meetingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
-                      >
-                        <Video size={18} />
-                        Join
-                      </a>
-                    )}
-                    <button
-                      onClick={() => {
-                        setSelectedSession(session);
-                        setNotes(session.tutorNotes || '');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50"
-                    >
-                      <MessageSquare size={18} />
-                      Notes
-                    </button>
-                    {session.status === 'IN_PROGRESS' && (
+                  {/* Date/Time & Actions Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <Calendar size={18} className="text-gray-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs sm:text-sm text-gray-500">{date}</p>
+                        <p className="text-base sm:text-lg font-semibold text-gray-900">{time}</p>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {session.meetingUrl && isUpcoming && (
+                        <a
+                          href={session.meetingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 min-h-[44px] min-w-[44px] text-sm sm:text-base"
+                        >
+                          <Video size={18} />
+                          <span className="hidden xs:inline">Join</span>
+                        </a>
+                      )}
                       <button
-                        onClick={() => handleComplete(session.id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
+                        onClick={() => {
+                          setSelectedSession(session);
+                          setNotes(session.tutorNotes || '');
+                        }}
+                        className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 min-h-[44px] min-w-[44px] text-sm sm:text-base"
                       >
-                        <CheckCircle size={18} />
-                        Complete
+                        <MessageSquare size={18} />
+                        <span className="hidden xs:inline">Notes</span>
                       </button>
-                    )}
+                      {session.status === 'IN_PROGRESS' && (
+                        <button
+                          onClick={() => handleComplete(session.id)}
+                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 min-h-[44px] min-w-[44px] text-sm sm:text-base"
+                        >
+                          <CheckCircle size={18} />
+                          <span className="hidden xs:inline">Complete</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -232,20 +237,20 @@ function TutorSessions() {
 
       {/* Notes Modal */}
       {selectedSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Session Notes</h3>
-              <button onClick={() => setSelectedSession(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90vh] flex flex-col">
+            <div className="p-4 sm:p-6 border-b flex items-center justify-between flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Session Notes</h3>
+              <button onClick={() => setSelectedSession(null)} className="p-2.5 hover:bg-gray-100 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6">
-              <div className="mb-4 p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-500">Student</p>
-                <p className="font-medium">{selectedSession.student?.firstName} {selectedSession.student?.lastName}</p>
-                <p className="text-sm text-gray-500 mt-2">Scheduled</p>
-                <p className="font-medium">{formatDateTime(selectedSession.scheduledAt).full}</p>
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+              <div className="mb-4 p-3 sm:p-4 bg-gray-50 rounded-xl">
+                <p className="text-xs sm:text-sm text-gray-500">Student</p>
+                <p className="font-medium text-sm sm:text-base">{selectedSession.student?.firstName} {selectedSession.student?.lastName}</p>
+                <p className="text-xs sm:text-sm text-gray-500 mt-2">Scheduled</p>
+                <p className="font-medium text-sm sm:text-base">{formatDateTime(selectedSession.scheduledAt).full}</p>
               </div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Your Notes</label>
               <textarea
@@ -253,20 +258,20 @@ function TutorSessions() {
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Add notes about this session..."
                 rows={5}
-                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 resize-none"
+                className="w-full px-3 sm:px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 resize-none text-base min-h-[120px]"
               />
             </div>
-            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+            <div className="p-4 sm:p-6 border-t bg-gray-50 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 flex-shrink-0 rounded-b-2xl">
               <button
                 onClick={() => setSelectedSession(null)}
-                className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100"
+                className="px-4 py-3 sm:py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 min-h-[44px] text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleUpdateSession(selectedSession.id, { tutorNotes: notes })}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 min-h-[44px] text-sm sm:text-base"
               >
                 {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                 Save Notes
