@@ -8,7 +8,7 @@
  * - Recording to S3 for later Vimeo upload
  */
 
-const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, TrackSource } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, S3Upload, TrackSource } = require('livekit-server-sdk');
 
 // LiveKit configuration
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
@@ -162,16 +162,20 @@ async function startRecording({ roomName, sessionId }) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `session-${sessionId}-${timestamp}.mp4`;
 
-    // Configure S3 output
+    // Configure S3 upload destination
+    const s3 = new S3Upload({
+      accessKey: AWS_ACCESS_KEY_ID,
+      secret: AWS_SECRET_ACCESS_KEY,
+      bucket: RECORDING_S3_BUCKET,
+      region: RECORDING_S3_REGION,
+    });
+
+    // Configure encoded file output with S3 destination
     const s3Output = new EncodedFileOutput({
       filepath: filename,
-      s3: {
-        accessKey: AWS_ACCESS_KEY_ID,
-        secret: AWS_SECRET_ACCESS_KEY,
-        bucket: RECORDING_S3_BUCKET,
-        region: RECORDING_S3_REGION,
-      },
     });
+    // Set the S3 output using protobuf oneof pattern
+    s3Output.output = { case: 's3', value: s3 };
 
     // Start room composite egress (records all tracks in grid)
     const egress = await egressClient.startRoomCompositeEgress(
