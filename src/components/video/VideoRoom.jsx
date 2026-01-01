@@ -9,6 +9,7 @@ import {
   VideoConference,
   RoomAudioRenderer,
   ControlBar,
+  LayoutContextProvider,
   useTracks,
   useRoomContext,
 } from '@livekit/components-react';
@@ -54,39 +55,41 @@ export function VideoRoom({
       data-lk-theme="default"
       className="h-screen w-screen bg-gray-900"
     >
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <RoomHeader
-          sessionInfo={sessionInfo}
-          isRecording={isRecording}
-          showWhiteboard={showWhiteboard}
-          onToggleWhiteboard={() => setShowWhiteboard(!showWhiteboard)}
-        />
+      <LayoutContextProvider>
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <RoomHeader
+            sessionInfo={sessionInfo}
+            isRecording={isRecording}
+            showWhiteboard={showWhiteboard}
+            onToggleWhiteboard={() => setShowWhiteboard(!showWhiteboard)}
+          />
 
-        {/* Main content area */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Video grid */}
-          <div className={`flex-1 ${showWhiteboard ? 'w-[70%]' : 'w-full'} transition-all duration-300`}>
-            <VideoConference />
+          {/* Main content area */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Video grid */}
+            <div className={`flex-1 ${showWhiteboard ? 'w-[70%]' : 'w-full'} transition-all duration-300`}>
+              <VideoConference />
+            </div>
+
+            {/* Whiteboard sidebar */}
+            {showWhiteboard && (
+              <div className="w-[30%] border-l border-gray-700 bg-white">
+                <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
+              </div>
+            )}
           </div>
 
-          {/* Whiteboard sidebar */}
-          {showWhiteboard && (
-            <div className="w-[30%] border-l border-gray-700 bg-white">
-              <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
-            </div>
-          )}
+          {/* Custom controls footer */}
+          <RoomFooter
+            isTutor={isTutor}
+            isRecording={isRecording}
+            onEndSession={onEndSession}
+          />
         </div>
 
-        {/* Custom controls footer */}
-        <RoomFooter
-          isTutor={isTutor}
-          isRecording={isRecording}
-          onEndSession={onEndSession}
-        />
-      </div>
-
-      <RoomAudioRenderer />
+        <RoomAudioRenderer />
+      </LayoutContextProvider>
     </LiveKitRoom>
   );
 }
