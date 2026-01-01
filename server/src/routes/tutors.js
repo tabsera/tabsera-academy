@@ -1845,7 +1845,7 @@ router.post('/sessions/:id/join', authenticate, async (req, res, next) => {
 
     // Generate access token
     const user = isTutor ? session.tutorProfile.user : session.student;
-    const token = livekitService.createAccessToken({
+    const token = await livekitService.createAccessToken({
       roomName,
       participantId: userId,
       participantName: user?.name || (isTutor ? 'Tutor' : 'Student'),

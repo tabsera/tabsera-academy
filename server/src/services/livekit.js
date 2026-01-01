@@ -59,7 +59,7 @@ function generateRoomName(sessionId) {
  * @param {number} params.ttl - Token TTL in seconds (default: 2 hours)
  * @returns {string} JWT access token
  */
-function createAccessToken({ roomName, participantId, participantName, isTutor, ttl = 7200 }) {
+async function createAccessToken({ roomName, participantId, participantName, isTutor, ttl = 7200 }) {
   if (!LIVEKIT_ENABLED) {
     throw new Error('LiveKit is not configured');
   }
@@ -91,7 +91,8 @@ function createAccessToken({ roomName, participantId, participantName, isTutor, 
     roomAdmin: isTutor, // Tutors can manage room
   });
 
-  return token.toJwt();
+  // toJwt() returns a Promise in livekit-server-sdk v2+
+  return await token.toJwt();
 }
 
 /**
