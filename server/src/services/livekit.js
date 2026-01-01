@@ -8,7 +8,7 @@
  * - Recording to S3 for later Vimeo upload
  */
 
-const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, TrackSource } = require('livekit-server-sdk');
 
 // LiveKit configuration
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
@@ -86,8 +86,8 @@ function createAccessToken({ roomName, participantId, participantName, isTutor, 
     canSubscribe: true,
     // Screen share enabled for both, but we'll control via UI
     canPublishSources: isTutor
-      ? ['camera', 'microphone', 'screen_share', 'screen_share_audio']
-      : ['camera', 'microphone'],
+      ? [TrackSource.CAMERA, TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
+      : [TrackSource.CAMERA, TrackSource.MICROPHONE],
     roomAdmin: isTutor, // Tutors can manage room
   });
 
