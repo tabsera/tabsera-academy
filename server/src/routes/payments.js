@@ -289,7 +289,12 @@ router.post('/callback', async (req, res, next) => {
     console.log('WaafiPay callback received:', req.body);
 
     const callbackData = waafipayService.parseCallback(req.body);
-    const { referenceId, transactionId, state } = callbackData;
+    let { referenceId, transactionId, state } = callbackData;
+
+    // Clean referenceId - WaafiPay sometimes appends query params to the reference
+    if (referenceId && referenceId.includes('?')) {
+      referenceId = referenceId.split('?')[0];
+    }
 
     if (!referenceId) {
       return res.status(400).json({ message: 'Reference ID is required' });
@@ -392,8 +397,13 @@ router.post('/callback', async (req, res, next) => {
  */
 router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
   try {
-    const { referenceId } = req.params;
+    let { referenceId } = req.params;
     const { callbackStatus } = req.query;
+
+    // Clean referenceId - WaafiPay sometimes appends query params to the reference
+    if (referenceId && referenceId.includes('?')) {
+      referenceId = referenceId.split('?')[0];
+    }
 
     // Find order
     const order = await req.prisma.order.findFirst({
