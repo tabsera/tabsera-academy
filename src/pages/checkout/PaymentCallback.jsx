@@ -36,9 +36,14 @@ function PaymentCallback() {
     try {
       // Get callback status and reference from URL params
       const callbackStatus = searchParams.get('status');
-      const referenceId = searchParams.get('ref') ||
+      let referenceId = searchParams.get('ref') ||
         searchParams.get('referenceId') ||
         sessionStorage.getItem('pending_order_reference');
+
+      // Clean up reference ID - remove any query params that got appended (e.g., ?HRDF=1)
+      if (referenceId && referenceId.includes('?')) {
+        referenceId = referenceId.split('?')[0];
+      }
 
       console.log('Payment callback:', { callbackStatus, referenceId, params: Object.fromEntries(searchParams) });
 
