@@ -13,10 +13,33 @@ import '@tldraw/tldraw/tldraw.css';
 function useWhiteboardSync() {
   const room = useRoomContext();
   const [remoteChanges, setRemoteChanges] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Track connection state
+  useEffect(() => {
+    if (!room) return;
+
+    const handleConnected = () => setIsConnected(true);
+    const handleDisconnected = () => setIsConnected(false);
+
+    // Check initial state
+    if (room.state === 'connected') {
+      setIsConnected(true);
+    }
+
+    room.on('connected', handleConnected);
+    room.on('disconnected', handleDisconnected);
+
+    return () => {
+      room.off('connected', handleConnected);
+      room.off('disconnected', handleDisconnected);
+    };
+  }, [room]);
 
   // Send changes via LiveKit data channel
   const sendChanges = useCallback((changes) => {
-    if (!room?.localParticipant) return;
+    // Only send if room is connected
+    if (!room?.localParticipant || !isConnected || room.state !== 'connected') return;
 
     try {
       const data = JSON.stringify({
@@ -30,9 +53,12 @@ function useWhiteboardSync() {
         { reliable: true }
       );
     } catch (error) {
-      console.error('Failed to send whiteboard changes:', error);
+      // Silently ignore connection errors - they're expected during connect/disconnect
+      if (!error.message?.includes('closed')) {
+        console.error('Failed to send whiteboard changes:', error);
+      }
     }
-  }, [room]);
+  }, [room, isConnected]);
 
   // Listen for remote changes
   useEffect(() => {
