@@ -249,16 +249,14 @@ function MySessions() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    {session.meetingUrl && isUpcoming && (
-                      <a
-                        href={session.meetingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {isUpcoming && (
+                      <Link
+                        to={`/session/${session.id}`}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
                       >
                         <Video size={18} />
                         Join
-                      </a>
+                      </Link>
                     )}
                     {isUpcoming && (
                       <button

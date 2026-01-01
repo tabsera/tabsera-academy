@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Calendar, Clock, Video, Star, User,
@@ -170,16 +171,14 @@ function TutorSessions() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {session.meetingUrl && isUpcoming && (
-                        <a
-                          href={session.meetingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      {isUpcoming && (
+                        <Link
+                          to={`/session/${session.id}`}
                           className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 min-h-[44px] min-w-[44px] text-sm sm:text-base"
                         >
                           <Video size={18} />
                           <span className="hidden xs:inline">Join</span>
-                        </a>
+                        </Link>
                       )}
                       <button
                         onClick={() => {
