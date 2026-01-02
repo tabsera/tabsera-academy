@@ -8,7 +8,8 @@
  * - Recording to S3 for later Vimeo upload
  */
 
-const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, S3Upload, TrackSource, WebhookReceiver } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, S3Upload, WebhookReceiver } = require('livekit-server-sdk');
+const { TrackSource } = require('@livekit/protocol');
 
 // LiveKit configuration
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
@@ -90,8 +91,8 @@ async function createAccessToken({ roomName, participantId, participantName, isT
     canSubscribe: true,
     // Screen share enabled for both (student can share on desktop browsers)
     // Note: iOS/iPadOS doesn't support screen sharing (WebKit limitation)
-    // Using string values for compatibility with livekit-server-sdk
-    canPublishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
+    // Using TrackSource enum from @livekit/protocol for SDK v2.15+
+    canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
     roomAdmin: isTutor, // Tutors can manage room
   });
 
