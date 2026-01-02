@@ -1860,13 +1860,14 @@ router.post('/sessions/:id/join', authenticate, async (req, res, next) => {
           startedAt: session.startedAt || new Date(),
         },
       });
+    }
 
-      // Start recording if tutor is joining first
-      if (isTutor && livekitService.LIVEKIT_ENABLED) {
-        await recordingPipeline.initializeRecording(id).catch(err => {
-          console.error('Failed to start recording:', err.message);
-        });
-      }
+    // Start recording when tutor joins (if not already recording)
+    if (isTutor && livekitService.LIVEKIT_ENABLED && !session.recordingEgressId) {
+      console.log(`Starting recording for session ${id}`);
+      await recordingPipeline.initializeRecording(id).catch(err => {
+        console.error('Failed to start recording:', err.message);
+      });
     }
 
     // Generate access token
