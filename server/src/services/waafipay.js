@@ -88,8 +88,9 @@ const makeRequest = async (serviceName, serviceParams, isHpp = false) => {
  * @param {string} params.description - Payment description
  * @param {string} params.payerPhone - Payer's phone number (for mobile money)
  * @param {string} params.paymentMethod - MWALLET_ACCOUNT or CREDIT_CARD
- * @param {string} params.successUrl - Callback URL for successful payment
- * @param {string} params.failureUrl - Callback URL for failed payment
+ * @param {string} params.successUrl - Callback URL for successful payment (client redirect)
+ * @param {string} params.failureUrl - Callback URL for failed payment (client redirect)
+ * @param {string} params.callbackUrl - Server-to-server callback URL (optional)
  * @returns {Object} HPP response with redirect URL
  */
 const initiatePurchase = async ({
@@ -101,6 +102,7 @@ const initiatePurchase = async ({
   paymentMethod = 'MWALLET_ACCOUNT',
   successUrl,
   failureUrl,
+  callbackUrl,
 }) => {
   // Format phone number for subscriptionId (international format without +)
   let subscriptionId = null;
@@ -127,6 +129,12 @@ const initiatePurchase = async ({
       description: (description || `Payment for order ${referenceId}`).substring(0, 255),
     },
   };
+
+  // Add server-to-server callback URL if provided
+  // This is critical for reliable payment status updates
+  if (callbackUrl) {
+    serviceParams.hppCallbackUrl = callbackUrl;
+  }
 
   // Add storeId only if configured
   if (config.storeId) {

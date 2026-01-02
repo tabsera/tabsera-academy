@@ -129,8 +129,11 @@ router.post('/initiate', authenticate, async (req, res, next) => {
 
     // Build callback URLs
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL?.replace('/api', '') || 'http://localhost:8000';
     const successUrl = `${frontendUrl}/payment/callback?status=success&ref=${orderReferenceId}`;
     const failureUrl = `${frontendUrl}/payment/callback?status=failure&ref=${orderReferenceId}`;
+    // Server-to-server callback URL for reliable payment status updates
+    const callbackUrl = `${backendUrl}/api/payments/callback`;
 
     // Build description from order items
     const itemNames = order.items.map((item) => item.name).join(', ');
@@ -146,6 +149,7 @@ router.post('/initiate', authenticate, async (req, res, next) => {
       paymentMethod,
       successUrl,
       failureUrl,
+      callbackUrl, // Server-to-server callback
     });
 
     if (result.success) {
@@ -222,8 +226,11 @@ router.post('/hpp', authenticate, async (req, res, next) => {
 
     // Build callback URLs
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL?.replace('/api', '') || 'http://localhost:8000';
     const successUrl = `${frontendUrl}/payment/callback?status=success&ref=${order.referenceId}`;
     const failureUrl = `${frontendUrl}/payment/callback?status=failure&ref=${order.referenceId}`;
+    // Server-to-server callback URL for reliable payment status updates
+    const callbackUrl = `${backendUrl}/api/payments/callback`;
 
     // Build description from order items
     const itemNames = order.items.map((item) => item.name).join(', ');
@@ -239,6 +246,7 @@ router.post('/hpp', authenticate, async (req, res, next) => {
       paymentMethod: 'MWALLET_ACCOUNT',
       successUrl,
       failureUrl,
+      callbackUrl, // Server-to-server callback
     });
 
     if (result.success && result.hppUrl) {
@@ -283,10 +291,14 @@ router.post('/hpp', authenticate, async (req, res, next) => {
 /**
  * POST /api/payments/callback
  * Handle WaafiPay HPP callback (server-to-server)
+ * This endpoint receives payment status updates from WaafiPay
  */
 router.post('/callback', async (req, res, next) => {
   try {
-    console.log('WaafiPay callback received:', req.body);
+    console.log('=== WaafiPay Server Callback Received ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Query:', JSON.stringify(req.query, null, 2));
 
     const callbackData = waafipayService.parseCallback(req.body);
     let { referenceId, transactionId, state } = callbackData;
@@ -379,9 +391,12 @@ router.post('/callback', async (req, res, next) => {
 
     // If payment approved, create enrollments and sync with edX
     if (paymentStatus === 'APPROVED') {
+      console.log(`Processing enrollments for order ${referenceId}...`);
       await processEnrollments(req.prisma, order);
+      console.log(`Enrollments processed for order ${referenceId}`);
     }
 
+    console.log(`=== WaafiPay Callback Complete: Order ${referenceId} updated to ${orderStatus} ===`);
     res.json({ success: true, status: paymentStatus });
   } catch (error) {
     console.error('WaafiPay callback error:', error);
