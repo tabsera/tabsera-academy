@@ -8,7 +8,7 @@
  * - Recording to S3 for later Vimeo upload
  */
 
-const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, S3Upload, TrackSource } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, S3Upload, TrackSource, WebhookReceiver } = require('livekit-server-sdk');
 
 // LiveKit configuration
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
@@ -349,42 +349,30 @@ function getRecordingS3Url(filename) {
   return `https://${RECORDING_S3_BUCKET}.s3.${RECORDING_S3_REGION}.amazonaws.com/${filename}`;
 }
 
+// Initialize webhook receiver for signature verification
+let webhookReceiver = null;
+if (LIVEKIT_ENABLED) {
+  webhookReceiver = new WebhookReceiver(LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+}
+
 /**
- * Verify a LiveKit webhook signature
+ * Verify and parse a LiveKit webhook
  * @param {string} body - Request body as string
- * @param {string} signature - Authorization header value
- * @returns {boolean} Whether the signature is valid
+ * @param {string} authHeader - Authorization header value
+ * @returns {Promise<{valid: boolean, event?: object}>} Verification result and parsed event
  */
-function verifyWebhookSignature(body, signature) {
-  if (!LIVEKIT_ENABLED || !signature) {
-    return false;
+async function verifyWebhookSignature(body, authHeader) {
+  if (!LIVEKIT_ENABLED || !webhookReceiver || !authHeader) {
+    return { valid: false };
   }
 
-  // LiveKit webhooks use the same auth as the API
-  // The Authorization header contains: Bearer <api_key>:<sha256_signature>
   try {
-    const crypto = require('crypto');
-    const [bearer, authValue] = signature.split(' ');
-
-    if (bearer !== 'Bearer' || !authValue) {
-      return false;
-    }
-
-    const [apiKey, providedSignature] = authValue.split(':');
-
-    if (apiKey !== LIVEKIT_API_KEY) {
-      return false;
-    }
-
-    // Compute expected signature
-    const hmac = crypto.createHmac('sha256', LIVEKIT_API_SECRET);
-    hmac.update(body);
-    const expectedSignature = hmac.digest('base64');
-
-    return providedSignature === expectedSignature;
+    // WebhookReceiver.receive() is async - verifies and parses the webhook
+    const event = await webhookReceiver.receive(body, authHeader);
+    return { valid: true, event };
   } catch (error) {
     console.error('Webhook signature verification failed:', error.message);
-    return false;
+    return { valid: false };
   }
 }
 

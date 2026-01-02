@@ -572,15 +572,29 @@ router.post('/availability', authenticate, async (req, res, next) => {
       });
     }
 
+    // Validate slots - ensure endTime is after startTime
+    const validatedSlots = slots.filter(slot => {
+      const [startH, startM] = slot.startTime.split(':').map(Number);
+      const [endH, endM] = slot.endTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      if (endMinutes <= startMinutes) {
+        console.warn(`Invalid availability slot: ${slot.startTime} to ${slot.endTime} - endTime must be after startTime`);
+        return false;
+      }
+      return true;
+    });
+
     // Delete existing slots
     await req.prisma.tutorAvailability.deleteMany({
       where: { tutorProfileId: profile.id },
     });
 
     // Create new slots
-    if (slots.length > 0) {
+    if (validatedSlots.length > 0) {
       await req.prisma.tutorAvailability.createMany({
-        data: slots.map(slot => ({
+        data: validatedSlots.map(slot => ({
           tutorProfileId: profile.id,
           dayOfWeek: slot.dayOfWeek,
           startTime: slot.startTime,
@@ -1013,6 +1027,20 @@ router.put('/sessions/:id', authenticate, async (req, res, next) => {
         updateData.startedAt = new Date();
       } else if (status === 'COMPLETED') {
         updateData.endedAt = new Date();
+
+        // Stop recording and close LiveKit room to avoid unnecessary billing
+        if (session.recordingEgressId) {
+          await livekitService.stopRecording(session.recordingEgressId).catch(err => {
+            console.error('Failed to stop recording:', err.message);
+          });
+          updateData.recordingStatus = 'processing';
+        }
+        if (session.livekitRoomName) {
+          await livekitService.closeRoom(session.livekitRoomName).catch(err => {
+            console.error('Failed to close LiveKit room:', err.message);
+          });
+        }
+
         // Increment total sessions count
         await req.prisma.tutorProfile.update({
           where: { id: profile.id },

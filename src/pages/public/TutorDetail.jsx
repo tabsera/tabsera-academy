@@ -208,7 +208,7 @@ function TutorDetail() {
                     )}
                     <div className="flex items-center gap-1 text-gray-500 text-sm sm:text-base">
                       <Video size={16} className="sm:w-[18px] sm:h-[18px]" />
-                      <span>{tutor.sessionsCompleted || 0} sessions</span>
+                      <span>{tutor._count?.sessions || tutor.sessionsCompleted || 0} sessions</span>
                     </div>
                     {tutor.timezone && (
                       <div className="flex items-center gap-1 text-gray-500 text-sm sm:text-base">

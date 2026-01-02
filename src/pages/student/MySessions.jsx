@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Calendar, Clock, Video, Star, X,
-  CheckCircle, XCircle, User, BookOpen, CreditCard, ExternalLink
+  CheckCircle, XCircle, User, BookOpen, CreditCard, ExternalLink, Play
 } from 'lucide-react';
 
 function MySessions() {
@@ -291,6 +291,15 @@ function MySessions() {
                           />
                         ))}
                       </div>
+                    )}
+                    {session.status === 'COMPLETED' && (
+                      <Link
+                        to={`/session/${session.id}/recording`}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-xl font-medium hover:bg-indigo-200"
+                      >
+                        <Play size={18} />
+                        Watch Recording
+                      </Link>
                     )}
                   </div>
                 </div>

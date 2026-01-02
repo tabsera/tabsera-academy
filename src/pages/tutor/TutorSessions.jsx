@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Calendar, Clock, Video, Star, User,
-  CheckCircle, XCircle, BookOpen, MessageSquare, Save, X
+  CheckCircle, XCircle, BookOpen, MessageSquare, Save, X, Play
 } from 'lucide-react';
 
 function TutorSessions() {
@@ -198,6 +198,15 @@ function TutorSessions() {
                           <CheckCircle size={18} />
                           <span className="hidden xs:inline">Complete</span>
                         </button>
+                      )}
+                      {session.status === 'COMPLETED' && (
+                        <Link
+                          to={`/session/${session.id}/recording`}
+                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-medium hover:bg-purple-200 min-h-[44px] min-w-[44px] text-sm sm:text-base"
+                        >
+                          <Play size={18} />
+                          <span className="hidden xs:inline">Recording</span>
+                        </Link>
                       )}
                     </div>
                   </div>

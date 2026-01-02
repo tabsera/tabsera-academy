@@ -22,20 +22,23 @@ const router = express.Router();
  * - participant_joined: Someone joined
  * - participant_left: Someone left
  */
-router.post('/livekit', express.raw({ type: 'application/webhook+json' }), async (req, res) => {
+router.post('/livekit', express.raw({ type: '*/*' }), async (req, res) => {
   try {
     // Get the raw body for signature verification
     const rawBody = req.body.toString();
 
-    // Verify webhook signature
+    // Verify webhook signature using SDK's WebhookReceiver (async)
     const authHeader = req.headers['authorization'];
-    if (!livekitService.verifyWebhookSignature(rawBody, authHeader)) {
+    const { valid, event } = await livekitService.verifyWebhookSignature(rawBody, authHeader);
+
+    if (!valid || !event) {
       console.warn('LiveKit webhook signature verification failed');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    // Parse the event
-    const event = JSON.parse(rawBody);
+    // Debug: log the full event structure
+    console.log('LiveKit webhook event keys:', Object.keys(event));
+    console.log('LiveKit webhook event:', JSON.stringify(event, null, 2).substring(0, 500));
 
     console.log(`LiveKit webhook received: ${event.event}`, {
       roomName: event.room?.name,

@@ -12,6 +12,7 @@ const { sendTemplatedEmail } = require('../services/email');
 const recordingPipeline = require('../services/recordingPipeline');
 const vimeoService = require('../services/vimeo');
 const seedreamService = require('../services/seedream');
+const livekitService = require('../services/livekit');
 
 const router = express.Router();
 
@@ -3922,6 +3923,77 @@ router.get('/recordings/stats', async (req, res, next) => {
         totalDurationSeconds: totalDuration._sum.recordingDuration || 0,
         totalDurationHours: Math.round((totalDuration._sum.recordingDuration || 0) / 3600 * 10) / 10,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/recordings/:sessionId/process
+ * Manually trigger processing of a recording from S3 to Vimeo
+ * Use when webhook was missed or failed
+ */
+router.post('/recordings/:sessionId/process', async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const { filename } = req.body; // Optional: specify the exact S3 filename
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    if (!session.recordingEgressId) {
+      return res.status(400).json({
+        success: false,
+        message: 'No egress ID found for this session - recording was never started',
+      });
+    }
+
+    // If filename not provided, we need to construct it or list S3 bucket
+    // For now, require the filename to be provided
+    if (!filename) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide the S3 filename in the request body',
+        hint: `Expected format: session-${sessionId}-{timestamp}.mp4`,
+      });
+    }
+
+    // Construct the S3 URL
+    const fileUrl = livekitService.getRecordingS3Url(filename);
+
+    console.log(`Manually processing recording for session ${sessionId}`);
+    console.log(`S3 URL: ${fileUrl}`);
+
+    // Update status to show processing started
+    await req.prisma.tutorSession.update({
+      where: { id: sessionId },
+      data: { recordingStatus: 'processing' },
+    });
+
+    // Trigger the processing (runs async)
+    recordingPipeline.processRecording({
+      egressId: session.recordingEgressId,
+      fileUrl,
+      filename,
+    }).then(result => {
+      console.log(`Manual processing result for ${sessionId}:`, result);
+    }).catch(err => {
+      console.error(`Manual processing failed for ${sessionId}:`, err);
+    });
+
+    res.json({
+      success: true,
+      message: 'Recording processing started',
+      fileUrl,
     });
   } catch (error) {
     next(error);

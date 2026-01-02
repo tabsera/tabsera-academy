@@ -12,7 +12,7 @@ import {
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const TIME_OPTIONS = [];
-for (let h = 6; h <= 22; h++) {
+for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
     const hour = h.toString().padStart(2, '0');
     const min = m.toString().padStart(2, '0');
