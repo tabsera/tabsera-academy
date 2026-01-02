@@ -4,7 +4,7 @@
  * Features: Multiple layouts, screen share, chat, whiteboard
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -98,6 +98,15 @@ export function VideoRoom({
     }
   };
 
+  // Handle synced view mode changes (from tutor)
+  const handleSyncedViewMode = useCallback((newMode) => {
+    setViewMode(newMode);
+    // Show chat if switching to video_chat mode
+    if (newMode === VIEW_MODES.VIDEO_CHAT) {
+      setShowChat(true);
+    }
+  }, []);
+
   return (
     <LiveKitRoom
       token={token}
@@ -132,6 +141,8 @@ export function VideoRoom({
             showParticipants={showParticipants}
             setShowParticipants={setShowParticipants}
             sessionInfo={sessionInfo}
+            isTutor={isTutor}
+            onSyncedViewMode={handleSyncedViewMode}
           />
 
           {/* Controls footer */}
@@ -272,7 +283,8 @@ function PanelButton({ active, onClick, title, children, className = '' }) {
 /**
  * Main content area with different view modes
  */
-function MainContent({ viewMode, setViewMode, showChat, showParticipants, setShowParticipants, sessionInfo }) {
+function MainContent({ viewMode, setViewMode, showChat, showParticipants, setShowParticipants, sessionInfo, isTutor, onSyncedViewMode }) {
+  const room = useRoomContext();
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -282,11 +294,59 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
   );
 
   const participants = useParticipants();
+  const lastBroadcastedMode = useRef(null);
 
   // Check for active screen share
   const screenShareTrack = tracks.find(
     (track) => track.source === Track.Source.ScreenShare
   );
+
+  // Broadcast view mode changes (tutor only)
+  useEffect(() => {
+    if (!isTutor || !room?.localParticipant || room.state !== 'connected') return;
+
+    // Only broadcast if mode actually changed
+    if (lastBroadcastedMode.current === viewMode) return;
+    lastBroadcastedMode.current = viewMode;
+
+    try {
+      const data = JSON.stringify({
+        type: 'view_mode_sync',
+        viewMode,
+        timestamp: Date.now(),
+      });
+
+      room.localParticipant.publishData(
+        new TextEncoder().encode(data),
+        { reliable: true }
+      );
+      console.log('Broadcasted view mode:', viewMode);
+    } catch (error) {
+      console.error('Failed to broadcast view mode:', error);
+    }
+  }, [viewMode, isTutor, room]);
+
+  // Listen for view mode sync from tutor (students only)
+  useEffect(() => {
+    if (isTutor || !room) return;
+
+    const handleDataReceived = (payload, participant) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        const data = JSON.parse(text);
+
+        if (data.type === 'view_mode_sync' && data.viewMode) {
+          console.log('Received view mode sync:', data.viewMode);
+          onSyncedViewMode(data.viewMode);
+        }
+      } catch (error) {
+        // Not a view mode message
+      }
+    };
+
+    room.on('dataReceived', handleDataReceived);
+    return () => room.off('dataReceived', handleDataReceived);
+  }, [room, isTutor, onSyncedViewMode]);
 
   // Auto-switch to screen full mode when someone shares
   useEffect(() => {
