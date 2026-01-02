@@ -12,17 +12,15 @@ import {
   GridLayout,
   ParticipantTile,
   FocusLayout,
-  FocusLayoutContainer,
   CarouselLayout,
   Chat,
   LayoutContextProvider,
   useTracks,
   useRoomContext,
   useParticipants,
-  TrackRefContext,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Track, RoomEvent } from 'livekit-client';
+import { Track } from 'livekit-client';
 import {
   LayoutGrid,
   Presentation,
@@ -30,21 +28,21 @@ import {
   PenTool,
   Circle,
   X,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
   Users,
-  MonitorUp,
+  Maximize,
+  Minimize,
+  Video,
+  Monitor,
 } from 'lucide-react';
 import CollaborativeWhiteboard from './CollaborativeWhiteboard';
 
-// Layout options similar to Google Meet
-const LAYOUT_MODES = {
-  AUTO: 'auto',        // Auto-switch based on content
-  GRID: 'grid',        // Equal tiles for all
-  SPOTLIGHT: 'spotlight', // One large, others small
-  SIDEBAR: 'sidebar',  // Video sidebar with main content area
+// View modes
+const VIEW_MODES = {
+  VIDEO_ONLY: 'video_only',           // Just video grid
+  VIDEO_CHAT: 'video_chat',           // Video + Chat sidebar
+  WHITEBOARD_FULL: 'whiteboard_full', // Whiteboard fullscreen with small video
+  SCREEN_FULL: 'screen_full',         // Screen share fullscreen with small video
+  SPLIT: 'split',                     // Split view (video + whiteboard/screen)
 };
 
 export function VideoRoom({
@@ -56,13 +54,10 @@ export function VideoRoom({
   onLeave,
   onEndSession,
 }) {
-  const [layoutMode, setLayoutMode] = useState(LAYOUT_MODES.AUTO);
+  const [viewMode, setViewMode] = useState(VIEW_MODES.VIDEO_ONLY);
   const [showChat, setShowChat] = useState(false);
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [connectionState, setConnectionState] = useState('connecting');
-  const [focusedTrackSid, setFocusedTrackSid] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleDisconnected = useCallback(() => {
     setConnectionState('disconnected');
@@ -78,8 +73,30 @@ export function VideoRoom({
     setConnectionState('error');
   }, []);
 
-  // Determine the active panel
-  const activePanel = showChat ? 'chat' : showWhiteboard ? 'whiteboard' : showParticipants ? 'participants' : null;
+  // Toggle whiteboard fullscreen
+  const toggleWhiteboard = () => {
+    if (viewMode === VIEW_MODES.WHITEBOARD_FULL) {
+      setViewMode(VIEW_MODES.VIDEO_ONLY);
+    } else {
+      setViewMode(VIEW_MODES.WHITEBOARD_FULL);
+      setShowChat(false);
+    }
+  };
+
+  // Toggle chat
+  const toggleChat = () => {
+    if (showChat) {
+      setShowChat(false);
+      if (viewMode === VIEW_MODES.VIDEO_CHAT) {
+        setViewMode(VIEW_MODES.VIDEO_ONLY);
+      }
+    } else {
+      setShowChat(true);
+      if (viewMode === VIEW_MODES.VIDEO_ONLY) {
+        setViewMode(VIEW_MODES.VIDEO_CHAT);
+      }
+    }
+  };
 
   return (
     <LiveKitRoom
@@ -94,72 +111,37 @@ export function VideoRoom({
     >
       <LayoutContextProvider>
         <div className="h-full flex flex-col">
-        {/* Header */}
-        <RoomHeader
-          sessionInfo={sessionInfo}
-          isRecording={isRecording}
-          layoutMode={layoutMode}
-          onLayoutChange={setLayoutMode}
-          showChat={showChat}
-          showWhiteboard={showWhiteboard}
-          showParticipants={showParticipants}
-          onToggleChat={() => {
-            setShowChat(!showChat);
-            if (!showChat) {
-              setShowWhiteboard(false);
-              setShowParticipants(false);
-            }
-          }}
-          onToggleWhiteboard={() => {
-            setShowWhiteboard(!showWhiteboard);
-            if (!showWhiteboard) {
-              setShowChat(false);
-              setShowParticipants(false);
-            }
-          }}
-          onToggleParticipants={() => {
-            setShowParticipants(!showParticipants);
-            if (!showParticipants) {
-              setShowChat(false);
-              setShowWhiteboard(false);
-            }
-          }}
-        />
+          {/* Header */}
+          <RoomHeader
+            sessionInfo={sessionInfo}
+            isRecording={isRecording}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            showChat={showChat}
+            toggleChat={toggleChat}
+            toggleWhiteboard={toggleWhiteboard}
+            showParticipants={showParticipants}
+            setShowParticipants={setShowParticipants}
+          />
 
-        {/* Main content area */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Video area */}
-          <div className={`flex-1 transition-all duration-300 ${activePanel && !sidebarCollapsed ? 'mr-0' : ''}`}>
-            <VideoArea
-              layoutMode={layoutMode}
-              focusedTrackSid={focusedTrackSid}
-              onFocusTrack={setFocusedTrackSid}
-              hasActivePanel={!!activePanel}
-            />
-          </div>
+          {/* Main content */}
+          <MainContent
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            showChat={showChat}
+            showParticipants={showParticipants}
+            setShowParticipants={setShowParticipants}
+            sessionInfo={sessionInfo}
+          />
 
-          {/* Side panel */}
-          {activePanel && (
-            <SidePanel
-              activePanel={activePanel}
-              sessionInfo={sessionInfo}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-              onClose={() => {
-                setShowChat(false);
-                setShowWhiteboard(false);
-                setShowParticipants(false);
-              }}
-            />
-          )}
-        </div>
-
-        {/* Controls footer */}
-        <RoomFooter
-          isTutor={isTutor}
-          isRecording={isRecording}
-          onEndSession={onEndSession}
-        />
+          {/* Controls footer */}
+          <RoomFooter
+            isTutor={isTutor}
+            isRecording={isRecording}
+            onEndSession={onEndSession}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+          />
         </div>
 
         <RoomAudioRenderer />
@@ -169,92 +151,93 @@ export function VideoRoom({
 }
 
 /**
- * Room header with session info, layout controls, and panel toggles
+ * Room header
  */
 function RoomHeader({
   sessionInfo,
   isRecording,
-  layoutMode,
-  onLayoutChange,
+  viewMode,
+  setViewMode,
   showChat,
-  showWhiteboard,
+  toggleChat,
+  toggleWhiteboard,
   showParticipants,
-  onToggleChat,
-  onToggleWhiteboard,
-  onToggleParticipants,
+  setShowParticipants,
 }) {
+  const isWhiteboardFull = viewMode === VIEW_MODES.WHITEBOARD_FULL;
+  const isScreenFull = viewMode === VIEW_MODES.SCREEN_FULL;
+
   return (
-    <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+    <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
       {/* Left: Session info */}
-      <div className="flex items-center gap-4 min-w-0 flex-1">
-        <h1 className="text-white font-semibold truncate">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <h1 className="text-white font-semibold truncate text-sm md:text-base">
           {sessionInfo?.topic || 'Tutoring Session'}
         </h1>
-        <span className="text-gray-400 text-sm hidden md:block">
-          {sessionInfo?.tutor?.name} & {sessionInfo?.student?.name}
-        </span>
         {isRecording && (
-          <div className="flex items-center gap-1.5 bg-red-600/20 text-red-400 px-2.5 py-1 rounded-full text-xs font-medium">
+          <div className="flex items-center gap-1.5 bg-red-600/20 text-red-400 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0">
             <Circle className="w-2 h-2 fill-current animate-pulse" />
             REC
           </div>
         )}
       </div>
 
-      {/* Center: Layout selector */}
+      {/* Center: View mode buttons */}
       <div className="hidden md:flex items-center gap-1 bg-gray-700/50 rounded-lg p-1">
-        <LayoutButton
-          active={layoutMode === LAYOUT_MODES.AUTO}
-          onClick={() => onLayoutChange(LAYOUT_MODES.AUTO)}
-          title="Auto layout"
+        <ViewModeButton
+          active={viewMode === VIEW_MODES.VIDEO_ONLY || viewMode === VIEW_MODES.VIDEO_CHAT}
+          onClick={() => setViewMode(showChat ? VIEW_MODES.VIDEO_CHAT : VIEW_MODES.VIDEO_ONLY)}
+          title="Video View"
         >
-          <Maximize2 className="w-4 h-4" />
-        </LayoutButton>
-        <LayoutButton
-          active={layoutMode === LAYOUT_MODES.GRID}
-          onClick={() => onLayoutChange(LAYOUT_MODES.GRID)}
-          title="Grid view"
+          <Video className="w-4 h-4" />
+        </ViewModeButton>
+        <ViewModeButton
+          active={viewMode === VIEW_MODES.WHITEBOARD_FULL}
+          onClick={toggleWhiteboard}
+          title="Whiteboard Full Screen"
+        >
+          <PenTool className="w-4 h-4" />
+        </ViewModeButton>
+        <ViewModeButton
+          active={viewMode === VIEW_MODES.SPLIT}
+          onClick={() => setViewMode(VIEW_MODES.SPLIT)}
+          title="Split View"
         >
           <LayoutGrid className="w-4 h-4" />
-        </LayoutButton>
-        <LayoutButton
-          active={layoutMode === LAYOUT_MODES.SPOTLIGHT}
-          onClick={() => onLayoutChange(LAYOUT_MODES.SPOTLIGHT)}
-          title="Spotlight view"
-        >
-          <Presentation className="w-4 h-4" />
-        </LayoutButton>
+        </ViewModeButton>
       </div>
 
       {/* Right: Panel toggles */}
       <div className="flex items-center gap-1">
-        <PanelToggle
+        <PanelButton
           active={showParticipants}
-          onClick={onToggleParticipants}
+          onClick={() => setShowParticipants(!showParticipants)}
           title="Participants"
         >
           <Users className="w-5 h-5" />
-        </PanelToggle>
-        <PanelToggle
+        </PanelButton>
+        <PanelButton
           active={showChat}
-          onClick={onToggleChat}
+          onClick={toggleChat}
           title="Chat"
         >
           <MessageSquare className="w-5 h-5" />
-        </PanelToggle>
-        <PanelToggle
-          active={showWhiteboard}
-          onClick={onToggleWhiteboard}
+        </PanelButton>
+        {/* Mobile whiteboard toggle */}
+        <PanelButton
+          active={isWhiteboardFull}
+          onClick={toggleWhiteboard}
           title="Whiteboard"
+          className="md:hidden"
         >
           <PenTool className="w-5 h-5" />
-        </PanelToggle>
+        </PanelButton>
       </div>
     </div>
   );
 }
 
-function LayoutButton({ active, onClick, title, children }) {
+function ViewModeButton({ active, onClick, title, children }) {
   return (
     <button
       onClick={onClick}
@@ -270,7 +253,7 @@ function LayoutButton({ active, onClick, title, children }) {
   );
 }
 
-function PanelToggle({ active, onClick, title, children }) {
+function PanelButton({ active, onClick, title, children, className = '' }) {
   return (
     <button
       onClick={onClick}
@@ -279,7 +262,7 @@ function PanelToggle({ active, onClick, title, children }) {
         active
           ? 'bg-blue-600 text-white'
           : 'text-gray-400 hover:text-white hover:bg-gray-700'
-      }`}
+      } ${className}`}
     >
       {children}
     </button>
@@ -287,9 +270,9 @@ function PanelToggle({ active, onClick, title, children }) {
 }
 
 /**
- * Video area with different layout modes
+ * Main content area with different view modes
  */
-function VideoArea({ layoutMode, focusedTrackSid, onFocusTrack, hasActivePanel }) {
+function MainContent({ viewMode, setViewMode, showChat, showParticipants, setShowParticipants, sessionInfo }) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -300,65 +283,135 @@ function VideoArea({ layoutMode, focusedTrackSid, onFocusTrack, hasActivePanel }
 
   const participants = useParticipants();
 
-  // Find screen share track
+  // Check for active screen share
   const screenShareTrack = tracks.find(
-    (track) => track.source === Track.Source.ScreenShare && track.publication?.isSubscribed
+    (track) => track.source === Track.Source.ScreenShare
   );
 
-  // Determine effective layout
-  let effectiveLayout = layoutMode;
-  if (layoutMode === LAYOUT_MODES.AUTO) {
-    // Auto: Use spotlight if screen share is active, otherwise grid
-    effectiveLayout = screenShareTrack ? LAYOUT_MODES.SPOTLIGHT : LAYOUT_MODES.GRID;
-  }
+  // Auto-switch to screen full mode when someone shares
+  useEffect(() => {
+    if (screenShareTrack && viewMode === VIEW_MODES.VIDEO_ONLY) {
+      setViewMode(VIEW_MODES.SCREEN_FULL);
+    } else if (!screenShareTrack && viewMode === VIEW_MODES.SCREEN_FULL) {
+      setViewMode(VIEW_MODES.VIDEO_ONLY);
+    }
+  }, [screenShareTrack, viewMode, setViewMode]);
 
-  // Get the focused track for spotlight mode
-  const focusTrack = focusedTrackSid
-    ? tracks.find((t) => t.publication?.trackSid === focusedTrackSid)
-    : screenShareTrack || tracks[0];
+  // Determine what to render based on view mode
+  const renderContent = () => {
+    switch (viewMode) {
+      case VIEW_MODES.WHITEBOARD_FULL:
+        return (
+          <div className="h-full flex">
+            {/* Whiteboard takes most space */}
+            <div className="flex-1 bg-white relative">
+              <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
+              {/* Mini video overlay */}
+              <div className="absolute bottom-4 right-4 w-48 h-36 md:w-64 md:h-48 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700">
+                <MiniVideoGrid tracks={tracks} />
+              </div>
+            </div>
+            {/* Optional chat sidebar */}
+            {showChat && <ChatSidebar />}
+          </div>
+        );
 
-  const otherTracks = tracks.filter((t) => t !== focusTrack);
+      case VIEW_MODES.SCREEN_FULL:
+        return (
+          <div className="h-full flex">
+            {/* Screen share takes most space */}
+            <div className="flex-1 relative bg-black">
+              {screenShareTrack ? (
+                <FocusLayout trackRef={screenShareTrack} className="h-full" />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">
+                  <div className="text-center">
+                    <Monitor className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>No screen share active</p>
+                  </div>
+                </div>
+              )}
+              {/* Mini video overlay */}
+              <div className="absolute bottom-4 right-4 w-48 h-36 md:w-64 md:h-48 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700">
+                <MiniVideoGrid tracks={tracks.filter(t => t.source !== Track.Source.ScreenShare)} />
+              </div>
+            </div>
+            {/* Optional chat sidebar */}
+            {showChat && <ChatSidebar />}
+          </div>
+        );
 
-  if (effectiveLayout === LAYOUT_MODES.GRID) {
-    return (
-      <div className="h-full p-2">
-        <GridLayout tracks={tracks} className="h-full">
-          <ParticipantTile
-            onParticipantClick={(evt) => {
-              // Allow clicking to focus in grid mode
-              onFocusTrack(evt.participant.sid);
-            }}
-          />
-        </GridLayout>
-      </div>
-    );
-  }
+      case VIEW_MODES.SPLIT:
+        return (
+          <div className="h-full flex">
+            {/* Left: Video */}
+            <div className="w-1/2 p-2 border-r border-gray-700">
+              <GridLayout tracks={tracks} className="h-full">
+                <ParticipantTile />
+              </GridLayout>
+            </div>
+            {/* Right: Whiteboard */}
+            <div className="w-1/2 bg-white">
+              <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
+            </div>
+          </div>
+        );
 
-  if (effectiveLayout === LAYOUT_MODES.SPOTLIGHT) {
-    return (
-      <div className="h-full flex flex-col p-2 gap-2">
-        {/* Main focused view */}
-        <div className="flex-1 min-h-0">
-          {focusTrack && (
-            <FocusLayout trackRef={focusTrack} className="h-full rounded-lg overflow-hidden" />
-          )}
-        </div>
+      case VIEW_MODES.VIDEO_CHAT:
+        return (
+          <div className="h-full flex">
+            {/* Video area */}
+            <div className="flex-1 p-2">
+              <VideoGrid tracks={tracks} screenShareTrack={screenShareTrack} />
+            </div>
+            {/* Chat sidebar */}
+            <ChatSidebar />
+          </div>
+        );
 
-        {/* Carousel of other participants */}
-        {otherTracks.length > 0 && (
-          <div className="h-24 md:h-32 flex-shrink-0">
-            <CarouselLayout tracks={otherTracks} orientation="horizontal">
-              <ParticipantTile
-                onParticipantClick={(evt) => {
-                  // Click to focus this participant
-                  const clickedTrack = otherTracks.find(
-                    (t) => t.participant.sid === evt.participant.sid
-                  );
-                  if (clickedTrack) {
-                    onFocusTrack(clickedTrack.publication?.trackSid);
-                  }
-                }}
+      case VIEW_MODES.VIDEO_ONLY:
+      default:
+        return (
+          <div className="h-full flex">
+            {/* Video area */}
+            <div className="flex-1 p-2">
+              <VideoGrid tracks={tracks} screenShareTrack={screenShareTrack} />
+            </div>
+            {/* Participants sidebar (optional) */}
+            {showParticipants && (
+              <ParticipantsSidebar
+                participants={participants}
+                onClose={() => setShowParticipants(false)}
               />
+            )}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex-1 overflow-hidden">
+      {renderContent()}
+    </div>
+  );
+}
+
+/**
+ * Video grid component
+ */
+function VideoGrid({ tracks, screenShareTrack }) {
+  if (screenShareTrack) {
+    // Spotlight mode when screen sharing
+    const otherTracks = tracks.filter(t => t !== screenShareTrack);
+    return (
+      <div className="h-full flex flex-col gap-2">
+        <div className="flex-1 min-h-0">
+          <FocusLayout trackRef={screenShareTrack} className="h-full rounded-lg overflow-hidden" />
+        </div>
+        {otherTracks.length > 0 && (
+          <div className="h-24 md:h-28 flex-shrink-0">
+            <CarouselLayout tracks={otherTracks} orientation="horizontal">
+              <ParticipantTile />
             </CarouselLayout>
           </div>
         )}
@@ -366,93 +419,89 @@ function VideoArea({ layoutMode, focusedTrackSid, onFocusTrack, hasActivePanel }
     );
   }
 
-  // Default fallback
   return (
-    <div className="h-full p-2">
-      <GridLayout tracks={tracks} className="h-full">
-        <ParticipantTile />
-      </GridLayout>
+    <GridLayout tracks={tracks} className="h-full">
+      <ParticipantTile />
+    </GridLayout>
+  );
+}
+
+/**
+ * Mini video grid for overlay
+ */
+function MiniVideoGrid({ tracks }) {
+  const cameraTracks = tracks.filter(t => t.source === Track.Source.Camera);
+
+  if (cameraTracks.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+        No video
+      </div>
+    );
+  }
+
+  return (
+    <GridLayout tracks={cameraTracks.slice(0, 4)} className="h-full">
+      <ParticipantTile />
+    </GridLayout>
+  );
+}
+
+/**
+ * Chat sidebar
+ */
+function ChatSidebar() {
+  return (
+    <div className="w-80 md:w-96 bg-white border-l border-gray-200 flex flex-col flex-shrink-0">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+        <h3 className="font-semibold text-gray-800">Chat</h3>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <Chat className="h-full" />
+      </div>
     </div>
   );
 }
 
 /**
- * Side panel for chat, whiteboard, or participants
+ * Participants sidebar
  */
-function SidePanel({ activePanel, sessionInfo, collapsed, onToggleCollapse, onClose }) {
-  const participants = useParticipants();
-
+function ParticipantsSidebar({ participants, onClose }) {
   return (
-    <div
-      className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ${
-        collapsed ? 'w-0 overflow-hidden' : 'w-80 md:w-96'
-      }`}
-    >
-      {/* Panel header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <h3 className="font-semibold text-gray-800 capitalize">{activePanel}</h3>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onToggleCollapse}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md"
-            title={collapsed ? 'Expand' : 'Collapse'}
-          >
-            {collapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <div className="w-72 bg-white border-l border-gray-200 flex flex-col flex-shrink-0">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-800">Participants ({participants.length})</h3>
+        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
+          <X className="w-4 h-4 text-gray-500" />
+        </button>
       </div>
-
-      {/* Panel content */}
-      <div className="flex-1 overflow-hidden">
-        {activePanel === 'chat' && (
-          <div className="h-full">
-            <Chat className="h-full" />
-          </div>
-        )}
-
-        {activePanel === 'whiteboard' && (
-          <div className="h-full">
-            <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
-          </div>
-        )}
-
-        {activePanel === 'participants' && (
-          <div className="p-4 space-y-2">
-            {participants.map((participant) => (
-              <div
-                key={participant.sid}
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-              >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
-                  {participant.name?.charAt(0)?.toUpperCase() || participant.identity?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">
-                    {participant.name || participant.identity}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {participant.isSpeaking && '🔊 Speaking'}
-                    {participant.isCameraEnabled && ' 📹'}
-                    {participant.isMicrophoneEnabled && ' 🎤'}
-                    {participant.isScreenShareEnabled && ' 🖥️'}
-                  </p>
-                </div>
-                {participant.isLocal && (
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                    You
-                  </span>
-                )}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {participants.map((participant) => (
+          <div
+            key={participant.sid}
+            className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+              {participant.name?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 text-sm truncate">
+                {participant.name || participant.identity}
+              </p>
+              <div className="flex items-center gap-1 text-xs text-gray-500">
+                {participant.isSpeaking && <span>🔊</span>}
+                {participant.isCameraEnabled && <span>📹</span>}
+                {participant.isMicrophoneEnabled && <span>🎤</span>}
+                {participant.isScreenShareEnabled && <span>🖥️</span>}
               </div>
-            ))}
+            </div>
+            {participant.isLocal && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                You
+              </span>
+            )}
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -461,7 +510,7 @@ function SidePanel({ activePanel, sessionInfo, collapsed, onToggleCollapse, onCl
 /**
  * Room footer with controls
  */
-function RoomFooter({ isTutor, isRecording, onEndSession }) {
+function RoomFooter({ isTutor, isRecording, onEndSession, viewMode, setViewMode }) {
   const room = useRoomContext();
 
   const handleEndSession = () => {
@@ -476,25 +525,46 @@ function RoomFooter({ isTutor, isRecording, onEndSession }) {
     }
   };
 
+  // Toggle fullscreen for current content
+  const isFullscreen = viewMode === VIEW_MODES.WHITEBOARD_FULL || viewMode === VIEW_MODES.SCREEN_FULL;
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      setViewMode(VIEW_MODES.VIDEO_ONLY);
+    } else if (viewMode === VIEW_MODES.SPLIT) {
+      setViewMode(VIEW_MODES.WHITEBOARD_FULL);
+    }
+  };
+
   return (
-    <div className="bg-gray-800 border-t border-gray-700 py-3">
+    <div className="bg-gray-800 border-t border-gray-700 py-3 flex-shrink-0">
       <div className="flex items-center justify-center gap-2">
         <ControlBar
           variation="minimal"
           controls={{
             microphone: true,
             camera: true,
-            screenShare: true, // Enable for everyone
+            screenShare: true,
             settings: true,
             leave: false,
-            chat: false, // We use our own chat toggle
+            chat: false,
           }}
         />
 
-        {/* Custom end/leave button */}
+        {/* Fullscreen toggle */}
+        {(viewMode === VIEW_MODES.WHITEBOARD_FULL || viewMode === VIEW_MODES.SCREEN_FULL || viewMode === VIEW_MODES.SPLIT) && (
+          <button
+            onClick={toggleFullscreen}
+            className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </button>
+        )}
+
+        {/* End/Leave button */}
         <button
           onClick={handleEndSession}
-          className={`ml-4 px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`ml-2 px-4 py-2 rounded-lg font-medium transition-colors ${
             isTutor
               ? 'bg-red-600 hover:bg-red-700 text-white'
               : 'bg-gray-600 hover:bg-gray-700 text-white'
