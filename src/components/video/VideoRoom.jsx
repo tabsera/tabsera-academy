@@ -15,6 +15,7 @@ import {
   FocusLayoutContainer,
   CarouselLayout,
   Chat,
+  LayoutContextProvider,
   useTracks,
   useRoomContext,
   useParticipants,
@@ -91,7 +92,8 @@ export function VideoRoom({
       data-lk-theme="default"
       className="h-screen w-screen bg-gray-900"
     >
-      <div className="h-full flex flex-col">
+      <LayoutContextProvider>
+        <div className="h-full flex flex-col">
         {/* Header */}
         <RoomHeader
           sessionInfo={sessionInfo}
@@ -158,9 +160,10 @@ export function VideoRoom({
           isRecording={isRecording}
           onEndSession={onEndSession}
         />
-      </div>
+        </div>
 
-      <RoomAudioRenderer />
+        <RoomAudioRenderer />
+      </LayoutContextProvider>
     </LiveKitRoom>
   );
 }
