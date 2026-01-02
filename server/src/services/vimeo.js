@@ -14,7 +14,8 @@ const { Vimeo } = require('@vimeo/vimeo');
 const VIMEO_CLIENT_ID = process.env.VIMEO_CLIENT_ID || '';
 const VIMEO_CLIENT_SECRET = process.env.VIMEO_CLIENT_SECRET || '';
 const VIMEO_ACCESS_TOKEN = process.env.VIMEO_ACCESS_TOKEN;
-const VIMEO_FOLDER_ID = process.env.VIMEO_FOLDER_ID;
+// Hardcoded folder ID for tutoring session recordings
+const VIMEO_RECORDINGS_FOLDER_ID = '27735211';
 
 // Check if Vimeo is properly configured (only access token is required)
 const VIMEO_ENABLED = !!VIMEO_ACCESS_TOKEN;
@@ -41,7 +42,7 @@ if (VIMEO_ENABLED) {
  * @param {string} params.folderId - Optional folder ID to organize recordings
  * @returns {Promise<{videoId: string, videoUri: string}>}
  */
-async function uploadFromUrl({ fileUrl, title, description, folderId }) {
+async function uploadFromUrl({ fileUrl, title, description }) {
   if (!VIMEO_ENABLED) {
     console.warn('Vimeo not configured, skipping upload');
     return { videoId: null, error: 'Vimeo not configured' };
@@ -93,6 +94,11 @@ async function uploadFromUrl({ fileUrl, title, description, folderId }) {
 
           console.log(`Video upload initiated: ${videoId}`);
 
+          // Add video to the recordings folder
+          addVideoToFolder(videoId).catch(err => {
+            console.error(`Failed to add video ${videoId} to folder:`, err.message);
+          });
+
           resolve({
             videoId,
             videoUri,
@@ -100,6 +106,41 @@ async function uploadFromUrl({ fileUrl, title, description, folderId }) {
           });
         } else {
           reject(new Error(`Vimeo upload failed with status ${statusCode}`));
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Add a video to the recordings folder
+ * @param {string} videoId - Vimeo video ID
+ * @returns {Promise<boolean>}
+ */
+async function addVideoToFolder(videoId) {
+  if (!VIMEO_ENABLED || !VIMEO_RECORDINGS_FOLDER_ID) {
+    return false;
+  }
+
+  return new Promise((resolve, reject) => {
+    vimeoClient.request(
+      {
+        method: 'PUT',
+        path: `/me/projects/${VIMEO_RECORDINGS_FOLDER_ID}/videos/${videoId}`,
+      },
+      (error, body, statusCode) => {
+        if (error) {
+          console.error('Failed to add video to folder:', error.message);
+          reject(error);
+          return;
+        }
+
+        // 204 No Content or 200 OK is success
+        if (statusCode === 204 || statusCode === 200) {
+          console.log(`Video ${videoId} added to folder ${VIMEO_RECORDINGS_FOLDER_ID}`);
+          resolve(true);
+        } else {
+          reject(new Error(`Failed to add video to folder: ${statusCode}`));
         }
       }
     );
@@ -412,6 +453,7 @@ module.exports = {
   getVideoLink,
   setPrivacy,
   addEmbedDomain,
+  addVideoToFolder,
   deleteVideo,
   getThumbnailUrl,
 };

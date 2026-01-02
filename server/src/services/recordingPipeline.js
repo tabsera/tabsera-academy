@@ -182,8 +182,9 @@ async function processRecording({ egressId, fileUrl, filename }) {
 
     console.log(`Vimeo upload initiated for session ${session.id}: ${uploadResult.videoId}`);
 
-    // Add our domain to embed whitelist
-    await vimeoService.addEmbedDomain(uploadResult.videoId, APP_DOMAIN).catch(() => {});
+    // Add our domains to embed whitelist
+    await vimeoService.addEmbedDomain(uploadResult.videoId, 'academy.tabsera.com').catch(() => {});
+    await vimeoService.addEmbedDomain(uploadResult.videoId, 'learn.tabsera.com').catch(() => {});
     await vimeoService.addEmbedDomain(uploadResult.videoId, 'localhost').catch(() => {}); // For dev
 
     // Get the embed URL (may not be available immediately)
