@@ -153,9 +153,15 @@ async function processRecording({ egressId, fileUrl, filename }) {
       data: { recordingStatus: 'processing' },
     });
 
+    // Helper to get full name
+    const getFullName = (user) => {
+      if (!user) return null;
+      return [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
+    };
+
     // Generate title and description for Vimeo
-    const tutorName = session.tutorProfile?.user?.name || 'Tutor';
-    const studentName = session.student?.name || 'Student';
+    const tutorName = getFullName(session.tutorProfile?.user) || 'Tutor';
+    const studentName = getFullName(session.student) || 'Student';
     const courseName = session.course?.title || 'General';
     const sessionDate = new Date(session.scheduledAt).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -407,10 +413,10 @@ async function getRecordingDetails(sessionId) {
       topic: true,
       tutorProfile: {
         select: {
-          user: { select: { id: true, name: true } },
+          user: { select: { id: true, firstName: true, lastName: true } },
         },
       },
-      student: { select: { id: true, name: true } },
+      student: { select: { id: true, firstName: true, lastName: true } },
       course: { select: { id: true, title: true } },
     },
   });
@@ -435,6 +441,12 @@ async function getRecordingDetails(sessionId) {
     }
   }
 
+  // Helper to get full name
+  const getFullName = (user) => {
+    if (!user) return null;
+    return [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
+  };
+
   return {
     sessionId: session.id,
     status: session.recordingStatus,
@@ -443,8 +455,14 @@ async function getRecordingDetails(sessionId) {
     duration: session.recordingDuration,
     scheduledAt: session.scheduledAt,
     topic: session.topic,
-    tutor: session.tutorProfile?.user,
-    student: session.student,
+    tutor: session.tutorProfile?.user ? {
+      id: session.tutorProfile.user.id,
+      name: getFullName(session.tutorProfile.user),
+    } : null,
+    student: session.student ? {
+      id: session.student.id,
+      name: getFullName(session.student),
+    } : null,
     course: session.course,
   };
 }
