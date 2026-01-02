@@ -9,7 +9,8 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
-const { S3Client, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const livekitService = require('./livekit');
 const vimeoService = require('./vimeo');
 
@@ -175,9 +176,25 @@ async function processRecording({ egressId, fileUrl, filename }) {
       `Date: ${sessionDate}\n` +
       `Session ID: ${session.id}`;
 
-    // Upload to Vimeo
+    // Generate a presigned URL for S3 file (valid for 1 hour)
+    // This is needed because the S3 bucket is private
+    let presignedUrl = fileUrl;
+    if (filename) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: RECORDING_S3_BUCKET,
+          Key: filename,
+        });
+        presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        console.log(`Generated presigned URL for ${filename}`);
+      } catch (e) {
+        console.error('Failed to generate presigned URL, using original:', e.message);
+      }
+    }
+
+    // Upload to Vimeo using presigned URL
     const uploadResult = await vimeoService.uploadFromUrl({
-      fileUrl,
+      fileUrl: presignedUrl,
       title,
       description,
     });
@@ -483,6 +500,72 @@ async function getRecordingDetails(sessionId) {
   };
 }
 
+/**
+ * Retry upload for a failed recording
+ * @param {string} sessionId - Session ID
+ * @returns {Promise<{success: boolean}>}
+ */
+async function retryUpload(sessionId) {
+  try {
+    const session = await prisma.tutorSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        tutorProfile: { include: { user: true } },
+        student: true,
+        course: true,
+      },
+    });
+
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    // Find the S3 file for this session
+    const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      region: process.env.RECORDING_S3_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+
+    const listResult = await s3.send(new ListObjectsV2Command({
+      Bucket: RECORDING_S3_BUCKET,
+      Prefix: `session-${sessionId}`,
+    }));
+
+    if (!listResult.Contents || listResult.Contents.length === 0) {
+      return { success: false, error: 'No recording file found in S3' };
+    }
+
+    const filename = listResult.Contents[0].Key;
+    console.log(`Found recording file: ${filename}`);
+
+    // Delete old Vimeo video if exists
+    if (session.vimeoVideoId) {
+      try {
+        await vimeoService.deleteVideo(session.vimeoVideoId);
+        console.log(`Deleted old Vimeo video: ${session.vimeoVideoId}`);
+      } catch (e) {
+        console.log(`Could not delete old video: ${e.message}`);
+      }
+    }
+
+    // Process the recording with presigned URL
+    const result = await processRecording({
+      egressId: session.recordingEgressId,
+      fileUrl: null, // Will be generated from filename
+      filename,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Retry upload failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   initializeRecording,
   stopSessionRecording,
@@ -490,5 +573,6 @@ module.exports = {
   handleRecordingFailure,
   finalizeRecording,
   deleteRecording,
+  retryUpload,
   getRecordingDetails,
 };
