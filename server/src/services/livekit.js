@@ -90,7 +90,8 @@ async function createAccessToken({ roomName, participantId, participantName, isT
     canSubscribe: true,
     // Screen share enabled for both (student can share on desktop browsers)
     // Note: iOS/iPadOS doesn't support screen sharing (WebKit limitation)
-    canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
+    // Using string values for compatibility with livekit-server-sdk
+    canPublishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
     roomAdmin: isTutor, // Tutors can manage room
   });
 
