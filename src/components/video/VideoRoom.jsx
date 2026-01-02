@@ -20,7 +20,7 @@ import {
   useParticipants,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Track, RoomEvent } from 'livekit-client';
+import { Track, RoomEvent, ConnectionState } from 'livekit-client';
 import {
   LayoutGrid,
   Presentation,
@@ -305,16 +305,48 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
   const lastPolledViewMode = useRef(null);
   const participantCount = useRef(participants.length);
   const viewModePollRef = useRef(null);
+  const publisherReadyRef = useRef(false);
 
   // Check for active screen share
   const screenShareTrack = tracks.find(
     (track) => track.source === Track.Source.ScreenShare
   );
 
+  // Track publisher readiness - publishData only works after first track is published
+  useEffect(() => {
+    if (!room) return;
+
+    // Check if already publishing (e.g., on reconnect)
+    if (room.localParticipant?.trackPublications?.size > 0) {
+      console.log('View mode sync: Publisher already ready (has tracks)');
+      publisherReadyRef.current = true;
+    }
+
+    const handleTrackPublished = (publication, participant) => {
+      // Only care about local participant publishing
+      if (participant.identity === room.localParticipant?.identity) {
+        console.log('View mode sync: Local track published, publisher now ready');
+        publisherReadyRef.current = true;
+      }
+    };
+
+    room.on(RoomEvent.LocalTrackPublished, handleTrackPublished);
+
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, handleTrackPublished);
+    };
+  }, [room]);
+
   // Function to broadcast view mode (tutor only) - using proper topic for better iPad support
-  const broadcastViewMode = useCallback((mode) => {
+  const broadcastViewMode = useCallback(async (mode) => {
     if (!room?.localParticipant) {
       console.log('View mode sync: No local participant');
+      return;
+    }
+
+    // Check if publisher is ready (has published at least one track)
+    if (!publisherReadyRef.current) {
+      console.log('View mode sync: Publisher not ready yet, using polling fallback only');
       return;
     }
 
@@ -325,13 +357,15 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
       });
 
       // Use topic option for better cross-platform support (especially iPad)
-      room.localParticipant.publishData(new TextEncoder().encode(data), {
+      // Must await the Promise to properly catch errors
+      await room.localParticipant.publishData(new TextEncoder().encode(data), {
         reliable: true,
         topic: 'viewmode',
       });
       console.log('View mode sync: Broadcasted', mode);
     } catch (error) {
-      console.error('View mode sync: Failed to broadcast:', error);
+      // Log but don't throw - fallback to polling will handle sync
+      console.warn('View mode sync: Failed to broadcast (using polling fallback):', error.message);
     }
   }, [room]);
 
@@ -481,15 +515,7 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
       case VIEW_MODES.WHITEBOARD_FULL:
         return (
           <div className="h-full flex flex-col">
-            {/* Recording tip banner - show when no screen share and session is recording */}
-            {!screenShareTrack && (
-              <div className="bg-amber-500/90 text-amber-950 px-4 py-2 text-sm flex items-center justify-center gap-2 flex-shrink-0">
-                <Monitor className="w-4 h-4" />
-                <span>
-                  <strong>Recording tip:</strong> Share your screen (click Screen Share below) to include the whiteboard in the recording
-                </span>
-              </div>
-            )}
+            {/* Whiteboard now automatically included in recording via LiveKit web egress custom layout */}
             <div className="flex-1 flex min-h-0">
               {/* Whiteboard takes full space - no video overlay */}
               <div className="flex-1 bg-white">

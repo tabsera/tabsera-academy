@@ -36,12 +36,38 @@ export function CollaborativeWhiteboard({ sessionId }) {
   const saveTimeoutRef = useRef(null);
   const pollIntervalRef = useRef(null);
   const initialStateRef = useRef(null);
+  const publisherReadyRef = useRef(false);
   const room = useRoomContext();
 
   // Debug logging
   const log = useCallback((msg, ...args) => {
     console.log(`[Whiteboard ${room?.localParticipant?.identity || 'unknown'}]`, msg, ...args);
   }, [room?.localParticipant?.identity]);
+
+  // Track publisher readiness - publishData only works after first track is published
+  useEffect(() => {
+    if (!room) return;
+
+    // Check if already publishing (e.g., on reconnect)
+    if (room.localParticipant?.trackPublications?.size > 0) {
+      log('Publisher already ready (has tracks)');
+      publisherReadyRef.current = true;
+    }
+
+    const handleTrackPublished = (publication, participant) => {
+      // Only care about local participant publishing
+      if (participant.identity === room.localParticipant?.identity) {
+        log('Local track published, publisher now ready');
+        publisherReadyRef.current = true;
+      }
+    };
+
+    room.on(RoomEvent.LocalTrackPublished, handleTrackPublished);
+
+    return () => {
+      room.off(RoomEvent.LocalTrackPublished, handleTrackPublished);
+    };
+  }, [room, log]);
 
   // Load saved whiteboard state on mount
   useEffect(() => {
@@ -158,9 +184,15 @@ export function CollaborativeWhiteboard({ sessionId }) {
 
   // Send data via LiveKit data channel (direct room API)
   // Using proper LiveKit topic system for better iPad compatibility
-  const sendWhiteboardData = useCallback((data) => {
+  const sendWhiteboardData = useCallback(async (data) => {
     if (!room?.localParticipant) {
       log('Cannot send - no local participant');
+      return false;
+    }
+
+    // Check if publisher is ready (has published at least one track)
+    if (!publisherReadyRef.current) {
+      log('Publisher not ready yet, using polling fallback only');
       return false;
     }
 
@@ -169,14 +201,16 @@ export function CollaborativeWhiteboard({ sessionId }) {
       log('Sending', data.type, 'with', data.elements?.length || 0, 'elements');
 
       // Use DataPacket_Kind.RELIABLE and topic option for better cross-platform support
-      room.localParticipant.publishData(payload, {
+      // Must await the Promise to properly catch errors
+      await room.localParticipant.publishData(payload, {
         reliable: true,
         topic: 'whiteboard',
       });
       log('Sent OK');
       return true;
     } catch (e) {
-      console.error('Whiteboard: Send failed:', e);
+      // Log but don't throw - fallback to polling will handle sync
+      console.warn('Whiteboard: LiveKit send failed (using polling fallback):', e.message);
       return false;
     }
   }, [room, log]);
