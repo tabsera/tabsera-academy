@@ -295,11 +295,33 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
 
   const participants = useParticipants();
   const lastBroadcastedMode = useRef(null);
+  const participantCount = useRef(participants.length);
 
   // Check for active screen share
   const screenShareTrack = tracks.find(
     (track) => track.source === Track.Source.ScreenShare
   );
+
+  // Function to broadcast view mode
+  const broadcastViewMode = useCallback((mode) => {
+    if (!room?.localParticipant || room.state !== 'connected') return;
+
+    try {
+      const data = JSON.stringify({
+        type: 'view_mode_sync',
+        viewMode: mode,
+        timestamp: Date.now(),
+      });
+
+      room.localParticipant.publishData(
+        new TextEncoder().encode(data),
+        { reliable: true }
+      );
+      console.log('Broadcasted view mode:', mode);
+    } catch (error) {
+      console.error('Failed to broadcast view mode:', error);
+    }
+  }, [room]);
 
   // Broadcast view mode changes (tutor only)
   useEffect(() => {
@@ -309,22 +331,22 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
     if (lastBroadcastedMode.current === viewMode) return;
     lastBroadcastedMode.current = viewMode;
 
-    try {
-      const data = JSON.stringify({
-        type: 'view_mode_sync',
-        viewMode,
-        timestamp: Date.now(),
-      });
+    broadcastViewMode(viewMode);
+  }, [viewMode, isTutor, room, broadcastViewMode]);
 
-      room.localParticipant.publishData(
-        new TextEncoder().encode(data),
-        { reliable: true }
-      );
-      console.log('Broadcasted view mode:', viewMode);
-    } catch (error) {
-      console.error('Failed to broadcast view mode:', error);
+  // Re-broadcast when new participants join (tutor only)
+  useEffect(() => {
+    if (!isTutor) return;
+
+    // Check if a new participant joined
+    if (participants.length > participantCount.current) {
+      // Re-broadcast current view mode for the new participant
+      setTimeout(() => {
+        broadcastViewMode(viewMode);
+      }, 1000); // Small delay to ensure participant is ready
     }
-  }, [viewMode, isTutor, room]);
+    participantCount.current = participants.length;
+  }, [participants.length, isTutor, viewMode, broadcastViewMode]);
 
   // Listen for view mode sync from tutor (students only)
   useEffect(() => {
@@ -336,7 +358,7 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
         const data = JSON.parse(text);
 
         if (data.type === 'view_mode_sync' && data.viewMode) {
-          console.log('Received view mode sync:', data.viewMode);
+          console.log('Received view mode sync from tutor:', data.viewMode);
           onSyncedViewMode(data.viewMode);
         }
       } catch (error) {
@@ -345,7 +367,17 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
     };
 
     room.on('dataReceived', handleDataReceived);
-    return () => room.off('dataReceived', handleDataReceived);
+
+    // Also request sync when student first connects
+    const handleConnected = () => {
+      console.log('Student connected, waiting for view mode sync');
+    };
+    room.on('connected', handleConnected);
+
+    return () => {
+      room.off('dataReceived', handleDataReceived);
+      room.off('connected', handleConnected);
+    };
   }, [room, isTutor, onSyncedViewMode]);
 
   // Auto-switch to screen full mode when someone shares
@@ -363,13 +395,9 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
       case VIEW_MODES.WHITEBOARD_FULL:
         return (
           <div className="h-full flex">
-            {/* Whiteboard takes most space */}
-            <div className="flex-1 bg-white relative">
+            {/* Whiteboard takes full space - no video overlay */}
+            <div className="flex-1 bg-white">
               <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
-              {/* Mini video overlay */}
-              <div className="absolute bottom-4 right-4 w-48 h-36 md:w-64 md:h-48 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700">
-                <MiniVideoGrid tracks={tracks} />
-              </div>
             </div>
             {/* Optional chat sidebar */}
             {showChat && <ChatSidebar />}
