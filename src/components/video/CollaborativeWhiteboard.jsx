@@ -5,8 +5,11 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
+import { Excalidraw } from '@excalidraw/excalidraw';
 import { useRoomContext } from '@livekit/components-react';
+
+// Import Excalidraw styles
+import '@excalidraw/excalidraw/index.css';
 
 /**
  * Debounce utility
@@ -181,9 +184,9 @@ export function CollaborativeWhiteboard({ sessionId }) {
   }, [debouncedSync]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-white">
+    <div className="h-full w-full flex flex-col bg-white" style={{ minHeight: '400px' }}>
       {/* Header */}
-      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50 z-10">
         <span className="text-sm font-medium text-gray-700">Whiteboard</span>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
@@ -195,10 +198,13 @@ export function CollaborativeWhiteboard({ sessionId }) {
         </div>
       </div>
 
-      {/* Excalidraw canvas */}
-      <div className="flex-1 min-h-0">
+      {/* Excalidraw canvas - needs explicit height */}
+      <div
+        className="flex-1 relative"
+        style={{ minHeight: '300px', height: '100%' }}
+      >
         <Excalidraw
-          ref={excalidrawRef}
+          excalidrawAPI={(api) => { excalidrawRef.current = api; }}
           onChange={handleChange}
           initialData={{
             appState: {
