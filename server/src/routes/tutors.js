@@ -2145,6 +2145,51 @@ router.get('/sessions/:id/whiteboard', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/tutors/sessions/:id/whiteboard/public
+ * Public endpoint for LiveKit egress to read whiteboard state
+ * No authentication required - only for active sessions during recording
+ */
+router.get('/sessions/:id/whiteboard/public', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      select: {
+        whiteboardSnapshot: true,
+        status: true,
+        recordingStatus: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Only allow access for sessions that are currently active or being recorded
+    const isActive = session.status === 'in_progress' || session.status === 'scheduled';
+    const isRecording = session.recordingStatus === 'recording';
+
+    if (!isActive && !isRecording) {
+      return res.status(403).json({
+        success: false,
+        message: 'Session is not active',
+      });
+    }
+
+    res.json({
+      success: true,
+      snapshot: session.whiteboardSnapshot,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/tutors/student/sessions
  * Get student's tutoring sessions
  */

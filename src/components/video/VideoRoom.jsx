@@ -20,7 +20,7 @@ import {
   useParticipants,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Track } from 'livekit-client';
+import { Track, RoomEvent } from 'livekit-client';
 import {
   LayoutGrid,
   Presentation,
@@ -35,6 +35,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import CollaborativeWhiteboard from './CollaborativeWhiteboard';
+import { tutorsApi } from '@/api/tutors';
 
 // View modes
 const VIEW_MODES = {
@@ -112,6 +113,8 @@ export function VideoRoom({
       token={token}
       serverUrl={serverUrl}
       connect={true}
+      audio={true}
+      video={true}
       onDisconnected={handleDisconnected}
       onConnected={handleConnected}
       onError={handleError}
@@ -280,6 +283,9 @@ function PanelButton({ active, onClick, title, children, className = '' }) {
   );
 }
 
+// View mode polling interval (700ms to match whiteboard)
+const VIEW_MODE_POLL_INTERVAL = 700;
+
 /**
  * Main content area with different view modes
  */
@@ -295,70 +301,121 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
 
   const participants = useParticipants();
   const lastBroadcastedMode = useRef(null);
+  const lastSavedViewMode = useRef(null);
+  const lastPolledViewMode = useRef(null);
   const participantCount = useRef(participants.length);
+  const viewModePollRef = useRef(null);
 
   // Check for active screen share
   const screenShareTrack = tracks.find(
     (track) => track.source === Track.Source.ScreenShare
   );
 
-  // Function to broadcast view mode
+  // Function to broadcast view mode (tutor only) - using proper topic for better iPad support
   const broadcastViewMode = useCallback((mode) => {
-    if (!room?.localParticipant || room.state !== 'connected') return;
+    if (!room?.localParticipant) {
+      console.log('View mode sync: No local participant');
+      return;
+    }
 
     try {
       const data = JSON.stringify({
-        type: 'view_mode_sync',
         viewMode: mode,
         timestamp: Date.now(),
       });
 
-      room.localParticipant.publishData(
-        new TextEncoder().encode(data),
-        { reliable: true }
-      );
-      console.log('Broadcasted view mode:', mode);
+      // Use topic option for better cross-platform support (especially iPad)
+      room.localParticipant.publishData(new TextEncoder().encode(data), {
+        reliable: true,
+        topic: 'viewmode',
+      });
+      console.log('View mode sync: Broadcasted', mode);
     } catch (error) {
-      console.error('Failed to broadcast view mode:', error);
+      console.error('View mode sync: Failed to broadcast:', error);
     }
   }, [room]);
 
-  // Broadcast view mode changes (tutor only)
-  useEffect(() => {
-    if (!isTutor || !room?.localParticipant || room.state !== 'connected') return;
+  // Save view mode to backend (tutor only) - for polling fallback
+  const saveViewModeToBackend = useCallback(async (mode) => {
+    if (!sessionInfo?.id) return;
 
-    // Only broadcast if mode actually changed
-    if (lastBroadcastedMode.current === viewMode) return;
-    lastBroadcastedMode.current = viewMode;
+    try {
+      // Get current whiteboard state and add viewMode
+      const response = await tutorsApi.getWhiteboard(sessionInfo.id);
+      const currentSnapshot = response.success ? response.snapshot : {};
 
-    broadcastViewMode(viewMode);
-  }, [viewMode, isTutor, room, broadcastViewMode]);
-
-  // Re-broadcast when new participants join (tutor only)
-  useEffect(() => {
-    if (!isTutor) return;
-
-    // Check if a new participant joined
-    if (participants.length > participantCount.current) {
-      // Re-broadcast current view mode for the new participant
-      setTimeout(() => {
-        broadcastViewMode(viewMode);
-      }, 1000); // Small delay to ensure participant is ready
+      await tutorsApi.saveWhiteboard(sessionInfo.id, {
+        ...currentSnapshot,
+        viewMode: mode,
+        viewModeUpdatedAt: Date.now(),
+      });
+      console.log('View mode sync: Saved to backend:', mode);
+    } catch (error) {
+      console.error('View mode sync: Failed to save:', error);
     }
-    participantCount.current = participants.length;
-  }, [participants.length, isTutor, viewMode, broadcastViewMode]);
+  }, [sessionInfo?.id]);
 
-  // Listen for view mode sync from tutor (students only)
+  // Poll for view mode changes (student only)
+  const pollViewMode = useCallback(async () => {
+    if (!sessionInfo?.id || isTutor) return;
+
+    try {
+      const response = await tutorsApi.getWhiteboard(sessionInfo.id);
+
+      if (response.success && response.snapshot?.viewMode) {
+        const serverViewMode = response.snapshot.viewMode;
+        const serverTimestamp = response.snapshot.viewModeUpdatedAt || 0;
+
+        // Only apply if different from last polled value
+        if (serverViewMode !== lastPolledViewMode.current) {
+          console.log('View mode sync: Poll found new mode:', serverViewMode);
+          lastPolledViewMode.current = serverViewMode;
+          onSyncedViewMode(serverViewMode);
+        }
+      }
+    } catch (error) {
+      // Silent fail for polling
+    }
+  }, [sessionInfo?.id, isTutor, onSyncedViewMode]);
+
+  // Start view mode polling (student only)
   useEffect(() => {
-    if (isTutor || !room) return;
+    if (isTutor || !sessionInfo?.id) return;
 
-    const handleDataReceived = (payload, participant) => {
+    console.log('View mode sync: Starting poll for student');
+    viewModePollRef.current = setInterval(pollViewMode, VIEW_MODE_POLL_INTERVAL);
+
+    // Initial poll
+    pollViewMode();
+
+    return () => {
+      if (viewModePollRef.current) {
+        clearInterval(viewModePollRef.current);
+      }
+    };
+  }, [isTutor, sessionInfo?.id, pollViewMode]);
+
+  // Listen for view mode sync from tutor (using direct room API with topic parameter)
+  useEffect(() => {
+    if (!room || isTutor) return;
+
+    console.log('View mode sync: Student listening for tutor commands');
+
+    // Note: DataReceived gives (payload, participant, kind, topic)
+    const handleDataReceived = (payload, participant, kind, topic) => {
+      // Skip own messages
+      if (participant?.identity === room.localParticipant?.identity) return;
+
+      // Only handle viewmode topic
+      if (topic !== 'viewmode') return;
+
       try {
         const text = new TextDecoder().decode(payload);
         const data = JSON.parse(text);
 
-        if (data.type === 'view_mode_sync' && data.viewMode) {
-          console.log('Received view mode sync from tutor:', data.viewMode);
+        if (data.viewMode) {
+          console.log('View mode sync: Received from tutor:', data.viewMode);
+          lastPolledViewMode.current = data.viewMode; // Update to prevent poll override
           onSyncedViewMode(data.viewMode);
         }
       } catch (error) {
@@ -366,19 +423,48 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
       }
     };
 
-    room.on('dataReceived', handleDataReceived);
-
-    // Also request sync when student first connects
-    const handleConnected = () => {
-      console.log('Student connected, waiting for view mode sync');
-    };
-    room.on('connected', handleConnected);
+    room.on(RoomEvent.DataReceived, handleDataReceived);
 
     return () => {
-      room.off('dataReceived', handleDataReceived);
-      room.off('connected', handleConnected);
+      room.off(RoomEvent.DataReceived, handleDataReceived);
     };
   }, [room, isTutor, onSyncedViewMode]);
+
+  // Broadcast and save view mode changes (tutor only)
+  useEffect(() => {
+    if (!isTutor || !room?.localParticipant) return;
+
+    // Only broadcast if mode actually changed
+    if (lastBroadcastedMode.current === viewMode) return;
+    lastBroadcastedMode.current = viewMode;
+
+    // Small delay to ensure room is ready
+    const timer = setTimeout(() => {
+      broadcastViewMode(viewMode);
+      // Also save to backend for polling fallback
+      if (lastSavedViewMode.current !== viewMode) {
+        lastSavedViewMode.current = viewMode;
+        saveViewModeToBackend(viewMode);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [viewMode, isTutor, room, broadcastViewMode, saveViewModeToBackend]);
+
+  // Re-broadcast when new participants join (tutor only)
+  useEffect(() => {
+    if (!isTutor || !room?.localParticipant) return;
+
+    // Check if a new participant joined
+    if (participants.length > participantCount.current) {
+      // Re-broadcast current view mode for the new participant
+      setTimeout(() => {
+        broadcastViewMode(viewMode);
+        saveViewModeToBackend(viewMode);
+      }, 1000); // Small delay to ensure participant is ready
+    }
+    participantCount.current = participants.length;
+  }, [participants.length, isTutor, viewMode, room, broadcastViewMode, saveViewModeToBackend]);
 
   // Auto-switch to screen full mode when someone shares
   useEffect(() => {
@@ -394,13 +480,24 @@ function MainContent({ viewMode, setViewMode, showChat, showParticipants, setSho
     switch (viewMode) {
       case VIEW_MODES.WHITEBOARD_FULL:
         return (
-          <div className="h-full flex">
-            {/* Whiteboard takes full space - no video overlay */}
-            <div className="flex-1 bg-white">
-              <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
+          <div className="h-full flex flex-col">
+            {/* Recording tip banner - show when no screen share and session is recording */}
+            {!screenShareTrack && (
+              <div className="bg-amber-500/90 text-amber-950 px-4 py-2 text-sm flex items-center justify-center gap-2 flex-shrink-0">
+                <Monitor className="w-4 h-4" />
+                <span>
+                  <strong>Recording tip:</strong> Share your screen (click Screen Share below) to include the whiteboard in the recording
+                </span>
+              </div>
+            )}
+            <div className="flex-1 flex min-h-0">
+              {/* Whiteboard takes full space - no video overlay */}
+              <div className="flex-1 bg-white">
+                <CollaborativeWhiteboard sessionId={sessionInfo?.id} />
+              </div>
+              {/* Optional chat sidebar */}
+              {showChat && <ChatSidebar />}
             </div>
-            {/* Optional chat sidebar */}
-            {showChat && <ChatSidebar />}
           </div>
         );
 

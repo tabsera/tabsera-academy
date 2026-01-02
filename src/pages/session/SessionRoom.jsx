@@ -3,9 +3,9 @@
  * Full-screen video session room with LiveKit integration
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader, AlertCircle, ArrowLeft, Video, VideoOff, Mic, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { tutorsApi } from '../../api/tutors';
 import VideoRoom from '../../components/video/VideoRoom';
@@ -15,57 +15,47 @@ export function SessionRoom() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  const [showConsent, setShowConsent] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [roomData, setRoomData] = useState(null);
   const [isTutor, setIsTutor] = useState(false);
 
-  // Join the session on mount
-  useEffect(() => {
-    let mounted = true;
+  // Join the session after consent
+  const handleProceed = useCallback(async () => {
+    try {
+      setShowConsent(false);
+      setLoading(true);
+      setError(null);
 
-    async function joinSession() {
-      try {
-        setLoading(true);
-        setError(null);
+      const response = await tutorsApi.joinSession(sessionId);
 
-        const response = await tutorsApi.joinSession(sessionId);
+      if (response.success) {
+        setRoomData({
+          token: response.token,
+          serverUrl: response.wsUrl,
+          roomName: response.roomName,
+          isRecording: response.isRecording,
+          session: response.session,
+        });
 
-        if (!mounted) return;
-
-        if (response.success) {
-          setRoomData({
-            token: response.token,
-            serverUrl: response.wsUrl,
-            roomName: response.roomName,
-            isRecording: response.isRecording,
-            session: response.session,
-          });
-
-          // Determine if current user is the tutor
-          setIsTutor(response.session?.tutor?.id === user?.id);
-        } else {
-          setError(response.message || 'Failed to join session');
-        }
-      } catch (err) {
-        if (!mounted) return;
-        console.error('Join session error:', err);
-        setError(err.message || 'Failed to join session');
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        // Determine if current user is the tutor
+        setIsTutor(response.session?.tutor?.id === user?.id);
+      } else {
+        setError(response.message || 'Failed to join session');
       }
+    } catch (err) {
+      console.error('Join session error:', err);
+      setError(err.message || 'Failed to join session');
+    } finally {
+      setLoading(false);
     }
-
-    if (sessionId && user) {
-      joinSession();
-    }
-
-    return () => {
-      mounted = false;
-    };
   }, [sessionId, user]);
+
+  // Handle cancel - go back
+  const handleCancel = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
 
   // Handle leaving the session
   const handleLeave = useCallback(async () => {
@@ -87,6 +77,81 @@ export function SessionRoom() {
       setError('Failed to end session');
     }
   }, [sessionId, navigate]);
+
+  // Recording consent screen
+  if (showConsent) {
+    return (
+      <div className="h-screen w-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-gray-800 rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-gray-700">
+          {/* Header */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center">
+              <Shield className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold text-white text-center mb-2">
+            Recording Notice
+          </h2>
+
+          <p className="text-gray-300 text-center mb-6">
+            Please read before joining the session
+          </p>
+
+          {/* Notice content */}
+          <div className="bg-gray-900/50 rounded-xl p-5 mb-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              </div>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                This tutoring session will be <span className="text-white font-medium">recorded</span> for quality assurance and learning purposes.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Mic className="w-4 h-4 text-green-400" />
+              </div>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                <span className="text-white font-medium">Audio will be recorded</span> throughout the session to capture the tutoring content.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <VideoOff className="w-4 h-4 text-yellow-400" />
+              </div>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                You can <span className="text-white font-medium">turn off your camera</span> at any time if you prefer not to have your video recorded.
+              </p>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancel}
+              className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleProceed}
+              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <Video className="w-5 h-5" />
+              Proceed
+            </button>
+          </div>
+
+          <p className="text-gray-500 text-xs text-center mt-4">
+            By proceeding, you consent to being recorded during this session.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {

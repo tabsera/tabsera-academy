@@ -94,6 +94,8 @@ import PaymentCallback from './pages/checkout/PaymentCallback';
 // Session Pages (LiveKit Video)
 import SessionRoom from './pages/session/SessionRoom';
 import SessionRecording from './pages/session/SessionRecording';
+import RecordingLayout from './pages/session/RecordingLayout';
+import WhiteboardRecordView from './pages/session/WhiteboardRecordView';
 
 // Role constants
 const ROLES = {
@@ -219,6 +221,13 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ===================== */}
+      {/* RECORDING LAYOUT ROUTES */}
+      {/* Public - accessed by LiveKit Egress */}
+      {/* ===================== */}
+      <Route path="/recording-layout/:sessionId" element={<RecordingLayout />} />
+      <Route path="/whiteboard-record/:sessionId" element={<WhiteboardRecordView />} />
 
       {/* ===================== */}
       {/* TUTOR ROUTES */}

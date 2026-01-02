@@ -23,6 +23,10 @@ const RECORDING_S3_REGION = process.env.RECORDING_S3_REGION || 'us-east-1';
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
 const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
 
+// App URL for custom recording layout (includes whiteboard)
+const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+const API_URL = process.env.API_URL || 'http://localhost:8000/api';
+
 // Check if LiveKit is properly configured
 const LIVEKIT_ENABLED = !!(LIVEKIT_API_KEY && LIVEKIT_API_SECRET && LIVEKIT_HOST);
 
@@ -84,10 +88,9 @@ async function createAccessToken({ roomName, participantId, participantName, isT
     canPublish: true,
     canPublishData: true,
     canSubscribe: true,
-    // Screen share enabled for both, but we'll control via UI
-    canPublishSources: isTutor
-      ? [TrackSource.CAMERA, TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
-      : [TrackSource.CAMERA, TrackSource.MICROPHONE],
+    // Screen share enabled for both (student can share on desktop browsers)
+    // Note: iOS/iPadOS doesn't support screen sharing (WebKit limitation)
+    canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
     roomAdmin: isTutor, // Tutors can manage room
   });
 
@@ -177,15 +180,21 @@ async function startRecording({ roomName, sessionId }) {
     // Set the S3 output using protobuf oneof pattern
     s3Output.output = { case: 's3', value: s3 };
 
-    // Start room composite egress (records all tracks in grid)
+    // Custom layout URL that includes whiteboard alongside video
+    // LiveKit egress will render this page and record it
+    const customLayoutUrl = `${APP_URL}/recording-layout/${sessionId}?apiUrl=${encodeURIComponent(API_URL)}`;
+
+    console.log(`Starting recording with custom layout: ${customLayoutUrl}`);
+
+    // Start room composite egress with custom layout (video + whiteboard)
     const egress = await egressClient.startRoomCompositeEgress(
       roomName,
       {
         file: s3Output,
       },
       {
-        layout: 'grid', // Grid layout for multiple participants
-        customBaseUrl: undefined, // Use default layout
+        layout: 'grid', // Fallback layout if custom fails
+        customBaseUrl: customLayoutUrl, // Custom layout with whiteboard
         audioOnly: false,
         videoOnly: false,
       }
