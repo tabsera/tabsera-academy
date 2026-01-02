@@ -12,24 +12,12 @@ import { useRoomContext } from '@livekit/components-react';
 import '@excalidraw/excalidraw/index.css';
 
 /**
- * Debounce utility
- */
-function debounce(fn, ms) {
-  let timeoutId;
-  return function (...args) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn.apply(this, args), ms);
-  };
-}
-
-/**
  * Custom hook for whiteboard sync via LiveKit data channel
  */
 function useWhiteboardSync() {
   const room = useRoomContext();
   const [remoteData, setRemoteData] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const lastSentRef = useRef(null);
 
   // Track connection state
   useEffect(() => {
@@ -52,31 +40,15 @@ function useWhiteboardSync() {
   }, [room]);
 
   // Send drawing data via LiveKit data channel
-  const sendDrawingData = useCallback((elements, appState) => {
+  const sendDrawingData = useCallback((elements) => {
     if (!room?.localParticipant || !isConnected || room.state !== 'connected') {
       return;
     }
 
-    // Only send essential data (elements and viewport)
-    const dataToSend = {
-      elements: elements,
-      scrollX: appState?.scrollX,
-      scrollY: appState?.scrollY,
-      zoom: appState?.zoom?.value,
-    };
-
-    const dataStr = JSON.stringify(dataToSend);
-
-    // Don't send if identical to last sent
-    if (dataStr === lastSentRef.current) {
-      return;
-    }
-    lastSentRef.current = dataStr;
-
     try {
       const message = JSON.stringify({
         type: 'whiteboard_sync',
-        data: dataToSend,
+        elements: elements,
         timestamp: Date.now(),
         sender: room.localParticipant.identity,
       });
@@ -97,15 +69,22 @@ function useWhiteboardSync() {
     if (!room) return;
 
     const handleDataReceived = (payload, participant) => {
-      // Don't process our own messages
+      // Don't process our own messages (check participant)
       if (participant?.identity === room.localParticipant?.identity) return;
 
       try {
         const text = new TextDecoder().decode(payload);
         const message = JSON.parse(text);
 
-        if (message.type === 'whiteboard_sync' && message.data) {
-          setRemoteData(message.data);
+        // Double-check sender identity in message
+        if (message.sender === room.localParticipant?.identity) return;
+
+        if (message.type === 'whiteboard_sync' && message.elements) {
+          setRemoteData({
+            elements: message.elements,
+            timestamp: message.timestamp,
+            sender: message.sender,
+          });
         }
       } catch (error) {
         // Ignore parse errors (might be other message types)
@@ -133,7 +112,9 @@ function useWhiteboardSync() {
 export function CollaborativeWhiteboard({ sessionId }) {
   const { sendDrawingData, remoteData, clearRemoteData, isConnected } = useWhiteboardSync();
   const excalidrawRef = useRef(null);
-  const isApplyingRemoteRef = useRef(false);
+  const isDrawingRef = useRef(false);
+  const lastSyncedRef = useRef(null);
+  const syncTimeoutRef = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
 
   // Update connection status
@@ -141,26 +122,16 @@ export function CollaborativeWhiteboard({ sessionId }) {
     setConnectionStatus(isConnected ? 'connected' : 'connecting');
   }, [isConnected]);
 
-  // Debounced sync function
-  const debouncedSync = useCallback(
-    debounce((elements, appState) => {
-      if (isApplyingRemoteRef.current) return;
-      sendDrawingData(elements, appState);
-    }, 150),
-    [sendDrawingData]
-  );
-
-  // Apply remote changes
+  // Apply remote changes only when not actively drawing
   useEffect(() => {
-    if (!remoteData || !excalidrawRef.current) return;
+    if (!remoteData || !excalidrawRef.current || isDrawingRef.current) return;
 
-    isApplyingRemoteRef.current = true;
+    // Don't apply if we just sent this data
+    if (lastSyncedRef.current === remoteData.timestamp) return;
 
     try {
       const api = excalidrawRef.current;
-
       if (remoteData.elements) {
-        // Update scene with remote elements
         api.updateScene({
           elements: remoteData.elements,
         });
@@ -168,20 +139,59 @@ export function CollaborativeWhiteboard({ sessionId }) {
     } catch (error) {
       console.error('Failed to apply remote changes:', error);
     } finally {
-      // Small delay before allowing local changes to sync again
-      setTimeout(() => {
-        isApplyingRemoteRef.current = false;
-      }, 100);
       clearRemoteData();
     }
   }, [remoteData, clearRemoteData]);
 
-  // Handle drawing changes
-  const handleChange = useCallback((elements, appState) => {
-    if (!isApplyingRemoteRef.current) {
-      debouncedSync(elements, appState);
+  // Handle pointer down - mark as drawing
+  const handlePointerDown = useCallback(() => {
+    isDrawingRef.current = true;
+  }, []);
+
+  // Handle pointer up - sync after drawing stops
+  const handlePointerUp = useCallback(() => {
+    isDrawingRef.current = false;
+
+    // Sync after a short delay when pointer is released
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
     }
-  }, [debouncedSync]);
+
+    syncTimeoutRef.current = setTimeout(() => {
+      if (excalidrawRef.current) {
+        const elements = excalidrawRef.current.getSceneElements();
+        const timestamp = Date.now();
+        lastSyncedRef.current = timestamp;
+        sendDrawingData(elements);
+      }
+    }, 100);
+  }, [sendDrawingData]);
+
+  // Handle drawing changes - only sync when not actively drawing
+  const handleChange = useCallback((elements, appState) => {
+    // Don't sync while actively drawing to prevent flicker
+    if (isDrawingRef.current) return;
+
+    // Debounced sync for other changes (like selection, deletion)
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(() => {
+      const timestamp = Date.now();
+      lastSyncedRef.current = timestamp;
+      sendDrawingData(elements);
+    }, 300);
+  }, [sendDrawingData]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="h-full w-full flex flex-col bg-white" style={{ minHeight: '400px' }}>
@@ -202,6 +212,9 @@ export function CollaborativeWhiteboard({ sessionId }) {
       <div
         className="flex-1 relative"
         style={{ minHeight: '300px', height: '100%' }}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
         <Excalidraw
           excalidrawAPI={(api) => { excalidrawRef.current = api; }}
