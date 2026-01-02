@@ -410,6 +410,8 @@ async function getRecordingDetails(sessionId) {
       vimeoVideoUrl: true,
       recordingDuration: true,
       scheduledAt: true,
+      startedAt: true,
+      endedAt: true,
       topic: true,
       tutorProfile: {
         select: {
@@ -447,12 +449,26 @@ async function getRecordingDetails(sessionId) {
     return [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
   };
 
+  // Decode HTML entities in embed URL
+  let embedUrl = session.vimeoVideoUrl;
+  if (embedUrl) {
+    embedUrl = embedUrl.replace(/&amp;/g, '&');
+  }
+
+  // Calculate duration from session timestamps if not stored
+  let duration = session.recordingDuration;
+  if (!duration && session.startedAt && session.endedAt) {
+    const startTime = new Date(session.startedAt).getTime();
+    const endTime = new Date(session.endedAt).getTime();
+    duration = Math.round((endTime - startTime) / 1000); // Duration in seconds
+  }
+
   return {
     sessionId: session.id,
     status: session.recordingStatus,
     vimeoVideoId: session.vimeoVideoId,
-    vimeoEmbedUrl: session.vimeoVideoUrl,
-    duration: session.recordingDuration,
+    vimeoEmbedUrl: embedUrl,
+    duration: duration,
     scheduledAt: session.scheduledAt,
     topic: session.topic,
     tutor: session.tutorProfile?.user ? {
