@@ -1952,6 +1952,24 @@ router.post('/sessions/:id/leave', authenticate, async (req, res, next) => {
         });
       }
 
+      // Move credits from reserved to used
+      if (session.purchaseId && session.creditsConsumed > 0) {
+        await req.prisma.tuitionPackPurchase.update({
+          where: { id: session.purchaseId },
+          data: {
+            creditsUsed: { increment: session.creditsConsumed },
+            creditsReserved: { decrement: session.creditsConsumed },
+          },
+        });
+        console.log(`Moved ${session.creditsConsumed} credits from reserved to used for session ${id}`);
+      }
+
+      // Increment tutor's total sessions count
+      await req.prisma.tutorProfile.update({
+        where: { id: session.tutorProfileId },
+        data: { totalSessions: { increment: 1 } },
+      });
+
       // Update session status
       await req.prisma.tutorSession.update({
         where: { id },
