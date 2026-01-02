@@ -4,48 +4,69 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Tldraw, useEditor, createTLStore, defaultShapeUtils } from '@tldraw/tldraw';
-import { useDataChannel, useRoomContext } from '@livekit/components-react';
-import { debounce } from '../../utils/debounce';
-import '@tldraw/tldraw/tldraw.css';
+import { Tldraw, createTLStore, defaultShapeUtils, defaultBindingUtils } from 'tldraw';
+import { useRoomContext } from '@livekit/components-react';
+import 'tldraw/tldraw.css';
 
-// Custom hook for whiteboard sync
+/**
+ * Debounce utility
+ */
+function debounce(fn, ms) {
+  let timeoutId;
+  return function (...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+/**
+ * Custom hook for whiteboard sync via LiveKit data channel
+ */
 function useWhiteboardSync() {
   const room = useRoomContext();
-  const [remoteChanges, setRemoteChanges] = useState([]);
+  const [remoteSnapshot, setRemoteSnapshot] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const lastSentRef = useRef(null);
 
   // Track connection state
   useEffect(() => {
     if (!room) return;
 
-    const handleConnected = () => setIsConnected(true);
-    const handleDisconnected = () => setIsConnected(false);
+    const updateConnectionState = () => {
+      setIsConnected(room.state === 'connected');
+    };
 
-    // Check initial state
-    if (room.state === 'connected') {
-      setIsConnected(true);
-    }
-
-    room.on('connected', handleConnected);
-    room.on('disconnected', handleDisconnected);
+    updateConnectionState();
+    room.on('connected', updateConnectionState);
+    room.on('disconnected', updateConnectionState);
+    room.on('reconnecting', updateConnectionState);
 
     return () => {
-      room.off('connected', handleConnected);
-      room.off('disconnected', handleDisconnected);
+      room.off('connected', updateConnectionState);
+      room.off('disconnected', updateConnectionState);
+      room.off('reconnecting', updateConnectionState);
     };
   }, [room]);
 
-  // Send changes via LiveKit data channel
-  const sendChanges = useCallback((changes) => {
-    // Only send if room is connected
-    if (!room?.localParticipant || !isConnected || room.state !== 'connected') return;
+  // Send snapshot via LiveKit data channel
+  const sendSnapshot = useCallback((snapshot) => {
+    if (!room?.localParticipant || !isConnected || room.state !== 'connected') {
+      return;
+    }
+
+    // Don't send if it's the same as last sent
+    const snapshotStr = JSON.stringify(snapshot);
+    if (snapshotStr === lastSentRef.current) {
+      return;
+    }
+    lastSentRef.current = snapshotStr;
 
     try {
       const data = JSON.stringify({
-        type: 'whiteboard',
-        changes,
+        type: 'whiteboard_sync',
+        snapshot,
         timestamp: Date.now(),
+        sender: room.localParticipant.identity,
       });
 
       room.localParticipant.publishData(
@@ -53,14 +74,14 @@ function useWhiteboardSync() {
         { reliable: true }
       );
     } catch (error) {
-      // Silently ignore connection errors - they're expected during connect/disconnect
-      if (!error.message?.includes('closed')) {
-        console.error('Failed to send whiteboard changes:', error);
+      // Silently ignore connection errors
+      if (!error.message?.includes('closed') && !error.message?.includes('PC manager')) {
+        console.error('Failed to send whiteboard sync:', error);
       }
     }
   }, [room, isConnected]);
 
-  // Listen for remote changes
+  // Listen for remote snapshots
   useEffect(() => {
     if (!room) return;
 
@@ -72,11 +93,11 @@ function useWhiteboardSync() {
         const text = new TextDecoder().decode(payload);
         const data = JSON.parse(text);
 
-        if (data.type === 'whiteboard') {
-          setRemoteChanges(prev => [...prev, data.changes]);
+        if (data.type === 'whiteboard_sync' && data.snapshot) {
+          setRemoteSnapshot(data.snapshot);
         }
       } catch (error) {
-        // Not a whiteboard message or parse error
+        // Ignore parse errors
       }
     };
 
@@ -87,133 +108,111 @@ function useWhiteboardSync() {
     };
   }, [room]);
 
-  return { sendChanges, remoteChanges, clearRemoteChanges: () => setRemoteChanges([]) };
+  return { sendSnapshot, remoteSnapshot, clearRemoteSnapshot: () => setRemoteSnapshot(null), isConnected };
 }
 
-// Inner component that uses tldraw's useEditor hook
-function WhiteboardInner({ sessionId, onChanges }) {
-  const editor = useEditor();
-  const { sendChanges, remoteChanges, clearRemoteChanges } = useWhiteboardSync();
-  const isApplyingRemote = useRef(false);
+/**
+ * Main Whiteboard Component
+ */
+export function CollaborativeWhiteboard({ sessionId }) {
+  const { sendSnapshot, remoteSnapshot, clearRemoteSnapshot, isConnected } = useWhiteboardSync();
+  const editorRef = useRef(null);
+  const isApplyingRemoteRef = useRef(false);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-  // Debounced change handler
-  const debouncedSend = useCallback(
-    debounce((changes) => {
-      if (!isApplyingRemote.current) {
-        sendChanges(changes);
-        onChanges?.(changes);
+  // Update connection status
+  useEffect(() => {
+    setConnectionStatus(isConnected ? 'connected' : 'connecting');
+  }, [isConnected]);
+
+  // Debounced sync function
+  const debouncedSync = useCallback(
+    debounce((editor) => {
+      if (isApplyingRemoteRef.current || !editor) return;
+
+      try {
+        // Get document snapshot for sync
+        const snapshot = editor.store.getSnapshot();
+        sendSnapshot({
+          document: snapshot.document,
+          schema: snapshot.schema,
+        });
+      } catch (error) {
+        console.error('Failed to get snapshot:', error);
       }
-    }, 50),
-    [sendChanges, onChanges]
+    }, 100),
+    [sendSnapshot]
   );
 
-  // Listen to local changes
+  // Apply remote snapshot
   useEffect(() => {
-    if (!editor) return;
+    if (!remoteSnapshot || !editorRef.current) return;
 
-    const handleChange = (change) => {
-      // Don't broadcast if we're applying remote changes
-      if (isApplyingRemote.current) return;
+    isApplyingRemoteRef.current = true;
 
-      // Extract relevant change info
-      const changes = {
-        source: change.source,
-        changes: {
-          added: change.changes?.added,
-          updated: change.changes?.updated,
-          removed: change.changes?.removed,
-        },
-      };
+    try {
+      const editor = editorRef.current;
 
-      debouncedSend(changes);
-    };
+      // Load the remote snapshot
+      if (remoteSnapshot.document) {
+        editor.store.loadSnapshot({
+          document: remoteSnapshot.document,
+          schema: remoteSnapshot.schema,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to apply remote snapshot:', error);
+    } finally {
+      isApplyingRemoteRef.current = false;
+      clearRemoteSnapshot();
+    }
+  }, [remoteSnapshot, clearRemoteSnapshot]);
 
-    // Subscribe to store changes
-    const unsubscribe = editor.store.listen(handleChange, { source: 'user' });
+  // Handle editor mount
+  const handleMount = useCallback((editor) => {
+    editorRef.current = editor;
+
+    // Listen to store changes
+    const unsubscribe = editor.store.listen(
+      (entry) => {
+        // Only sync user changes, not remote changes
+        if (entry.source === 'user' && !isApplyingRemoteRef.current) {
+          debouncedSync(editor);
+        }
+      },
+      { source: 'user', scope: 'document' }
+    );
+
+    // Initial zoom
+    editor.zoomToFit();
 
     return () => {
       unsubscribe();
+      editorRef.current = null;
     };
-  }, [editor, debouncedSend]);
-
-  // Apply remote changes
-  useEffect(() => {
-    if (!editor || remoteChanges.length === 0) return;
-
-    isApplyingRemote.current = true;
-
-    try {
-      remoteChanges.forEach((changes) => {
-        // Apply shape changes
-        if (changes.changes) {
-          const { added, updated, removed } = changes.changes;
-
-          if (added && Object.keys(added).length > 0) {
-            Object.values(added).forEach((shape) => {
-              if (shape && shape.typeName === 'shape') {
-                editor.createShape(shape);
-              }
-            });
-          }
-
-          if (updated && Object.keys(updated).length > 0) {
-            Object.entries(updated).forEach(([id, update]) => {
-              if (update && update[1]) {
-                editor.updateShape({ id, ...update[1] });
-              }
-            });
-          }
-
-          if (removed && Object.keys(removed).length > 0) {
-            const shapeIds = Object.keys(removed).filter((id) => id.startsWith('shape:'));
-            if (shapeIds.length > 0) {
-              editor.deleteShapes(shapeIds);
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error applying remote changes:', error);
-    } finally {
-      isApplyingRemote.current = false;
-      clearRemoteChanges();
-    }
-  }, [editor, remoteChanges, clearRemoteChanges]);
-
-  return null;
-}
-
-export function CollaborativeWhiteboard({ sessionId, onSave }) {
-  const [store] = useState(() => createTLStore({ shapeUtils: defaultShapeUtils }));
-
-  const handleMount = useCallback((editor) => {
-    // Set initial zoom and center
-    editor.zoomToFit();
-  }, []);
-
-  const handleChanges = useCallback((changes) => {
-    // Auto-save periodically (handled by parent)
-    onSave?.(changes);
-  }, [onSave]);
+  }, [debouncedSync]);
 
   return (
-    <div className="h-full w-full relative">
-      {/* Whiteboard header */}
-      <div className="absolute top-0 left-0 right-0 bg-white border-b z-10 px-3 py-2 flex items-center justify-between">
+    <div className="h-full w-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50">
         <span className="text-sm font-medium text-gray-700">Whiteboard</span>
-        <span className="text-xs text-gray-400">Collaborative</span>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'
+          }`} />
+          <span className="text-xs text-gray-500">
+            {connectionStatus === 'connected' ? 'Synced' : 'Syncing...'}
+          </span>
+        </div>
       </div>
 
-      {/* tldraw container */}
-      <div className="h-full pt-10">
+      {/* Tldraw canvas */}
+      <div className="flex-1 min-h-0">
         <Tldraw
-          store={store}
           onMount={handleMount}
-          hideUi={false}
-          className="h-full"
-        >
-          <WhiteboardInner sessionId={sessionId} onChanges={handleChanges} />
-        </Tldraw>
+          autoFocus={false}
+        />
       </div>
     </div>
   );
