@@ -430,7 +430,7 @@ router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
         items: {
           include: {
             course: true,
-            track: { include: { courses: true } },
+            learningPack: { include: { courses: true } },
           },
         },
         payments: {
@@ -683,7 +683,7 @@ async function processApprovedPayment(prisma, order, paymentResult, userId) {
       items: {
         include: {
           course: true,
-          track: { include: { courses: true } },
+          learningPack: { include: { courses: true } },
         },
       },
       user: true,
@@ -735,18 +735,18 @@ async function processEnrollments(prisma, order) {
 
   // Process each order item
   for (const item of order.items) {
-    // Track enrollment
-    if (item.trackId && item.track) {
+    // Learning pack enrollment
+    if (item.learningPackId && item.learningPack) {
       await prisma.enrollment.create({
         data: {
           userId: user.id,
-          trackId: item.trackId,
+          learningPackId: item.learningPackId,
           status: 'active',
         },
       });
 
-      // Enroll in each course of the track
-      for (const course of item.track.courses || []) {
+      // Enroll in each course of the learning pack
+      for (const course of item.learningPack.courses || []) {
         const enrollment = await prisma.enrollment.create({
           data: {
             userId: user.id,
