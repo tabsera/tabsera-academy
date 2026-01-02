@@ -319,11 +319,12 @@ router.post('/callback', async (req, res, next) => {
         items: {
           include: {
             course: true,
-            track: {
+            learningPack: {
               include: {
                 courses: true,
               },
             },
+            tuitionPack: true,
           },
         },
         user: true,
@@ -431,6 +432,7 @@ router.get('/verify/:referenceId', authenticate, async (req, res, next) => {
           include: {
             course: true,
             learningPack: { include: { courses: true } },
+            tuitionPack: true,
           },
         },
         payments: {
@@ -684,6 +686,7 @@ async function processApprovedPayment(prisma, order, paymentResult, userId) {
         include: {
           course: true,
           learningPack: { include: { courses: true } },
+          tuitionPack: true,
         },
       },
       user: true,
@@ -781,6 +784,26 @@ async function processEnrollments(prisma, order) {
           }
         }
       }
+    }
+
+    // Tuition pack purchase - create credit record
+    if (item.tuitionPackId && item.tuitionPack) {
+      const tuitionPack = item.tuitionPack;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (tuitionPack.validityDays || 30));
+
+      await prisma.tuitionPackPurchase.create({
+        data: {
+          userId: user.id,
+          tuitionPackId: item.tuitionPackId,
+          orderId: order.id,
+          creditsTotal: tuitionPack.creditsIncluded,
+          creditsRemaining: tuitionPack.creditsIncluded,
+          expiresAt,
+        },
+      });
+
+      console.log(`Created tuition pack purchase: ${tuitionPack.creditsIncluded} credits for user ${user.id}`);
     }
 
     // Single course enrollment
