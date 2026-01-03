@@ -33,6 +33,8 @@ import {
   Minimize,
   Video,
   Monitor,
+  Timer,
+  AlertTriangle,
 } from 'lucide-react';
 import CollaborativeWhiteboard from './CollaborativeWhiteboard';
 import { tutorsApi } from '@/api/tutors';
@@ -165,6 +167,83 @@ export function VideoRoom({
 }
 
 /**
+ * Session Countdown Timer
+ */
+function SessionCountdown({ sessionInfo }) {
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [isWarning, setIsWarning] = useState(false);
+  const [isOvertime, setIsOvertime] = useState(false);
+
+  useEffect(() => {
+    if (!sessionInfo?.scheduledAt || !sessionInfo?.duration) return;
+
+    const calculateTimeRemaining = () => {
+      const startTime = new Date(sessionInfo.scheduledAt).getTime();
+      const duration = (sessionInfo.duration || 20) * 60 * 1000; // duration in ms
+      const endTime = startTime + duration;
+      const now = Date.now();
+      const remaining = endTime - now;
+
+      if (remaining <= 0) {
+        setIsOvertime(true);
+        setIsWarning(false);
+        setTimeRemaining(Math.abs(remaining));
+      } else {
+        setIsOvertime(false);
+        setIsWarning(remaining <= 5 * 60 * 1000); // Warning at 5 minutes
+        setTimeRemaining(remaining);
+      }
+    };
+
+    // Calculate immediately
+    calculateTimeRemaining();
+
+    // Update every second
+    const interval = setInterval(calculateTimeRemaining, 1000);
+
+    return () => clearInterval(interval);
+  }, [sessionInfo?.scheduledAt, sessionInfo?.duration]);
+
+  if (timeRemaining === null) return null;
+
+  // Format time as mm:ss or hh:mm:ss
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+        isOvertime
+          ? 'bg-red-600/30 text-red-300'
+          : isWarning
+          ? 'bg-yellow-600/30 text-yellow-300 animate-pulse'
+          : 'bg-gray-700 text-gray-300'
+      }`}
+      title={isOvertime ? 'Session has gone overtime' : 'Time remaining'}
+    >
+      {isOvertime ? (
+        <AlertTriangle className="w-3.5 h-3.5" />
+      ) : (
+        <Timer className="w-3.5 h-3.5" />
+      )}
+      <span className="tabular-nums">
+        {isOvertime ? '+' : ''}{formatTime(timeRemaining)}
+      </span>
+      {isOvertime && <span className="hidden sm:inline ml-1">overtime</span>}
+    </div>
+  );
+}
+
+/**
  * Room header
  */
 function RoomHeader({
@@ -194,6 +273,8 @@ function RoomHeader({
             REC
           </div>
         )}
+        {/* Countdown Timer */}
+        <SessionCountdown sessionInfo={sessionInfo} />
       </div>
 
       {/* Center: View mode buttons */}
