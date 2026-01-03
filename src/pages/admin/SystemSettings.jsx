@@ -477,15 +477,16 @@ function SystemSettings() {
                               <div className="bg-white p-4 rounded-lg border border-gray-200">
                                 <p className="font-semibold text-gray-900 mb-2">Fulltime Tutor (1x credit)</p>
                                 <div className="space-y-1 text-gray-600">
-                                  <p>• Student pays: <span className="font-medium text-gray-900">${baseCreditPrice.toFixed(2)}/session</span></p>
-                                  <p>• Hourly rate: <span className="font-medium text-gray-900">${baseHourlyRate.toFixed(2)}/hour</span></p>
+                                  <p>• Per session: <span className="font-medium text-gray-900">1 credit = ${baseCreditPrice.toFixed(2)}</span></p>
+                                  <p>• Per hour: <span className="font-medium text-gray-900">{sessionsPerHour} credits = ${baseHourlyRate.toFixed(2)}</span></p>
                                 </div>
                               </div>
                               {/* Freelance Tutor */}
                               <div className="bg-white p-4 rounded-lg border border-purple-200 bg-purple-50">
                                 <p className="font-semibold text-purple-900 mb-2">Freelance @ ${minHourlyRate.toFixed(2)}/hr ({creditFactor}x credit)</p>
                                 <div className="space-y-1 text-gray-600">
-                                  <p>• Student pays: <span className="font-medium text-gray-900">${studentPaysPerSession.toFixed(2)}/session</span> ({creditFactor} × ${baseCreditPrice.toFixed(2)})</p>
+                                  <p>• Per session: <span className="font-medium text-gray-900">{creditFactor} credits = ${studentPaysPerSession.toFixed(2)}</span></p>
+                                  <p>• Per hour: <span className="font-medium text-gray-900">{creditFactor * sessionsPerHour} credits = ${(studentPaysPerSession * sessionsPerHour).toFixed(2)}</span></p>
                                   <p>• Tutor net: <span className="font-medium text-green-600">${tutorNetHourly.toFixed(2)}/hour</span> (after {commissionPercent}%)</p>
                                 </div>
                               </div>
