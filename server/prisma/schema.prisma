@@ -575,7 +575,7 @@ model TutorSession {
   courseId           String?       @map("course_id")
   contractId         String?       @map("contract_id")  // For recurring sessions
   scheduledAt        DateTime      @map("scheduled_at") // Session start time (UTC)
-  duration           Int           @default(20) // minutes (changed from 10 to 20)
+  duration           Int           @default(10) // minutes (10 min per credit)
   status             SessionStatus @default(SCHEDULED)
   creditsConsumed    Int           @default(1) @map("credits_consumed") // Credits deducted for this session
   creditsRefunded    Boolean       @default(false) @map("credits_refunded") // True if credits were refunded on cancellation

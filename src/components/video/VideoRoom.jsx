@@ -179,7 +179,7 @@ function SessionCountdown({ sessionInfo }) {
 
     const calculateTimeRemaining = () => {
       const startTime = new Date(sessionInfo.scheduledAt).getTime();
-      const duration = (sessionInfo.duration || 20) * 60 * 1000; // duration in ms
+      const duration = (sessionInfo.duration || 10) * 60 * 1000; // duration in ms
       const endTime = startTime + duration;
       const now = Date.now();
       const remaining = endTime - now;

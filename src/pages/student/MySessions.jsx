@@ -44,7 +44,7 @@ function MySessions() {
         // For sessions without vimeoVideoId, only check if more than 1 hour old
         const sessionEndTime = s.endedAt
           ? new Date(s.endedAt).getTime()
-          : new Date(s.scheduledAt).getTime() + (s.duration || 20) * 60 * 1000;
+          : new Date(s.scheduledAt).getTime() + (s.duration || 10) * 60 * 1000;
         return sessionEndTime < oneHourAgo;
       });
 
@@ -315,7 +315,7 @@ function MySessions() {
                         <Clock size={16} className="text-gray-400" />
                         {session.status === 'COMPLETED' && session.actualDuration
                           ? `${session.actualDuration} min`
-                          : `${session.duration || 20} min`}
+                          : `${session.duration || 10} min`}
                       </p>
                     </div>
 

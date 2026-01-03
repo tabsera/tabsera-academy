@@ -41,7 +41,7 @@ function TutorSessions() {
         // For sessions without vimeoVideoId, only check if more than 1 hour old
         const sessionEndTime = s.endedAt
           ? new Date(s.endedAt).getTime()
-          : new Date(s.scheduledAt).getTime() + (s.duration || 20) * 60 * 1000;
+          : new Date(s.scheduledAt).getTime() + (s.duration || 10) * 60 * 1000;
         return sessionEndTime < oneHourAgo;
       });
 
@@ -235,7 +235,7 @@ function TutorSessions() {
                           <p className="text-base sm:text-lg font-semibold text-gray-900">
                             {session.status === 'COMPLETED' && session.actualDuration
                               ? `${session.actualDuration} min`
-                              : `${session.duration || 20} min`}
+                              : `${session.duration || 10} min`}
                           </p>
                         </div>
                       </div>

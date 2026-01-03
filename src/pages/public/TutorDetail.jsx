@@ -14,10 +14,12 @@ import {
   User, GraduationCap, FileText, ArrowLeft, DollarSign
 } from 'lucide-react';
 
-// Duration options for session booking (20 or 40 min only)
+// Duration options for session booking
 const DURATION_OPTIONS = [
-  { slots: 1, label: '20 min', duration: 20 },
-  { slots: 2, label: '40 min', duration: 40 },
+  { slots: 1, label: '10 min', duration: 10 },
+  { slots: 2, label: '20 min', duration: 20 },
+  { slots: 4, label: '40 min', duration: 40 },
+  { slots: 6, label: '60 min', duration: 60 },
 ];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -410,9 +412,9 @@ function TutorDetail() {
                 </div>
                 <p className="text-xs sm:text-sm text-indigo-600">
                   {creditsPerSession === 1 ? (
-                    <>Each 20-minute session uses 1 credit.</>
+                    <>Each 10-minute session uses 1 credit.</>
                   ) : (
-                    <>This tutor charges {creditsPerSession} credits per 20-minute session.</>
+                    <>This tutor charges {creditsPerSession} credits per 10-minute session.</>
                   )}
                   {' '}Purchase credits from the Tuition Packs page.
                 </p>

@@ -15,14 +15,14 @@ const router = express.Router();
 // ============================================
 // SESSION TIMING CONSTANTS
 // ============================================
-const SESSION_DURATION = 20;  // minutes per session
+const SESSION_DURATION = 10;  // minutes per session
 const PREP_TIME = 10;         // minutes between sessions (for slot scheduling only)
-const SLOT_INTERVAL = 30;     // total slot time (session + prep)
-const MAX_SLOTS = 2;          // maximum consecutive slots (40 min total)
+const SLOT_INTERVAL = 20;     // total slot time (session + prep)
+const MAX_SLOTS = 6;          // maximum consecutive slots (60 min total)
 
 /**
  * Calculate total session duration for multiple slots
- * 1 slot = 20 min, 2 slots = 40 min
+ * 1 slot = 10 min, 2 slots = 20 min, 4 slots = 40 min, 6 slots = 60 min
  */
 function calculateTotalDuration(slotCount) {
   return slotCount * SESSION_DURATION;
@@ -1478,8 +1478,8 @@ router.get('/:id/slots', async (req, res, next) => {
       select: { scheduledAt: true, duration: true },
     });
 
-    // Generate available slots at 30-minute intervals (for 20-min sessions + 10-min prep)
-    // Slots start at :00 and :30 (top of hour and half hour)
+    // Generate available slots at 20-minute intervals (for 10-min sessions + 10-min prep)
+    // Slots start at :00, :20, and :40
     // Convert tutor's local availability times to UTC
     const tutorTz = tutor.timezone || 'UTC';
     const slots = [];
@@ -1503,12 +1503,13 @@ router.get('/:id/slots', async (req, res, next) => {
       current = new Date(current.getTime() - tutorOffset * 60 * 1000);
       const endUtc = new Date(new Date(endDateStr).getTime() - tutorOffset * 60 * 1000);
 
-      // Round start time to nearest :00 or :30
+      // Round start time to nearest :00, :20, or :40
       const currentMinutes = current.getMinutes();
-      if (currentMinutes !== 0 && currentMinutes !== 30) {
-        const roundUp = currentMinutes < 30 ? 30 : 60;
-        current.setMinutes(roundUp === 60 ? 0 : 30, 0, 0);
-        if (roundUp === 60) current.setHours(current.getHours() + 1);
+      if (currentMinutes !== 0 && currentMinutes !== 20 && currentMinutes !== 40) {
+        // Round up to next valid slot time
+        const nextSlot = currentMinutes < 20 ? 20 : currentMinutes < 40 ? 40 : 60;
+        current.setMinutes(nextSlot === 60 ? 0 : nextSlot, 0, 0);
+        if (nextSlot === 60) current.setHours(current.getHours() + 1);
       }
 
       while (current < endUtc) {
@@ -1558,11 +1559,11 @@ router.get('/:id/slots', async (req, res, next) => {
  * - scheduledAt: ISO date string for session start
  * - courseId: (optional) course being tutored
  * - topic: (optional) session topic
- * - slotCount: (optional, default 1) number of consecutive 30-min slots (1-4)
- *   - 1 slot = 20 min session
- *   - 2 slots = 50 min session (20 + 10 prep + 20)
- *   - 3 slots = 80 min session
- *   - 4 slots = 110 min session
+ * - slotCount: (optional, default 1) number of consecutive slots (1, 2, 4, or 6)
+ *   - 1 slot = 10 min session
+ *   - 2 slots = 20 min session
+ *   - 4 slots = 40 min session
+ *   - 6 slots = 60 min session
  */
 router.post('/:id/book', authenticate, async (req, res, next) => {
   try {
@@ -1577,12 +1578,13 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
       });
     }
 
-    // Validate slotCount
+    // Validate slotCount - only 1, 2, 4, or 6 allowed
     const slots = parseInt(slotCount);
-    if (isNaN(slots) || slots < 1 || slots > MAX_SLOTS) {
+    const validSlotCounts = [1, 2, 4, 6];
+    if (isNaN(slots) || !validSlotCounts.includes(slots)) {
       return res.status(400).json({
         success: false,
-        message: `slotCount must be between 1 and ${MAX_SLOTS}`,
+        message: 'slotCount must be 1, 2, 4, or 6',
       });
     }
 
@@ -1656,7 +1658,7 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
     const totalDuration = calculateTotalDuration(slots);
     const sessionEnd = new Date(scheduledTime.getTime() + totalDuration * 60 * 1000);
 
-    // Check each 30-min slot for conflicts
+    // Check each 20-min slot for conflicts
     for (let i = 0; i < slots; i++) {
       const slotStart = new Date(scheduledTime.getTime() + (i * SLOT_INTERVAL * 60 * 1000));
       const slotEnd = new Date(slotStart.getTime() + SLOT_INTERVAL * 60 * 1000);
@@ -2759,12 +2761,13 @@ router.post('/:id/recurring-contract', authenticate, async (req, res, next) => {
       });
     }
 
-    // Validate slotCount
+    // Validate slotCount - only 1, 2, 4, or 6 allowed
     const slots = parseInt(slotCount);
-    if (isNaN(slots) || slots < 1 || slots > MAX_SLOTS) {
+    const validSlotCounts = [1, 2, 4, 6];
+    if (isNaN(slots) || !validSlotCounts.includes(slots)) {
       return res.status(400).json({
         success: false,
-        message: `slotCount must be between 1 and ${MAX_SLOTS}`,
+        message: 'slotCount must be 1, 2, 4, or 6',
       });
     }
 

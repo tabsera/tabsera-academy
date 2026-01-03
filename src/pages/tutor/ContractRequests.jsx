@@ -83,11 +83,11 @@ function ContractRequests() {
 
   const getDurationLabel = (slotCount) => {
     switch (slotCount) {
-      case 1: return '20 min';
-      case 2: return '50 min';
-      case 3: return '80 min';
-      case 4: return '110 min';
-      default: return '20 min';
+      case 1: return '10 min';
+      case 2: return '20 min';
+      case 4: return '40 min';
+      case 6: return '60 min';
+      default: return '10 min';
     }
   };
 

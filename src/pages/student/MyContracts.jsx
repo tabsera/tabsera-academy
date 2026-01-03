@@ -149,7 +149,7 @@ function MyContracts() {
                       {contract.daysOfWeek.map(d => DAYS[d]).join(', ')} at {contract.timeSlot}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      {contract.slotCount === 1 ? '20 min' : contract.slotCount === 2 ? '50 min' : contract.slotCount === 3 ? '80 min' : '110 min'} sessions
+                      {contract.slotCount === 1 ? '10 min' : contract.slotCount === 2 ? '20 min' : contract.slotCount === 4 ? '40 min' : '60 min'} sessions
                     </p>
                   </div>
 

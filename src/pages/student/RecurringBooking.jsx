@@ -23,10 +23,12 @@ const DAYS_OF_WEEK = [
   { id: 6, name: 'Saturday', short: 'Sat' },
 ];
 
-// Duration options (20 or 40 min only)
+// Duration options
 const DURATION_OPTIONS = [
-  { slots: 1, label: '20 min', duration: 20 },
-  { slots: 2, label: '40 min', duration: 40 },
+  { slots: 1, label: '10 min', duration: 10 },
+  { slots: 2, label: '20 min', duration: 20 },
+  { slots: 4, label: '40 min', duration: 40 },
+  { slots: 6, label: '60 min', duration: 60 },
 ];
 
 function RecurringBooking() {
@@ -74,7 +76,8 @@ function RecurringBooking() {
           const endHour = parseInt(slot.endTime.split(':')[0]);
           for (let h = startHour; h < endHour; h++) {
             slots.add(`${h.toString().padStart(2, '0')}:00`);
-            slots.add(`${h.toString().padStart(2, '0')}:30`);
+            slots.add(`${h.toString().padStart(2, '0')}:20`);
+            slots.add(`${h.toString().padStart(2, '0')}:40`);
           }
         });
         setAvailableSlots(Array.from(slots).sort());
@@ -304,17 +307,23 @@ function RecurringBooking() {
                 ) : (
                   <>
                     <option value="09:00">09:00</option>
-                    <option value="09:30">09:30</option>
+                    <option value="09:20">09:20</option>
+                    <option value="09:40">09:40</option>
                     <option value="10:00">10:00</option>
-                    <option value="10:30">10:30</option>
+                    <option value="10:20">10:20</option>
+                    <option value="10:40">10:40</option>
                     <option value="11:00">11:00</option>
-                    <option value="11:30">11:30</option>
+                    <option value="11:20">11:20</option>
+                    <option value="11:40">11:40</option>
                     <option value="14:00">14:00</option>
-                    <option value="14:30">14:30</option>
+                    <option value="14:20">14:20</option>
+                    <option value="14:40">14:40</option>
                     <option value="15:00">15:00</option>
-                    <option value="15:30">15:30</option>
+                    <option value="15:20">15:20</option>
+                    <option value="15:40">15:40</option>
                     <option value="16:00">16:00</option>
-                    <option value="16:30">16:30</option>
+                    <option value="16:20">16:20</option>
+                    <option value="16:40">16:40</option>
                   </>
                 )}
               </select>
