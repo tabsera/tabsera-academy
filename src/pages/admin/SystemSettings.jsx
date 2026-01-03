@@ -78,7 +78,7 @@ function SystemSettings() {
     freelanceCommissionPercent: '40',
     minHourlyRate: '3.00',
     maxHourlyRate: '100.00',
-    sessionDuration: '20',
+    sessionDuration: '10',
     prepTime: '10',
   });
 
@@ -330,7 +330,7 @@ function SystemSettings() {
                           onChange={(e) => setTutoringSettings(s => ({ ...s, sessionDuration: e.target.value }))}
                           className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Duration of each tutoring session</p>
+                        <p className="text-xs text-gray-500 mt-1">Base session duration (1 credit = 1 session)</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Prep Time (minutes)</label>
@@ -416,31 +416,71 @@ function SystemSettings() {
 
                   <div className="pt-6 border-t border-gray-100">
                     <h3 className="font-semibold text-gray-900 mb-4">Pricing Preview</h3>
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="grid md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-600">Sessions per hour:</p>
-                          <p className="font-semibold text-gray-900">
-                            {Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))} sessions
-                          </p>
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+                      {/* Session Timing */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">Session Timing</p>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-600">Slot interval:</p>
+                            <p className="font-semibold text-gray-900">
+                              {parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)} min
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Sessions per hour:</p>
+                            <p className="font-semibold text-gray-900">
+                              {Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))} sessions
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Slots start at:</p>
+                            <p className="font-semibold text-gray-900">:00, :20, :40</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-gray-600">Base hourly rate (fulltime):</p>
-                          <p className="font-semibold text-gray-900">
-                            ${(parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))).toFixed(2)}/hour
-                          </p>
+                      </div>
+
+                      {/* Duration Options */}
+                      <div className="pt-4 border-t border-gray-200">
+                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">Duration Options (Fixed)</p>
+                        <div className="grid grid-cols-4 gap-2 text-sm">
+                          {[
+                            { slots: 1, label: '10 min', credits: 1 },
+                            { slots: 2, label: '20 min', credits: 2 },
+                            { slots: 4, label: '40 min', credits: 4 },
+                            { slots: 6, label: '60 min', credits: 6 },
+                          ].map(opt => (
+                            <div key={opt.slots} className="bg-white p-3 rounded-lg border border-gray-200 text-center">
+                              <p className="font-semibold text-gray-900">{opt.label}</p>
+                              <p className="text-xs text-gray-500">{opt.credits} credit{opt.credits > 1 ? 's' : ''}</p>
+                              <p className="text-xs text-blue-600 font-medium">${(parseFloat(tutoringSettings.baseCreditPrice) * opt.credits).toFixed(2)}</p>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-gray-600">Example: Freelance tutor at ${tutoringSettings.minHourlyRate}/hour</p>
-                          <p className="font-semibold text-gray-900">
-                            Credit factor: {Math.ceil(parseFloat(tutoringSettings.minHourlyRate) / (parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))))} credits/session
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Tutor earnings (after {tutoringSettings.freelanceCommissionPercent}% commission):</p>
-                          <p className="font-semibold text-green-600">
-                            ${(parseFloat(tutoringSettings.minHourlyRate) * (1 - parseFloat(tutoringSettings.freelanceCommissionPercent) / 100)).toFixed(2)}/hour net
-                          </p>
+                      </div>
+
+                      {/* Freelance Tutor Example */}
+                      <div className="pt-4 border-t border-gray-200">
+                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">Freelance Tutor Example (at ${tutoringSettings.minHourlyRate}/hour)</p>
+                        <div className="grid md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-600">Credit factor:</p>
+                            <p className="font-semibold text-gray-900">
+                              {Math.ceil(parseFloat(tutoringSettings.minHourlyRate) / (parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))))}x per {tutoringSettings.sessionDuration} min session
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Student pays (10 min):</p>
+                            <p className="font-semibold text-gray-900">
+                              ${(parseFloat(tutoringSettings.baseCreditPrice) * Math.ceil(parseFloat(tutoringSettings.minHourlyRate) / (parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))))).toFixed(2)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Tutor net (after {tutoringSettings.freelanceCommissionPercent}%):</p>
+                            <p className="font-semibold text-green-600">
+                              ${(parseFloat(tutoringSettings.minHourlyRate) * (1 - parseFloat(tutoringSettings.freelanceCommissionPercent) / 100)).toFixed(2)}/hour
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>

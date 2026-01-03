@@ -4134,34 +4134,65 @@ router.put('/settings/:key', async (req, res, next) => {
 /**
  * POST /api/admin/settings/bulk
  * Update multiple settings at once
+ * Accepts either: { settings: [{key, value, description}, ...] } (array format)
+ * Or: { settings: { key: value, ... } } (object format)
  */
 router.post('/settings/bulk', async (req, res, next) => {
   try {
     const { settings } = req.body;
 
-    if (!settings || typeof settings !== 'object') {
+    if (!settings) {
       return res.status(400).json({
         success: false,
-        message: 'Settings object is required',
+        message: 'Settings are required',
       });
     }
 
     const results = [];
 
-    for (const [key, value] of Object.entries(settings)) {
-      const setting = await req.prisma.systemSettings.upsert({
-        where: { key },
-        create: {
-          key,
-          value: String(value),
-          updatedBy: req.user.id,
-        },
-        update: {
-          value: String(value),
-          updatedBy: req.user.id,
-        },
+    // Handle array format: [{key, value, description}, ...]
+    if (Array.isArray(settings)) {
+      for (const item of settings) {
+        if (!item.key) continue;
+        const setting = await req.prisma.systemSettings.upsert({
+          where: { key: item.key },
+          create: {
+            key: item.key,
+            value: String(item.value),
+            description: item.description || null,
+            updatedBy: req.user.id,
+          },
+          update: {
+            value: String(item.value),
+            description: item.description || undefined,
+            updatedBy: req.user.id,
+          },
+        });
+        results.push(setting);
+      }
+    }
+    // Handle object format: { key: value, ... }
+    else if (typeof settings === 'object') {
+      for (const [key, value] of Object.entries(settings)) {
+        const setting = await req.prisma.systemSettings.upsert({
+          where: { key },
+          create: {
+            key,
+            value: String(value),
+            updatedBy: req.user.id,
+          },
+          update: {
+            value: String(value),
+            updatedBy: req.user.id,
+          },
+        });
+        results.push(setting);
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Settings must be an array or object',
       });
-      results.push(setting);
     }
 
     res.json({
