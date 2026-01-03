@@ -8,7 +8,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, User, Calendar, Video, Menu, X, Bell,
-  LogOut, ChevronDown, ExternalLink, BookOpen
+  LogOut, ChevronDown, ExternalLink, BookOpen, Repeat
 } from 'lucide-react';
 
 const TutorLayout = () => {
@@ -30,6 +30,7 @@ const TutorLayout = () => {
     { path: '/tutor/profile', icon: User, label: 'My Profile' },
     { path: '/tutor/availability', icon: Calendar, label: 'Availability' },
     { path: '/tutor/sessions', icon: Video, label: 'Sessions' },
+    { path: '/tutor/contracts', icon: Repeat, label: 'Recurring Sessions' },
   ];
 
   const handleLogout = async () => {

@@ -3003,6 +3003,109 @@ router.get('/contracts/:id', authenticate, async (req, res, next) => {
 });
 
 /**
+ * PUT /api/tutors/contracts/:id
+ * Update a pending contract (student only, before tutor accepts)
+ */
+router.put('/contracts/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, daysOfWeek, timeSlot, slotCount, topic } = req.body;
+
+    const contract = await req.prisma.recurringSessionContract.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        course: { select: { id: true, title: true } },
+      },
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contract not found',
+      });
+    }
+
+    // Only the student who created the contract can update it
+    if (req.user.id !== contract.studentId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this contract',
+      });
+    }
+
+    // Only pending contracts can be updated
+    if (contract.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only pending contracts can be updated',
+      });
+    }
+
+    // Validate slot count
+    const validSlotCounts = [1, 2, 4, 6];
+    if (slotCount && !validSlotCounts.includes(slotCount)) {
+      return res.status(400).json({
+        success: false,
+        message: 'slotCount must be 1, 2, 4, or 6',
+      });
+    }
+
+    // Calculate new total sessions and credits
+    let totalSessions = 0;
+    const start = new Date(startDate || contract.startDate);
+    const end = new Date(endDate || contract.endDate);
+    const days = daysOfWeek || contract.daysOfWeek;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (days.includes(d.getDay())) totalSessions++;
+    }
+
+    const slots = slotCount || contract.slotCount;
+    const creditFactor = contract.tutorProfile.creditFactor || 1;
+    const courseCreditFactor = contract.course?.creditsFactor || 1;
+    const totalCredits = totalSessions * slots * creditFactor * courseCreditFactor;
+
+    // Update contract
+    const updatedContract = await req.prisma.recurringSessionContract.update({
+      where: { id },
+      data: {
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        daysOfWeek: daysOfWeek || undefined,
+        timeSlot: timeSlot || undefined,
+        slotCount: slotCount || undefined,
+        topic: topic !== undefined ? topic : undefined,
+        totalCredits,
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        tutorProfile: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        course: { select: { id: true, title: true } },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Contract updated successfully',
+      contract: updatedContract,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/tutors/contracts/:id/respond
  * Tutor responds to contract (accept/reject)
  */

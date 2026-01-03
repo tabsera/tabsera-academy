@@ -355,6 +355,15 @@ export const tutorsApi = {
   },
 
   /**
+   * Update a pending contract (before tutor accepts)
+   * @param {string} contractId - Contract ID
+   * @param {Object} data - Updated contract data
+   */
+  async updateContract(contractId, data) {
+    return apiClient.put(`/tutors/contracts/${contractId}`, data);
+  },
+
+  /**
    * Cancel a contract
    * @param {string} contractId - Contract ID
    * @param {string} reason - Cancellation reason

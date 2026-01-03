@@ -30,7 +30,7 @@ const StudentLayout = () => {
     { path: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/student/my-learning', icon: BookOpen, label: 'My Learning' },
     { path: '/student/sessions', icon: Video, label: 'Tutoring Sessions' },
-    { path: '/student/contracts', icon: Repeat, label: 'Recurring Contracts' },
+    { path: '/student/contracts', icon: Repeat, label: 'Recurring Sessions' },
     { path: '/student/payments', icon: CreditCard, label: 'Payments' },
     { path: '/student/certificates', icon: Award, label: 'Certificates' },
     { path: '/student/profile', icon: User, label: 'Profile' },

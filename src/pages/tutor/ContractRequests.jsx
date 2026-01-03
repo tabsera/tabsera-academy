@@ -118,8 +118,8 @@ function ContractRequests() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contract Requests</h1>
-          <p className="text-gray-500">Review and respond to recurring session requests</p>
+          <h1 className="text-2xl font-bold text-gray-900">Recurring Session Requests</h1>
+          <p className="text-gray-500">Review and respond to student requests for recurring sessions</p>
         </div>
         {contracts.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl">

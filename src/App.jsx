@@ -87,6 +87,7 @@ import StudentProfile from './pages/student/StudentProfile';
 import MySessions from './pages/student/MySessions';
 import RecurringBooking from './pages/student/RecurringBooking';
 import MyContracts from './pages/student/MyContracts';
+import ContractEdit from './pages/student/ContractEdit';
 
 // Checkout Pages
 import Cart from './pages/checkout/Cart';
@@ -352,6 +353,7 @@ function App() {
         <Route path="profile" element={<StudentProfile />} />
         <Route path="sessions" element={<MySessions />} />
         <Route path="contracts" element={<MyContracts />} />
+        <Route path="contracts/:id/edit" element={<ContractEdit />} />
         <Route path="recurring-booking/:tutorId" element={<RecurringBooking />} />
       </Route>
 

@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Calendar, Clock, User, X,
-  CheckCircle, XCircle, CreditCard, Repeat, ChevronRight
+  CheckCircle, XCircle, CreditCard, Repeat, ChevronRight, Edit3
 } from 'lucide-react';
 
 const STATUS_STYLES = {
@@ -93,15 +93,15 @@ function MyContracts() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Recurring Sessions</h1>
-          <p className="text-gray-500">Manage your recurring session contracts</p>
+          <h1 className="text-2xl font-bold text-gray-900">Recurring Sessions</h1>
+          <p className="text-gray-500">Manage your recurring tutoring sessions</p>
         </div>
         <Link
           to="/tutors"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
         >
           <Repeat size={18} />
-          New Recurring Contract
+          New Recurring Session
         </Link>
       </div>
 
@@ -184,13 +184,23 @@ function MyContracts() {
                         Cancel
                       </button>
                     )}
-                    <Link
-                      to={`/student/contracts/${contract.id}`}
-                      className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200"
-                    >
-                      View
-                      <ChevronRight size={16} />
-                    </Link>
+                    {contract.status === 'PENDING' ? (
+                      <Link
+                        to={`/student/contracts/${contract.id}/edit`}
+                        className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                      >
+                        <Edit3 size={16} />
+                        Edit Contract
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/student/contracts/${contract.id}`}
+                        className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200"
+                      >
+                        View
+                        <ChevronRight size={16} />
+                      </Link>
+                    )}
                   </div>
                 </div>
 
@@ -220,7 +230,7 @@ function MyContracts() {
           <Repeat size={48} className="mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No recurring sessions yet</h3>
           <p className="text-gray-500 mb-6">
-            Set up recurring sessions with a tutor for consistent learning.
+            Set up recurring sessions with a tutor for consistent learning progress.
           </p>
           <Link to="/tutors" className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">
             Find a Tutor
