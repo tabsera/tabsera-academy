@@ -338,6 +338,15 @@ export const tutorsApi = {
   },
 
   /**
+   * Get tutor's contracts with optional status filter
+   * @param {Object} params - Query params { status? }
+   */
+  async getTutorContracts(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get(`/tutors/contracts${query ? `?${query}` : ''}`);
+  },
+
+  /**
    * Get contract details
    * @param {string} contractId - Contract ID
    */

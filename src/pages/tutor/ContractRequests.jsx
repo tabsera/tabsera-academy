@@ -1,6 +1,6 @@
 /**
  * Contract Requests Page
- * Tutor's pending contract requests to accept or reject
+ * Tutor's contracts with tabs for pending requests and active contracts
  */
 
 import React, { useState, useEffect } from 'react';
@@ -9,18 +9,22 @@ import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Calendar, Clock, User, X,
   CheckCircle, XCircle, CreditCard, Repeat, BookOpen,
-  ChevronRight, Check
+  ChevronRight, Check, Ban
 } from 'lucide-react';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function ContractRequests() {
-  const [contracts, setContracts] = useState([]);
+  const [activeTab, setActiveTab] = useState('pending');
+  const [pendingContracts, setPendingContracts] = useState([]);
+  const [activeContracts, setActiveContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [respondingId, setRespondingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     fetchContracts();
@@ -29,10 +33,14 @@ function ContractRequests() {
   const fetchContracts = async () => {
     try {
       setLoading(true);
-      const response = await tutorsApi.getPendingContracts();
-      setContracts(response.contracts || []);
+      const [pendingRes, activeRes] = await Promise.all([
+        tutorsApi.getTutorContracts({ status: 'PENDING' }),
+        tutorsApi.getTutorContracts({ status: 'ACCEPTED' }),
+      ]);
+      setPendingContracts(pendingRes.contracts || []);
+      setActiveContracts(activeRes.contracts || []);
     } catch (err) {
-      setError(err.message || 'Failed to load contract requests');
+      setError(err.message || 'Failed to load contracts');
     } finally {
       setLoading(false);
     }
@@ -68,6 +76,25 @@ function ContractRequests() {
       fetchContracts();
     } catch (err) {
       alert(err.message || 'Failed to reject contract');
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
+  const handleCancel = async (contractId) => {
+    if (!cancelReason.trim()) {
+      alert('Please provide a reason for cancellation');
+      return;
+    }
+
+    setRespondingId(contractId);
+    try {
+      await tutorsApi.cancelContract(contractId, cancelReason);
+      setCancellingId(null);
+      setCancelReason('');
+      fetchContracts();
+    } catch (err) {
+      alert(err.message || 'Failed to cancel contract');
     } finally {
       setRespondingId(null);
     }
@@ -113,27 +140,65 @@ function ContractRequests() {
     );
   }
 
+  const contracts = activeTab === 'pending' ? pendingContracts : activeContracts;
+
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Recurring Session Requests</h1>
-          <p className="text-gray-500">Review and respond to student requests for recurring sessions</p>
+          <h1 className="text-2xl font-bold text-gray-900">Recurring Sessions</h1>
+          <p className="text-gray-500">Manage your recurring session contracts</p>
         </div>
-        {contracts.length > 0 && (
+        {pendingContracts.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl">
             <AlertCircle size={18} />
-            <span className="font-medium">{contracts.length} pending request{contracts.length !== 1 ? 's' : ''}</span>
+            <span className="font-medium">{pendingContracts.length} pending request{pendingContracts.length !== 1 ? 's' : ''}</span>
           </div>
         )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`px-5 py-2.5 rounded-lg font-medium transition-colors ${
+            activeTab === 'pending'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Pending
+          {pendingContracts.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full">
+              {pendingContracts.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`px-5 py-2.5 rounded-lg font-medium transition-colors ${
+            activeTab === 'active'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Active
+          {activeContracts.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+              {activeContracts.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {contracts.length > 0 ? (
         <div className="space-y-6">
           {contracts.map(contract => {
             const isRejecting = rejectingId === contract.id;
+            const isCancelling = cancellingId === contract.id;
             const isResponding = respondingId === contract.id;
+            const remainingSessions = contract.sessions?.length || 0;
 
             return (
               <div
@@ -156,8 +221,15 @@ function ContractRequests() {
                       </div>
                     </div>
 
-                    <div className="text-sm text-gray-500">
-                      Requested {new Date(contract.createdAt).toLocaleDateString()}
+                    <div className="flex items-center gap-3">
+                      {activeTab === 'active' && (
+                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                          Active
+                        </span>
+                      )}
+                      <span className="text-sm text-gray-500">
+                        {activeTab === 'pending' ? 'Requested' : 'Started'} {new Date(contract.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -202,23 +274,42 @@ function ContractRequests() {
                   )}
 
                   <div className="mt-4 flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{Math.round(contract.totalCredits / (contract.slotCount || 1))}</strong> sessions
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CreditCard size={16} className="text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{contract.totalCredits}</strong> total credits
-                      </span>
-                    </div>
+                    {activeTab === 'pending' ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{Math.round(contract.totalCredits / (contract.slotCount || 1))}</strong> sessions
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{contract.totalCredits}</strong> total credits
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{remainingSessions}</strong> remaining sessions
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            <strong className="text-gray-900">{contract.totalCredits}</strong> total credits reserved
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Reject Form */}
-                {isRejecting && (
+                {/* Reject Form (Pending) */}
+                {isRejecting && activeTab === 'pending' && (
                   <div className="p-6 bg-red-50 border-t border-red-100">
                     <p className="text-sm font-medium text-red-700 mb-2">Reason for rejection:</p>
                     <textarea
@@ -254,8 +345,48 @@ function ContractRequests() {
                   </div>
                 )}
 
-                {/* Actions */}
-                {!isRejecting && (
+                {/* Cancel Form (Active) */}
+                {isCancelling && activeTab === 'active' && (
+                  <div className="p-6 bg-red-50 border-t border-red-100">
+                    <p className="text-sm font-medium text-red-700 mb-2">Reason for cancellation:</p>
+                    <p className="text-xs text-red-600 mb-3">
+                      This will cancel all remaining sessions and refund credits to the student.
+                    </p>
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="Please explain why you need to cancel this contract..."
+                      rows={3}
+                      className="w-full px-4 py-2.5 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500 resize-none"
+                    />
+                    <div className="flex justify-end gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          setCancellingId(null);
+                          setCancelReason('');
+                        }}
+                        className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-white"
+                      >
+                        Keep Contract
+                      </button>
+                      <button
+                        onClick={() => handleCancel(contract.id)}
+                        disabled={isResponding}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {isResponding ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Ban size={18} />
+                        )}
+                        Confirm Cancellation
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions for Pending */}
+                {!isRejecting && activeTab === 'pending' && (
                   <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
                     <button
                       onClick={() => setRejectingId(contract.id)}
@@ -279,17 +410,43 @@ function ContractRequests() {
                     </button>
                   </div>
                 )}
+
+                {/* Actions for Active */}
+                {!isCancelling && activeTab === 'active' && (
+                  <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                    <button
+                      onClick={() => setCancellingId(contract.id)}
+                      disabled={isResponding}
+                      className="flex items-center gap-2 px-5 py-2.5 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Ban size={18} />
+                      Cancel Contract
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       ) : (
         <div className="text-center py-16 bg-gray-50 rounded-2xl">
-          <CheckCircle size={48} className="mx-auto mb-4 text-green-300" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending requests</h3>
-          <p className="text-gray-500">
-            You're all caught up! New contract requests will appear here.
-          </p>
+          {activeTab === 'pending' ? (
+            <>
+              <CheckCircle size={48} className="mx-auto mb-4 text-green-300" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending requests</h3>
+              <p className="text-gray-500">
+                You're all caught up! New contract requests will appear here.
+              </p>
+            </>
+          ) : (
+            <>
+              <Repeat size={48} className="mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No active contracts</h3>
+              <p className="text-gray-500">
+                Your accepted recurring session contracts will appear here.
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

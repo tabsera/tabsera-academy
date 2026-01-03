@@ -2900,6 +2900,57 @@ router.post('/:id/recurring-contract', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/tutors/contracts
+ * Get contracts for current tutor with optional status filter
+ */
+router.get('/contracts', authenticate, async (req, res, next) => {
+  try {
+    const { status } = req.query;
+
+    const tutorProfile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!tutorProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    const where = {
+      tutorProfileId: tutorProfile.id,
+    };
+
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    const contracts = await req.prisma.recurringSessionContract.findMany({
+      where,
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        course: { select: { id: true, title: true } },
+        sessions: {
+          where: { status: 'SCHEDULED' },
+          select: { id: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      contracts,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/tutors/contracts/pending
  * Get pending contracts for current tutor
  */
