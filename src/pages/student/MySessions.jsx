@@ -234,11 +234,24 @@ function MySessions() {
                     </div>
                   </div>
 
-                  {/* Date/Time */}
+                  {/* Date/Time & Duration */}
                   <div className="flex items-center gap-6">
                     <div className="text-center">
                       <p className="text-sm text-gray-500">{date}</p>
                       <p className="text-lg font-semibold text-gray-900">{time}</p>
+                    </div>
+
+                    {/* Duration */}
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">
+                        {isUpcoming ? 'Planned' : 'Duration'}
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 flex items-center gap-1">
+                        <Clock size={16} className="text-gray-400" />
+                        {session.status === 'COMPLETED' && session.actualDuration
+                          ? `${session.actualDuration} min`
+                          : `${session.duration || 20} min`}
+                      </p>
                     </div>
 
                     {/* Status Badge */}

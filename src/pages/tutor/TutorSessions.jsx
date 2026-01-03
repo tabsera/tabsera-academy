@@ -159,13 +159,28 @@ function TutorSessions() {
                     </span>
                   </div>
 
-                  {/* Date/Time & Actions Row */}
+                  {/* Date/Time, Duration & Actions Row */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <Calendar size={18} className="text-gray-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs sm:text-sm text-gray-500">{date}</p>
-                        <p className="text-base sm:text-lg font-semibold text-gray-900">{time}</p>
+                    <div className="flex items-center gap-4 sm:gap-6">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Calendar size={18} className="text-gray-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">{date}</p>
+                          <p className="text-base sm:text-lg font-semibold text-gray-900">{time}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Clock size={18} className="text-gray-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-500">
+                            {isUpcoming ? 'Planned' : 'Duration'}
+                          </p>
+                          <p className="text-base sm:text-lg font-semibold text-gray-900">
+                            {session.status === 'COMPLETED' && session.actualDuration
+                              ? `${session.actualDuration} min`
+                              : `${session.duration || 20} min`}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
