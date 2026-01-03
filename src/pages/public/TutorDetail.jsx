@@ -72,16 +72,17 @@ function TutorDetail() {
     // Slot interval is 20 minutes (10 min session + 10 min prep)
     const SLOT_INTERVAL = 20;
     return slots.filter((slot, index) => {
+      const startTime = new Date(slot.time).getTime();
       // Check if we have enough consecutive slots from this position
       for (let i = 1; i < selectedSlotCount; i++) {
         const nextSlot = slots[index + i];
         if (!nextSlot) return false;
 
-        // Check if the next slot is exactly 20 minutes after (slot interval)
-        const currentTime = new Date(slot.time).getTime();
+        // Check if slot i is exactly i * 20 minutes after the start slot
         const nextTime = new Date(nextSlot.time).getTime();
-        const diff = (nextTime - currentTime) / (1000 * 60);
-        if (diff !== SLOT_INTERVAL) return false;
+        const expectedDiff = i * SLOT_INTERVAL;
+        const actualDiff = (nextTime - startTime) / (1000 * 60);
+        if (actualDiff !== expectedDiff) return false;
       }
       return true;
     });
