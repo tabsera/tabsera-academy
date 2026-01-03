@@ -23,12 +23,10 @@ const DAYS_OF_WEEK = [
   { id: 6, name: 'Saturday', short: 'Sat' },
 ];
 
-// Duration options
+// Duration options (20 or 40 min only)
 const DURATION_OPTIONS = [
   { slots: 1, label: '20 min', duration: 20 },
-  { slots: 2, label: '50 min', duration: 50 },
-  { slots: 3, label: '80 min', duration: 80 },
-  { slots: 4, label: '110 min', duration: 110 },
+  { slots: 2, label: '40 min', duration: 40 },
 ];
 
 function RecurringBooking() {

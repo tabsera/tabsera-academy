@@ -16,16 +16,16 @@ const router = express.Router();
 // SESSION TIMING CONSTANTS
 // ============================================
 const SESSION_DURATION = 20;  // minutes per session
-const PREP_TIME = 10;         // minutes between sessions
+const PREP_TIME = 10;         // minutes between sessions (for slot scheduling only)
 const SLOT_INTERVAL = 30;     // total slot time (session + prep)
-const MAX_SLOTS = 4;          // maximum consecutive slots (110 min total)
+const MAX_SLOTS = 2;          // maximum consecutive slots (40 min total)
 
 /**
  * Calculate total session duration for multiple slots
- * 1 slot = 20 min, 2 slots = 50 min, 3 slots = 80 min, 4 slots = 110 min
+ * 1 slot = 20 min, 2 slots = 40 min
  */
 function calculateTotalDuration(slotCount) {
-  return (slotCount * SESSION_DURATION) + ((slotCount - 1) * PREP_TIME);
+  return slotCount * SESSION_DURATION;
 }
 
 /**

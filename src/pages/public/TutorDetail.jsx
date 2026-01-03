@@ -14,12 +14,10 @@ import {
   User, GraduationCap, FileText, ArrowLeft, DollarSign
 } from 'lucide-react';
 
-// Duration options for multi-slot booking
+// Duration options for session booking (20 or 40 min only)
 const DURATION_OPTIONS = [
   { slots: 1, label: '20 min', duration: 20 },
-  { slots: 2, label: '50 min', duration: 50 },
-  { slots: 3, label: '80 min', duration: 80 },
-  { slots: 4, label: '110 min', duration: 110 },
+  { slots: 2, label: '40 min', duration: 40 },
 ];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
