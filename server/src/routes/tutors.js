@@ -1532,8 +1532,11 @@ router.get('/:id/slots', async (req, res, next) => {
         // Check if slot is in the past
         if (slotTime > new Date()) {
           // Check if slot conflicts with existing booking
+          // For multi-slot bookings, we need to block based on slot intervals, not just duration
+          // E.g., 40 min session = 4 slots × 20 min intervals = 80 min of blocked time
           const isBooked = existingBookings.some(booking => {
-            const bookingEnd = new Date(booking.scheduledAt.getTime() + booking.duration * 60 * 1000);
+            const slotCount = Math.ceil(booking.duration / SESSION_DURATION);
+            const bookingEnd = new Date(booking.scheduledAt.getTime() + slotCount * SLOT_INTERVAL * 60 * 1000);
             return slotTime < bookingEnd && slotEnd > booking.scheduledAt;
           });
 
