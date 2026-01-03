@@ -265,6 +265,16 @@ export const tutorsApi = {
   },
 
   /**
+   * Check and update recording status from Vimeo
+   * Call this for sessions with vimeoVideoId but no vimeoVideoUrl to check if ready
+   * @param {string} sessionId - Session ID
+   * @returns {Promise<{status: string, vimeoVideoUrl: string|null}>}
+   */
+  async checkRecordingStatus(sessionId) {
+    return apiClient.post(`/tutors/sessions/${sessionId}/recording/check`);
+  },
+
+  /**
    * Save whiteboard snapshot
    * @param {string} sessionId - Session ID
    * @param {Object} snapshot - tldraw document state

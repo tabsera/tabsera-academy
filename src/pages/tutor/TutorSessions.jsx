@@ -19,10 +19,51 @@ function TutorSessions() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [checkingRecordings, setCheckingRecordings] = useState(new Set());
 
   useEffect(() => {
     fetchSessions();
   }, [activeTab]);
+
+  // Check recording status for sessions with vimeoVideoId but no vimeoVideoUrl
+  useEffect(() => {
+    const checkPendingRecordings = async () => {
+      const pendingRecordings = sessions.filter(
+        s => s.status === 'COMPLETED' && s.vimeoVideoId && !s.vimeoVideoUrl
+      );
+
+      if (pendingRecordings.length === 0) return;
+
+      // Mark sessions as being checked
+      setCheckingRecordings(new Set(pendingRecordings.map(s => s.id)));
+
+      // Check each one (in parallel)
+      const results = await Promise.all(
+        pendingRecordings.map(async (session) => {
+          try {
+            const result = await tutorsApi.checkRecordingStatus(session.id);
+            return { sessionId: session.id, ...result };
+          } catch (err) {
+            console.error(`Failed to check recording for session ${session.id}:`, err);
+            return { sessionId: session.id, status: 'error' };
+          }
+        })
+      );
+
+      // Update sessions with new vimeoVideoUrl if available
+      setSessions(prev => prev.map(session => {
+        const result = results.find(r => r.sessionId === session.id);
+        if (result?.vimeoVideoUrl) {
+          return { ...session, vimeoVideoUrl: result.vimeoVideoUrl };
+        }
+        return session;
+      }));
+
+      setCheckingRecordings(new Set());
+    };
+
+    checkPendingRecordings();
+  }, [sessions.length]); // Only run when sessions change
 
   const fetchSessions = async () => {
     try {
@@ -223,6 +264,37 @@ function TutorSessions() {
                             <Play size={18} />
                             <span className="hidden xs:inline">Recording</span>
                           </Link>
+                        ) : checkingRecordings.has(session.id) ? (
+                          <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-blue-100 text-blue-600 rounded-xl font-medium min-h-[44px] min-w-[44px] text-sm sm:text-base cursor-not-allowed">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="hidden xs:inline">Checking</span>
+                          </div>
+                        ) : session.vimeoVideoId ? (
+                          <button
+                            onClick={async () => {
+                              setCheckingRecordings(prev => new Set([...prev, session.id]));
+                              try {
+                                const result = await tutorsApi.checkRecordingStatus(session.id);
+                                if (result?.vimeoVideoUrl) {
+                                  setSessions(prev => prev.map(s =>
+                                    s.id === session.id ? { ...s, vimeoVideoUrl: result.vimeoVideoUrl } : s
+                                  ));
+                                }
+                              } catch (err) {
+                                console.error('Check recording failed:', err);
+                              } finally {
+                                setCheckingRecordings(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(session.id);
+                                  return next;
+                                });
+                              }
+                            }}
+                            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-yellow-100 text-yellow-700 rounded-xl font-medium hover:bg-yellow-200 min-h-[44px] min-w-[44px] text-sm sm:text-base"
+                          >
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="hidden xs:inline">Check</span>
+                          </button>
                         ) : (
                           <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-medium min-h-[44px] min-w-[44px] text-sm sm:text-base cursor-not-allowed">
                             <Loader2 size={18} className="animate-spin" />

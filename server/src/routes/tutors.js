@@ -2314,6 +2314,107 @@ router.get('/sessions/:id/recording', authenticate, async (req, res, next) => {
 });
 
 /**
+ * POST /api/tutors/sessions/:id/recording/check
+ * Check and update recording status from Vimeo
+ * This is called by frontend when a session shows "Processing" to check if ready
+ */
+router.post('/sessions/:id/recording/check', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const session = await req.prisma.tutorSession.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    // Check authorization (tutor, student, or admin)
+    const isTutor = session.tutorProfile?.userId === userId;
+    const isStudent = session.studentId === userId;
+    const isAdmin = req.user.role === 'TABSERA_ADMIN';
+
+    if (!isTutor && !isStudent && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to check this recording',
+      });
+    }
+
+    // If no vimeoVideoId, nothing to check
+    if (!session.vimeoVideoId) {
+      return res.json({
+        success: true,
+        status: session.recordingStatus || 'not_available',
+        vimeoVideoUrl: null,
+        message: 'No Vimeo video ID found',
+      });
+    }
+
+    // If we already have the URL, just return it
+    if (session.vimeoVideoUrl) {
+      return res.json({
+        success: true,
+        status: 'available',
+        vimeoVideoUrl: session.vimeoVideoUrl,
+      });
+    }
+
+    // Check Vimeo status and try to get embed URL
+    const vimeoService = require('../services/vimeo');
+
+    try {
+      const videoStatus = await vimeoService.getVideoStatus(session.vimeoVideoId);
+
+      if (videoStatus.status === 'available') {
+        // Video is ready, get embed URL
+        const embedUrl = await vimeoService.getEmbedUrl(session.vimeoVideoId);
+
+        if (embedUrl) {
+          // Update database
+          await req.prisma.tutorSession.update({
+            where: { id },
+            data: { vimeoVideoUrl: embedUrl },
+          });
+
+          return res.json({
+            success: true,
+            status: 'available',
+            vimeoVideoUrl: embedUrl,
+          });
+        }
+      }
+
+      // Still processing
+      return res.json({
+        success: true,
+        status: videoStatus.status || 'processing',
+        vimeoVideoUrl: null,
+        message: 'Video is still being processed by Vimeo',
+      });
+    } catch (vimeoError) {
+      console.error('Vimeo check failed:', vimeoError.message);
+      return res.json({
+        success: true,
+        status: 'error',
+        vimeoVideoUrl: null,
+        message: 'Failed to check video status',
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/tutors/sessions/:id/whiteboard
  * Save whiteboard snapshot
  */

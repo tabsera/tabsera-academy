@@ -22,10 +22,51 @@ function MySessions() {
   const [ratingValue, setRatingValue] = useState(0);
   const [ratingFeedback, setRatingFeedback] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [checkingRecordings, setCheckingRecordings] = useState(new Set());
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Check recording status for sessions with vimeoVideoId but no vimeoVideoUrl
+  useEffect(() => {
+    const checkPendingRecordings = async () => {
+      const pendingRecordings = sessions.filter(
+        s => s.status === 'COMPLETED' && s.vimeoVideoId && !s.vimeoVideoUrl
+      );
+
+      if (pendingRecordings.length === 0) return;
+
+      // Mark sessions as being checked
+      setCheckingRecordings(new Set(pendingRecordings.map(s => s.id)));
+
+      // Check each one (in parallel)
+      const results = await Promise.all(
+        pendingRecordings.map(async (session) => {
+          try {
+            const result = await tutorsApi.checkRecordingStatus(session.id);
+            return { sessionId: session.id, ...result };
+          } catch (err) {
+            console.error(`Failed to check recording for session ${session.id}:`, err);
+            return { sessionId: session.id, status: 'error' };
+          }
+        })
+      );
+
+      // Update sessions with new vimeoVideoUrl if available
+      setSessions(prev => prev.map(session => {
+        const result = results.find(r => r.sessionId === session.id);
+        if (result?.vimeoVideoUrl) {
+          return { ...session, vimeoVideoUrl: result.vimeoVideoUrl };
+        }
+        return session;
+      }));
+
+      setCheckingRecordings(new Set());
+    };
+
+    checkPendingRecordings();
+  }, [sessions.length]); // Only run when sessions change
 
   const fetchData = async () => {
     try {
@@ -314,6 +355,37 @@ function MySessions() {
                           <Play size={18} />
                           Watch Recording
                         </Link>
+                      ) : checkingRecordings.has(session.id) ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-medium cursor-not-allowed">
+                          <Loader2 size={18} className="animate-spin" />
+                          Checking Recording
+                        </div>
+                      ) : session.vimeoVideoId ? (
+                        <button
+                          onClick={async () => {
+                            setCheckingRecordings(prev => new Set([...prev, session.id]));
+                            try {
+                              const result = await tutorsApi.checkRecordingStatus(session.id);
+                              if (result?.vimeoVideoUrl) {
+                                setSessions(prev => prev.map(s =>
+                                  s.id === session.id ? { ...s, vimeoVideoUrl: result.vimeoVideoUrl } : s
+                                ));
+                              }
+                            } catch (err) {
+                              console.error('Check recording failed:', err);
+                            } finally {
+                              setCheckingRecordings(prev => {
+                                const next = new Set(prev);
+                                next.delete(session.id);
+                                return next;
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl font-medium hover:bg-yellow-200"
+                        >
+                          <Loader2 size={18} className="animate-spin" />
+                          Check Recording
+                        </button>
                       ) : (
                         <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-xl font-medium cursor-not-allowed">
                           <Loader2 size={18} className="animate-spin" />
