@@ -1325,9 +1325,17 @@ router.get('/', async (req, res, next) => {
       req.prisma.tutorProfile.count({ where }),
     ]);
 
+    // Transform tutors to include sessionsCompleted and flatten courses
+    const transformedTutors = tutors.map(tutor => ({
+      ...tutor,
+      sessionsCompleted: tutor._count?.sessions || 0,
+      // Flatten courses array: [{ course: { id, title } }] -> [{ id, title }]
+      courses: tutor.courses?.map(tc => tc.course) || [],
+    }));
+
     res.json({
       success: true,
-      tutors,
+      tutors: transformedTutors,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
