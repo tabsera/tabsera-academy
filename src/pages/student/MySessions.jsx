@@ -28,12 +28,25 @@ function MySessions() {
     fetchData();
   }, []);
 
-  // Check recording status for sessions with vimeoVideoId but no vimeoVideoUrl
+  // Check recording status for completed sessions without vimeoVideoUrl
   useEffect(() => {
     const checkPendingRecordings = async () => {
-      const pendingRecordings = sessions.filter(
-        s => s.status === 'COMPLETED' && s.vimeoVideoId && !s.vimeoVideoUrl
-      );
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+      const pendingRecordings = sessions.filter(s => {
+        if (s.status !== 'COMPLETED' || s.vimeoVideoUrl || s.recordingStatus === 'not_available') {
+          return false;
+        }
+        // Check sessions with vimeoVideoId, or old sessions without it
+        if (s.vimeoVideoId) {
+          return true;
+        }
+        // For sessions without vimeoVideoId, only check if more than 1 hour old
+        const sessionEndTime = s.endedAt
+          ? new Date(s.endedAt).getTime()
+          : new Date(s.scheduledAt).getTime() + (s.duration || 20) * 60 * 1000;
+        return sessionEndTime < oneHourAgo;
+      });
 
       if (pendingRecordings.length === 0) return;
 
@@ -53,11 +66,14 @@ function MySessions() {
         })
       );
 
-      // Update sessions with new vimeoVideoUrl if available
+      // Update sessions with results
       setSessions(prev => prev.map(session => {
         const result = results.find(r => r.sessionId === session.id);
         if (result?.vimeoVideoUrl) {
           return { ...session, vimeoVideoUrl: result.vimeoVideoUrl };
+        }
+        if (result?.status === 'not_available') {
+          return { ...session, recordingStatus: 'not_available' };
         }
         return session;
       }));
