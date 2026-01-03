@@ -11,7 +11,7 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   Loader2, AlertCircle, Star, Video, Clock, Calendar, MapPin,
   ChevronLeft, ChevronRight, BookOpen, CreditCard, X, CheckCircle,
-  User, GraduationCap, FileText, ArrowLeft, DollarSign
+  User, GraduationCap, FileText, ArrowLeft, DollarSign, Repeat
 } from 'lucide-react';
 
 // Duration options for session booking
@@ -422,6 +422,26 @@ function TutorDetail() {
                   View Tuition Packs →
                 </Link>
               </div>
+
+              {/* Recurring Sessions */}
+              {isAuthenticated && (
+                <div className="mt-4 p-3 sm:p-4 bg-purple-50 rounded-xl">
+                  <div className="flex items-center gap-2 text-purple-700 font-medium mb-1 sm:mb-2 text-sm sm:text-base">
+                    <Repeat size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span>Need Regular Sessions?</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-purple-600 mb-2">
+                    Set up a recurring schedule for weekly sessions with this tutor.
+                  </p>
+                  <Link
+                    to={`/student/recurring-booking/${id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+                  >
+                    <Repeat size={14} />
+                    Set Up Recurring Sessions
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
