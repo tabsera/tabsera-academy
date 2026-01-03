@@ -427,6 +427,38 @@ export const adminApi = {
   async getTuitionPurchasesStats() {
     return apiClient.get('/admin/tuition-purchases/stats');
   },
+
+  // ============================================
+  // SYSTEM SETTINGS
+  // ============================================
+
+  /**
+   * Get all system settings
+   */
+  async getSettings() {
+    return apiClient.get('/admin/settings');
+  },
+
+  /**
+   * Get a specific system setting
+   */
+  async getSetting(key) {
+    return apiClient.get(`/admin/settings/${key}`);
+  },
+
+  /**
+   * Update a system setting
+   */
+  async updateSetting(key, value, description) {
+    return apiClient.put(`/admin/settings/${key}`, { value, description });
+  },
+
+  /**
+   * Update multiple settings at once
+   */
+  async updateSettings(settings) {
+    return apiClient.post('/admin/settings/bulk', { settings });
+  },
 };
 
 export default adminApi;

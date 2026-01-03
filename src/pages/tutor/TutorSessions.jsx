@@ -200,13 +200,20 @@ function TutorSessions() {
                         </button>
                       )}
                       {session.status === 'COMPLETED' && (
-                        <Link
-                          to={`/session/${session.id}/recording`}
-                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-medium hover:bg-purple-200 min-h-[44px] min-w-[44px] text-sm sm:text-base"
-                        >
-                          <Play size={18} />
-                          <span className="hidden xs:inline">Recording</span>
-                        </Link>
+                        session.vimeoVideoUrl ? (
+                          <Link
+                            to={`/session/${session.id}/recording`}
+                            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-medium hover:bg-purple-200 min-h-[44px] min-w-[44px] text-sm sm:text-base"
+                          >
+                            <Play size={18} />
+                            <span className="hidden xs:inline">Recording</span>
+                          </Link>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-medium min-h-[44px] min-w-[44px] text-sm sm:text-base cursor-not-allowed">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="hidden xs:inline">Processing</span>
+                          </div>
+                        )
                       )}
                     </div>
                   </div>

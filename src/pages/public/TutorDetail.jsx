@@ -3,7 +3,7 @@
  * View tutor profile and book sessions
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { tutorsApi } from '../../api/tutors';
@@ -11,8 +11,16 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   Loader2, AlertCircle, Star, Video, Clock, Calendar, MapPin,
   ChevronLeft, ChevronRight, BookOpen, CreditCard, X, CheckCircle,
-  User, GraduationCap, FileText, ArrowLeft
+  User, GraduationCap, FileText, ArrowLeft, DollarSign
 } from 'lucide-react';
+
+// Duration options for multi-slot booking
+const DURATION_OPTIONS = [
+  { slots: 1, label: '20 min', duration: 20 },
+  { slots: 2, label: '50 min', duration: 50 },
+  { slots: 3, label: '80 min', duration: 80 },
+  { slots: 4, label: '110 min', duration: 110 },
+];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -39,11 +47,43 @@ function TutorDetail() {
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedSlotCount, setSelectedSlotCount] = useState(1);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [credits, setCredits] = useState(null);
   const [bookingData, setBookingData] = useState({ courseId: '', topic: '' });
   const [isBooking, setIsBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // Calculate credits needed based on tutor's creditFactor and selected slots
+  const creditsPerSession = useMemo(() => {
+    return tutor?.creditFactor || 1;
+  }, [tutor]);
+
+  const totalCreditsNeeded = useMemo(() => {
+    return selectedSlotCount * creditsPerSession;
+  }, [selectedSlotCount, creditsPerSession]);
+
+  // Filter slots that have enough consecutive slots available
+  const availableSlots = useMemo(() => {
+    if (!slots || slots.length === 0) return [];
+    if (selectedSlotCount === 1) return slots;
+
+    // For multi-slot booking, filter to show only slots that have enough consecutive slots
+    return slots.filter((slot, index) => {
+      // Check if we have enough consecutive slots from this position
+      for (let i = 1; i < selectedSlotCount; i++) {
+        const nextSlot = slots[index + i];
+        if (!nextSlot) return false;
+
+        // Check if the next slot is exactly 30 minutes after (slot interval)
+        const currentTime = new Date(slot.time).getTime();
+        const nextTime = new Date(nextSlot.time).getTime();
+        const diff = (nextTime - currentTime) / (1000 * 60);
+        if (diff !== 30) return false;
+      }
+      return true;
+    });
+  }, [slots, selectedSlotCount]);
 
   useEffect(() => {
     fetchTutor();
@@ -110,12 +150,14 @@ function TutorDetail() {
         scheduledAt: selectedSlot.time,
         courseId: bookingData.courseId || undefined,
         topic: bookingData.topic || undefined,
+        slotCount: selectedSlotCount,
       });
       setBookingSuccess(true);
       setTimeout(() => {
         setShowBookingModal(false);
         setBookingSuccess(false);
         setSelectedSlot(null);
+        setSelectedSlotCount(1);
         setBookingData({ courseId: '', topic: '' });
         fetchSlots(selectedDate);
       }, 2000);
@@ -196,7 +238,12 @@ function TutorDetail() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{tutor.name || `${tutor.user?.firstName || ''} ${tutor.user?.lastName || ''}`.trim()}</h1>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{tutor.name || `${tutor.user?.firstName || ''} ${tutor.user?.lastName || ''}`.trim()}</h1>
+                    {tutor.tutorType === 'FREELANCE' && (
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">Freelance</span>
+                    )}
+                  </div>
                   <p className="text-sm sm:text-base text-gray-500 mt-1">{tutor.headline || 'Expert Tutor'}</p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-3">
                     {tutor.avgRating > 0 && (
@@ -214,6 +261,12 @@ function TutorDetail() {
                       <div className="flex items-center gap-1 text-gray-500 text-sm sm:text-base">
                         <Clock size={16} className="sm:w-[18px] sm:h-[18px]" />
                         <span className="truncate max-w-[120px] sm:max-w-none">{tutor.timezone}</span>
+                      </div>
+                    )}
+                    {(tutor.creditFactor || 1) > 1 && (
+                      <div className="flex items-center gap-1 text-purple-600 text-sm sm:text-base">
+                        <CreditCard size={16} className="sm:w-[18px] sm:h-[18px]" />
+                        <span>{tutor.creditFactor} credits/session</span>
                       </div>
                     )}
                   </div>
@@ -282,6 +335,29 @@ function TutorDetail() {
                 Times shown in your timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
               </p>
 
+              {/* Duration Selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Session Duration</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {DURATION_OPTIONS.map((option) => (
+                    <button
+                      key={option.slots}
+                      onClick={() => setSelectedSlotCount(option.slots)}
+                      className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px] ${
+                        selectedSlotCount === option.slots
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {option.label}
+                      <span className={`block text-xs ${selectedSlotCount === option.slots ? 'text-blue-200' : 'text-gray-500'}`}>
+                        {option.slots * creditsPerSession} {option.slots * creditsPerSession === 1 ? 'credit' : 'credits'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Date Navigation */}
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <button
@@ -305,9 +381,9 @@ function TutorDetail() {
                   <div className="flex justify-center py-6 sm:py-8">
                     <Loader2 size={24} className="animate-spin text-blue-600" />
                   </div>
-                ) : slots.length > 0 ? (
+                ) : availableSlots.length > 0 ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 gap-2">
-                    {slots.map((slot, idx) => (
+                    {availableSlots.map((slot, idx) => (
                       <button
                         key={idx}
                         onClick={() => handleSlotClick(slot)}
@@ -321,7 +397,9 @@ function TutorDetail() {
                   <div className="text-center py-6 sm:py-8 text-gray-500">
                     <Calendar size={28} className="mx-auto mb-2 text-gray-300 sm:w-8 sm:h-8" />
                     <p className="text-sm sm:text-base">No available slots on this day</p>
-                    <p className="text-xs sm:text-sm mt-1">Try another date</p>
+                    <p className="text-xs sm:text-sm mt-1">
+                      {selectedSlotCount > 1 ? `Try a shorter duration or another date` : `Try another date`}
+                    </p>
                   </div>
                 )}
               </div>
@@ -333,7 +411,12 @@ function TutorDetail() {
                   <span>Tuition Credits Required</span>
                 </div>
                 <p className="text-xs sm:text-sm text-indigo-600">
-                  Each 10-minute session uses 1 credit. Purchase credits from the Tuition Packs page.
+                  {creditsPerSession === 1 ? (
+                    <>Each 20-minute session uses 1 credit.</>
+                  ) : (
+                    <>This tutor charges {creditsPerSession} credits per 20-minute session.</>
+                  )}
+                  {' '}Purchase credits from the Tuition Packs page.
                 </p>
                 <Link to="/tuition" className="inline-block mt-2 text-xs sm:text-sm font-medium text-indigo-700 hover:underline min-h-[44px] flex items-center">
                   View Tuition Packs →
@@ -380,7 +463,9 @@ function TutorDetail() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{tutor.name || `${tutor.user?.firstName || ''} ${tutor.user?.lastName || ''}`.trim()}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">10-minute session</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                          {DURATION_OPTIONS.find(opt => opt.slots === selectedSlotCount)?.label || '20 min'} session
+                        </p>
                       </div>
                     </div>
                     {selectedSlot && (
@@ -394,13 +479,22 @@ function TutorDetail() {
                   {/* Credits Balance */}
                   {credits && (
                     <div className="p-3 sm:p-4 bg-blue-50 rounded-xl">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-blue-700 font-medium text-sm sm:text-base">Your Credits</span>
                         <span className="text-xl sm:text-2xl font-bold text-blue-700">{credits.summary?.totalCreditsAvailable || 0}</span>
                       </div>
-                      {(credits.summary?.totalCreditsAvailable || 0) < 1 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-600">Credits needed</span>
+                        <span className="font-semibold text-blue-700">{totalCreditsNeeded}</span>
+                      </div>
+                      {(credits.summary?.totalCreditsAvailable || 0) >= totalCreditsNeeded ? (
+                        <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                          <CheckCircle size={12} />
+                          Sufficient credits
+                        </p>
+                      ) : (
                         <p className="text-xs sm:text-sm text-red-600 mt-2">
-                          You need at least 1 credit to book. <Link to="/tuition" className="underline">Purchase credits</Link>
+                          You need {totalCreditsNeeded - (credits.summary?.totalCreditsAvailable || 0)} more credits. <Link to="/tuition" className="underline">Purchase credits</Link>
                         </p>
                       )}
                     </div>
@@ -439,7 +533,7 @@ function TutorDetail() {
                 <div className="p-4 sm:p-6 border-t bg-gray-50 flex-shrink-0 rounded-b-2xl">
                   <button
                     onClick={handleBookSession}
-                    disabled={isBooking || (credits?.summary?.totalCreditsAvailable || 0) < 1}
+                    disabled={isBooking || (credits?.summary?.totalCreditsAvailable || 0) < totalCreditsNeeded}
                     className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[48px] text-sm sm:text-base"
                   >
                     {isBooking ? (
@@ -447,7 +541,7 @@ function TutorDetail() {
                     ) : (
                       <>
                         <CheckCircle size={20} />
-                        Confirm Booking (1 Credit)
+                        Confirm Booking ({totalCreditsNeeded} {totalCreditsNeeded === 1 ? 'Credit' : 'Credits'})
                       </>
                     )}
                   </button>

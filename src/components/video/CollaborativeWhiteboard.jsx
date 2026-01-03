@@ -123,13 +123,20 @@ export function CollaborativeWhiteboard({ sessionId }) {
     try {
       const elements = excalidrawRef.current.getSceneElements();
       const appState = excalidrawRef.current.getAppState();
+      const currentFiles = excalidrawRef.current.getFiles();
 
       const snapshot = {
         elements: elements.map(el => ({ ...el })),
         appState: {
           viewBackgroundColor: appState.viewBackgroundColor,
           currentItemFontFamily: appState.currentItemFontFamily,
+          // Viewport state for recording to follow tutor's view
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+          zoom: appState.zoom,
         },
+        // Note: Files (images) are NOT included in snapshot to avoid size limits
+        // Images need to be uploaded separately via the image upload endpoint
         savedAt: now,
       };
 

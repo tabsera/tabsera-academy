@@ -3,18 +3,21 @@
  * Configure platform settings, integrations, and preferences
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings, Globe, Mail, CreditCard, Link2, Shield,
   Bell, Save, RefreshCw, CheckCircle, AlertCircle,
   Eye, EyeOff, Upload, Loader2, ExternalLink,
-  Server, Palette, FileText
+  Server, Palette, FileText, GraduationCap, DollarSign
 } from 'lucide-react';
+import { adminApi } from '../../api/admin';
 
 function SystemSettings() {
   const [activeTab, setActiveTab] = useState('general');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Settings state
@@ -70,12 +73,67 @@ function SystemSettings() {
     studentPaymentReminders: true,
   });
 
+  const [tutoringSettings, setTutoringSettings] = useState({
+    baseCreditPrice: '1.00',
+    freelanceCommissionPercent: '40',
+    minHourlyRate: '3.00',
+    maxHourlyRate: '100.00',
+    sessionDuration: '20',
+    prepTime: '10',
+  });
+
+  // Fetch settings on load
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setIsFetching(true);
+      const response = await adminApi.getSettings();
+      if (response.settings) {
+        const settingsMap = {};
+        response.settings.forEach(s => {
+          settingsMap[s.key] = s.value;
+        });
+
+        // Update tutoring settings from API
+        setTutoringSettings(prev => ({
+          baseCreditPrice: settingsMap.baseCreditPrice || prev.baseCreditPrice,
+          freelanceCommissionPercent: settingsMap.freelanceCommissionPercent || prev.freelanceCommissionPercent,
+          minHourlyRate: settingsMap.minHourlyRate || prev.minHourlyRate,
+          maxHourlyRate: settingsMap.maxHourlyRate || prev.maxHourlyRate,
+          sessionDuration: settingsMap.sessionDuration || prev.sessionDuration,
+          prepTime: settingsMap.prepTime || prev.prepTime,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     setSuccessMessage('');
+    setErrorMessage('');
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save tutoring settings to the backend
+      if (activeTab === 'tutoring') {
+        const settings = [
+          { key: 'baseCreditPrice', value: tutoringSettings.baseCreditPrice, description: 'Base price per credit in USD' },
+          { key: 'freelanceCommissionPercent', value: tutoringSettings.freelanceCommissionPercent, description: 'Platform commission percentage for freelance tutors' },
+          { key: 'minHourlyRate', value: tutoringSettings.minHourlyRate, description: 'Minimum hourly rate for freelance tutors (USD)' },
+          { key: 'maxHourlyRate', value: tutoringSettings.maxHourlyRate, description: 'Maximum hourly rate for freelance tutors (USD)' },
+          { key: 'sessionDuration', value: tutoringSettings.sessionDuration, description: 'Default session duration in minutes' },
+          { key: 'prepTime', value: tutoringSettings.prepTime, description: 'Prep time between sessions in minutes' },
+        ];
+        await adminApi.updateSettings(settings);
+      }
       setSuccessMessage('Settings saved successfully!');
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to save settings');
     } finally {
       setIsLoading(false);
     }
@@ -83,6 +141,7 @@ function SystemSettings() {
 
   const tabs = [
     { id: 'general', label: 'General', icon: Settings },
+    { id: 'tutoring', label: 'Tutoring', icon: GraduationCap },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'payment', label: 'Payment', icon: CreditCard },
     { id: 'edx', label: 'EdX Integration', icon: Link2 },
@@ -112,6 +171,20 @@ function SystemSettings() {
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
           <CheckCircle size={20} className="text-green-600" />
           <p className="text-green-700">{successMessage}</p>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+          <AlertCircle size={20} className="text-red-600" />
+          <p className="text-red-700">{errorMessage}</p>
+        </div>
+      )}
+
+      {isFetching && (
+        <div className="mb-6 flex items-center gap-3 text-gray-500">
+          <Loader2 size={20} className="animate-spin" />
+          <p>Loading settings...</p>
         </div>
       )}
 
@@ -227,6 +300,149 @@ function SystemSettings() {
                       <button className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                         <Upload size={16} />Upload New Logo
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tutoring Settings */}
+            {activeTab === 'tutoring' && (
+              <div className="p-6">
+                <h2 className="text-lg font-bold text-gray-900 mb-6">Tutoring Settings</h2>
+                <div className="space-y-6">
+                  <div className="p-4 bg-purple-50 rounded-xl flex items-start gap-3">
+                    <GraduationCap size={20} className="text-purple-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-purple-900">Tutor Pricing Configuration</p>
+                      <p className="text-sm text-purple-700">Configure credit pricing and commission rates for freelance tutors.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-4">Session Configuration</h3>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Session Duration (minutes)</label>
+                        <input
+                          type="number"
+                          value={tutoringSettings.sessionDuration}
+                          onChange={(e) => setTutoringSettings(s => ({ ...s, sessionDuration: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Duration of each tutoring session</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Prep Time (minutes)</label>
+                        <input
+                          type="number"
+                          value={tutoringSettings.prepTime}
+                          onChange={(e) => setTutoringSettings(s => ({ ...s, prepTime: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Buffer time between sessions</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Credit Pricing</h3>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Credit Price (USD)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={tutoringSettings.baseCreditPrice}
+                            onChange={(e) => setTutoringSettings(s => ({ ...s, baseCreditPrice: e.target.value }))}
+                            className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Price per credit for fulltime tutors (1 credit = 1 session)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Freelance Tutor Settings</h3>
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Platform Commission (%)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={tutoringSettings.freelanceCommissionPercent}
+                            onChange={(e) => setTutoringSettings(s => ({ ...s, freelanceCommissionPercent: e.target.value }))}
+                            className="w-full pr-8 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Commission taken from freelance tutor earnings</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Min Hourly Rate (USD)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.50"
+                            value={tutoringSettings.minHourlyRate}
+                            onChange={(e) => setTutoringSettings(s => ({ ...s, minHourlyRate: e.target.value }))}
+                            className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Minimum rate freelance tutors can set</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Max Hourly Rate (USD)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.50"
+                            value={tutoringSettings.maxHourlyRate}
+                            onChange={(e) => setTutoringSettings(s => ({ ...s, maxHourlyRate: e.target.value }))}
+                            className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Maximum rate freelance tutors can set</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Pricing Preview</h3>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="grid md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-600">Sessions per hour:</p>
+                          <p className="font-semibold text-gray-900">
+                            {Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))} sessions
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Base hourly rate (fulltime):</p>
+                          <p className="font-semibold text-gray-900">
+                            ${(parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))).toFixed(2)}/hour
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Example: Freelance tutor at ${tutoringSettings.minHourlyRate}/hour</p>
+                          <p className="font-semibold text-gray-900">
+                            Credit factor: {Math.ceil(parseFloat(tutoringSettings.minHourlyRate) / (parseFloat(tutoringSettings.baseCreditPrice) * Math.floor(60 / (parseInt(tutoringSettings.sessionDuration) + parseInt(tutoringSettings.prepTime)))))} credits/session
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Tutor earnings (after {tutoringSettings.freelanceCommissionPercent}% commission):</p>
+                          <p className="font-semibold text-green-600">
+                            ${(parseFloat(tutoringSettings.minHourlyRate) * (1 - parseFloat(tutoringSettings.freelanceCommissionPercent) / 100)).toFixed(2)}/hour net
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

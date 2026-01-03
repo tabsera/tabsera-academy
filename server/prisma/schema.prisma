@@ -34,6 +34,21 @@ enum SessionStatus {
   NO_SHOW
 }
 
+// Tutor type (fulltime vs freelance)
+enum TutorType {
+  FULLTIME
+  FREELANCE
+}
+
+// Recurring session contract status
+enum ContractStatus {
+  PENDING     // Awaiting tutor response
+  ACCEPTED    // Tutor accepted, sessions created
+  REJECTED    // Tutor declined
+  CANCELLED   // Cancelled by student or tutor
+  COMPLETED   // All sessions done
+}
+
 // Order status enum
 enum OrderStatus {
   PENDING
@@ -139,6 +154,7 @@ model User {
   tutorProfile      TutorProfile?
   tuitionPurchases  TuitionPackPurchase[]
   studentSessions   TutorSession[]        @relation("StudentSessions")
+  studentContracts  RecurringSessionContract[] @relation("StudentContracts")
 
   @@map("users")
 }
@@ -235,6 +251,7 @@ model Course {
   orderItems    OrderItem[]
   tutorCourses  TutorCourse[]
   tutorSessions TutorSession[]
+  contracts     RecurringSessionContract[]
 
   @@map("courses")
 }
@@ -379,6 +396,18 @@ model PromoCode {
   @@map("promo_codes")
 }
 
+// System Settings model - platform-wide configuration
+model SystemSettings {
+  id          String   @id @default(uuid())
+  key         String   @unique  // e.g., "baseCreditPrice", "freelanceCommissionPercent"
+  value       String   // JSON or string value
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedBy   String?  @map("updated_by")
+
+  @@map("system_settings")
+}
+
 // ============================================
 // TUTOR PARTNER SYSTEM MODELS
 // ============================================
@@ -390,11 +419,13 @@ model TutorProfile {
   bio             String?      @db.Text
   headline        String?      // e.g., "Mathematics Expert | 10+ years experience"
   status          TutorStatus  @default(PENDING)
+  tutorType       TutorType    @default(FULLTIME) @map("tutor_type")
   approvedAt      DateTime?    @map("approved_at")
   approvedBy      String?      @map("approved_by")
   rejectionReason String?      @map("rejection_reason") @db.Text
   timezone        String       @default("UTC")
-  hourlyRate      Decimal?     @db.Decimal(10, 2) @map("hourly_rate")
+  hourlyRate      Decimal?     @db.Decimal(10, 2) @map("hourly_rate") // Freelance tutor's desired hourly rate
+  creditFactor    Int          @default(1) @map("credit_factor")      // Calculated: how many credits per session
   totalSessions   Int          @default(0) @map("total_sessions")
   avgRating       Decimal?     @db.Decimal(3, 2) @map("avg_rating")
   createdAt       DateTime     @default(now()) @map("created_at")
@@ -407,6 +438,7 @@ model TutorProfile {
   availability    TutorAvailability[]
   unavailability  TutorUnavailability[]
   sessions        TutorSession[]
+  contracts       RecurringSessionContract[]
 
   @@index([status])
   @@map("tutor_profiles")
@@ -541,8 +573,9 @@ model TutorSession {
   studentId          String        @map("student_id")
   purchaseId         String?       @map("purchase_id")
   courseId           String?       @map("course_id")
+  contractId         String?       @map("contract_id")  // For recurring sessions
   scheduledAt        DateTime      @map("scheduled_at") // Session start time (UTC)
-  duration           Int           @default(10) // minutes
+  duration           Int           @default(20) // minutes (changed from 10 to 20)
   status             SessionStatus @default(SCHEDULED)
   creditsConsumed    Int           @default(1) @map("credits_consumed") // Credits deducted for this session
   creditsRefunded    Boolean       @default(false) @map("credits_refunded") // True if credits were refunded on cancellation
@@ -581,9 +614,58 @@ model TutorSession {
   student            User                   @relation("StudentSessions", fields: [studentId], references: [id])
   purchase           TuitionPackPurchase?   @relation(fields: [purchaseId], references: [id])
   course             Course?                @relation(fields: [courseId], references: [id])
+  contract           RecurringSessionContract? @relation("ContractSessions", fields: [contractId], references: [id])
 
   @@index([tutorProfileId, status])
   @@index([studentId, status])
   @@index([scheduledAt])
+  @@index([contractId])
   @@map("tutor_sessions")
+}
+
+// Recurring Session Contract model - for weekly recurring sessions
+model RecurringSessionContract {
+  id              String         @id @default(uuid())
+  studentId       String         @map("student_id")
+  tutorProfileId  String         @map("tutor_profile_id")
+  courseId        String?        @map("course_id")
+
+  // Schedule
+  startDate       DateTime       @map("start_date")
+  endDate         DateTime       @map("end_date")
+  daysOfWeek      Int[]          @map("days_of_week")  // [1,3,5] = Mon,Wed,Fri
+  timeSlot        String         @map("time_slot")      // "14:00" or "14:30"
+  slotCount       Int            @default(1) @map("slot_count") // 1-4 slots per session
+  topic           String?
+
+  // Status
+  status          ContractStatus @default(PENDING)
+
+  // Credits
+  totalCredits    Int            @map("total_credits")
+  reservedCredits Int            @default(0) @map("reserved_credits")
+  usedCredits     Int            @default(0) @map("used_credits")
+  refundedCredits Int            @default(0) @map("refunded_credits")
+
+  // Tutor response
+  respondedAt     DateTime?      @map("responded_at")
+  rejectionReason String?        @map("rejection_reason")
+
+  // Cancellation
+  cancelledAt     DateTime?      @map("cancelled_at")
+  cancelledBy     String?        @map("cancelled_by")  // 'student' or 'tutor'
+  cancellationReason String?     @map("cancellation_reason")
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  student         User           @relation("StudentContracts", fields: [studentId], references: [id])
+  tutorProfile    TutorProfile   @relation(fields: [tutorProfileId], references: [id])
+  course          Course?        @relation(fields: [courseId], references: [id])
+  sessions        TutorSession[] @relation("ContractSessions")
+
+  @@index([studentId, status])
+  @@index([tutorProfileId, status])
+  @@map("recurring_session_contracts")
 }

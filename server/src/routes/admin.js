@@ -4000,4 +4000,178 @@ router.post('/recordings/:sessionId/process', async (req, res, next) => {
   }
 });
 
+// ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+/**
+ * GET /api/admin/settings
+ * Get all system settings
+ */
+router.get('/settings', async (req, res, next) => {
+  try {
+    const settings = await req.prisma.systemSettings.findMany({
+      orderBy: { key: 'asc' },
+    });
+
+    // Convert to key-value object for easier frontend use
+    const settingsObject = {};
+    settings.forEach(s => {
+      settingsObject[s.key] = s.value;
+    });
+
+    res.json({
+      success: true,
+      settings: settingsObject,
+      settingsList: settings,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/settings/:key
+ * Get a specific system setting
+ */
+router.get('/settings/:key', async (req, res, next) => {
+  try {
+    const { key } = req.params;
+
+    const setting = await req.prisma.systemSettings.findUnique({
+      where: { key },
+    });
+
+    if (!setting) {
+      return res.status(404).json({
+        success: false,
+        message: `Setting "${key}" not found`,
+      });
+    }
+
+    res.json({
+      success: true,
+      setting,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/settings/:key
+ * Update a specific system setting
+ */
+router.put('/settings/:key', async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    const { value, description } = req.body;
+
+    if (value === undefined || value === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Value is required',
+      });
+    }
+
+    // Validate specific settings
+    if (key === 'freelanceCommissionPercent') {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Commission percent must be between 0 and 100',
+        });
+      }
+    }
+
+    if (key === 'baseCreditPrice') {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Base credit price must be greater than 0',
+        });
+      }
+    }
+
+    if (key === 'minHourlyRate' || key === 'maxHourlyRate') {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Hourly rate must be greater than 0',
+        });
+      }
+    }
+
+    // Upsert the setting
+    const setting = await req.prisma.systemSettings.upsert({
+      where: { key },
+      create: {
+        key,
+        value: String(value),
+        description: description || null,
+        updatedBy: req.user.id,
+      },
+      update: {
+        value: String(value),
+        description: description !== undefined ? description : undefined,
+        updatedBy: req.user.id,
+      },
+    });
+
+    res.json({
+      success: true,
+      setting,
+      message: `Setting "${key}" updated successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/settings/bulk
+ * Update multiple settings at once
+ */
+router.post('/settings/bulk', async (req, res, next) => {
+  try {
+    const { settings } = req.body;
+
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Settings object is required',
+      });
+    }
+
+    const results = [];
+
+    for (const [key, value] of Object.entries(settings)) {
+      const setting = await req.prisma.systemSettings.upsert({
+        where: { key },
+        create: {
+          key,
+          value: String(value),
+          updatedBy: req.user.id,
+        },
+        update: {
+          value: String(value),
+          updatedBy: req.user.id,
+        },
+      });
+      results.push(setting);
+    }
+
+    res.json({
+      success: true,
+      settings: results,
+      message: `${results.length} settings updated successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

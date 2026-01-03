@@ -281,6 +281,86 @@ export const tutorsApi = {
   async getWhiteboard(sessionId) {
     return apiClient.get(`/tutors/sessions/${sessionId}/whiteboard`);
   },
+
+  /**
+   * Upload an image for the whiteboard
+   * @param {string} sessionId - Session ID
+   * @param {File} file - The image file to upload
+   * @returns {Promise<{url: string, filename: string}>}
+   */
+  async uploadWhiteboardImage(sessionId, file) {
+    const formData = new FormData();
+    formData.append('folder', 'whiteboard-images');
+    formData.append('file', file);
+    return apiClient.upload(`/tutors/sessions/${sessionId}/whiteboard/images`, formData);
+  },
+
+  // ============================================
+  // PUBLIC SETTINGS
+  // ============================================
+
+  /**
+   * Get tutor pricing settings (for signup)
+   * No authentication required
+   */
+  async getPricingSettings() {
+    return apiClient.get('/tutors/settings/pricing');
+  },
+
+  // ============================================
+  // RECURRING SESSION CONTRACTS
+  // ============================================
+
+  /**
+   * Create a recurring session contract
+   * @param {string} tutorId - Tutor profile ID
+   * @param {Object} data - Contract data
+   */
+  async createContract(tutorId, data) {
+    return apiClient.post(`/tutors/${tutorId}/recurring-contract`, data);
+  },
+
+  /**
+   * Get pending contracts for current tutor
+   */
+  async getPendingContracts() {
+    return apiClient.get('/tutors/contracts/pending');
+  },
+
+  /**
+   * Get contract details
+   * @param {string} contractId - Contract ID
+   */
+  async getContract(contractId) {
+    return apiClient.get(`/tutors/contracts/${contractId}`);
+  },
+
+  /**
+   * Respond to a contract request (tutor only)
+   * @param {string} contractId - Contract ID
+   * @param {Object} data - { accept: boolean, reason?: string }
+   */
+  async respondToContract(contractId, data) {
+    return apiClient.post(`/tutors/contracts/${contractId}/respond`, data);
+  },
+
+  /**
+   * Cancel a contract
+   * @param {string} contractId - Contract ID
+   * @param {string} reason - Cancellation reason
+   */
+  async cancelContract(contractId, reason) {
+    return apiClient.post(`/tutors/contracts/${contractId}/cancel`, { reason });
+  },
+
+  /**
+   * Get student's contracts
+   * @param {Object} params - Query params { status? }
+   */
+  async getStudentContracts(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiClient.get(`/tutors/student/contracts${query ? `?${query}` : ''}`);
+  },
 };
 
 export default tutorsApi;

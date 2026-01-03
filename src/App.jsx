@@ -68,6 +68,7 @@ import TutorDashboard from './pages/tutor/TutorDashboard';
 import TutorProfileEdit from './pages/tutor/TutorProfileEdit';
 import TutorAvailability from './pages/tutor/TutorAvailability';
 import TutorSessions from './pages/tutor/TutorSessions';
+import ContractRequests from './pages/tutor/ContractRequests';
 
 // Center Pages
 import CenterDashboard from './pages/center/CenterDashboard';
@@ -84,6 +85,8 @@ import MyPayments from './pages/student/MyPayments';
 import MyCertificates from './pages/student/MyCertificates';
 import StudentProfile from './pages/student/StudentProfile';
 import MySessions from './pages/student/MySessions';
+import RecurringBooking from './pages/student/RecurringBooking';
+import MyContracts from './pages/student/MyContracts';
 
 // Checkout Pages
 import Cart from './pages/checkout/Cart';
@@ -266,6 +269,7 @@ function App() {
         <Route path="profile" element={<TutorProfileEdit />} />
         <Route path="availability" element={<TutorAvailability />} />
         <Route path="sessions" element={<TutorSessions />} />
+        <Route path="contracts" element={<ContractRequests />} />
       </Route>
 
       {/* ===================== */}
@@ -347,6 +351,8 @@ function App() {
         <Route path="certificates" element={<MyCertificates />} />
         <Route path="profile" element={<StudentProfile />} />
         <Route path="sessions" element={<MySessions />} />
+        <Route path="contracts" element={<MyContracts />} />
+        <Route path="recurring-booking/:tutorId" element={<RecurringBooking />} />
       </Route>
 
       {/* ===================== */}

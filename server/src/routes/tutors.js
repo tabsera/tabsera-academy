@@ -12,6 +12,22 @@ const recordingPipeline = require('../services/recordingPipeline');
 
 const router = express.Router();
 
+// ============================================
+// SESSION TIMING CONSTANTS
+// ============================================
+const SESSION_DURATION = 20;  // minutes per session
+const PREP_TIME = 10;         // minutes between sessions
+const SLOT_INTERVAL = 30;     // total slot time (session + prep)
+const MAX_SLOTS = 4;          // maximum consecutive slots (110 min total)
+
+/**
+ * Calculate total session duration for multiple slots
+ * 1 slot = 20 min, 2 slots = 50 min, 3 slots = 80 min, 4 slots = 110 min
+ */
+function calculateTotalDuration(slotCount) {
+  return (slotCount * SESSION_DURATION) + ((slotCount - 1) * PREP_TIME);
+}
+
 /**
  * Get timezone offset in minutes for a given timezone and date
  * Returns positive for timezones ahead of UTC (e.g., +180 for UTC+3)
@@ -29,10 +45,18 @@ function getTimezoneOffset(timezone, date) {
 /**
  * POST /api/tutors/register
  * Register as a tutor (requires authenticated student)
+ *
+ * Request body:
+ * - bio: (optional) tutor bio
+ * - headline: (optional) short headline
+ * - timezone: (optional) tutor timezone
+ * - courses: (optional) array of course IDs
+ * - tutorType: 'FULLTIME' or 'FREELANCE' (default: 'FULLTIME')
+ * - hourlyRate: (required for FREELANCE) desired hourly rate in USD
  */
 router.post('/register', authenticate, async (req, res, next) => {
   try {
-    const { bio, headline, timezone, courses } = req.body;
+    const { bio, headline, timezone, courses, tutorType = 'FULLTIME', hourlyRate } = req.body;
     const userId = req.user.id;
 
     // Check if user already has a tutor profile
@@ -47,6 +71,77 @@ router.post('/register', authenticate, async (req, res, next) => {
       });
     }
 
+    // Validate tutor type
+    if (!['FULLTIME', 'FREELANCE'].includes(tutorType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'tutorType must be FULLTIME or FREELANCE',
+      });
+    }
+
+    // For freelance tutors, validate and calculate credit factor
+    let creditFactor = 1;
+    let validatedHourlyRate = null;
+
+    if (tutorType === 'FREELANCE') {
+      if (!hourlyRate || hourlyRate <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Hourly rate is required for freelance tutors',
+        });
+      }
+
+      // Get system settings for validation
+      const settings = await req.prisma.systemSettings.findMany({
+        where: { key: { in: ['baseCreditPrice', 'minHourlyRate', 'maxHourlyRate'] } },
+      });
+
+      const settingsMap = {};
+      settings.forEach(s => { settingsMap[s.key] = parseFloat(s.value); });
+
+      const minRate = settingsMap.minHourlyRate || 3;
+      const maxRate = settingsMap.maxHourlyRate || 100;
+      const baseCreditPrice = settingsMap.baseCreditPrice || 1;
+      const sessionsPerHour = 3;
+      const baseHourlyRate = baseCreditPrice * sessionsPerHour;
+
+      if (hourlyRate < minRate || hourlyRate > maxRate) {
+        return res.status(400).json({
+          success: false,
+          message: `Hourly rate must be between $${minRate} and $${maxRate}`,
+        });
+      }
+
+      // Validate that hourly rate is an exact multiple of base hourly rate
+      const parsedRate = parseFloat(hourlyRate);
+      if (parsedRate % baseHourlyRate !== 0) {
+        // Calculate the nearest valid rates
+        const lowerRate = Math.floor(parsedRate / baseHourlyRate) * baseHourlyRate;
+        const upperRate = Math.ceil(parsedRate / baseHourlyRate) * baseHourlyRate;
+
+        // Generate a few valid rate examples
+        const validRates = [];
+        for (let i = 1; i <= 5; i++) {
+          const rate = baseHourlyRate * i;
+          if (rate >= minRate && rate <= maxRate) {
+            validRates.push(`$${rate}`);
+          }
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: `Hourly rate must be a multiple of $${baseHourlyRate} (the base hourly rate). ` +
+                   `Valid rates near $${parsedRate}: $${lowerRate} or $${upperRate}. ` +
+                   `Examples: ${validRates.join(', ')}, etc.`,
+          suggestedRates: { lower: lowerRate, upper: upperRate },
+          baseHourlyRate,
+        });
+      }
+
+      validatedHourlyRate = parsedRate;
+      creditFactor = validatedHourlyRate / baseHourlyRate;
+    }
+
     // Create tutor profile
     const tutorProfile = await req.prisma.tutorProfile.create({
       data: {
@@ -55,6 +150,9 @@ router.post('/register', authenticate, async (req, res, next) => {
         headline: headline || null,
         timezone: timezone || 'UTC',
         status: 'PENDING',
+        tutorType,
+        hourlyRate: validatedHourlyRate,
+        creditFactor,
       },
     });
 
@@ -70,7 +168,7 @@ router.post('/register', authenticate, async (req, res, next) => {
         phone: true,
         avatar: true,
         role: true,
-        isVerified: true,
+        emailVerified: true,
       },
     });
 
@@ -956,6 +1054,9 @@ router.get('/sessions', authenticate, async (req, res, next) => {
       where.status = { in: ['SCHEDULED', 'IN_PROGRESS'] };
     }
 
+    // Sort completed sessions descending (latest first), others ascending (earliest first)
+    const sortOrder = status === 'COMPLETED' ? 'desc' : 'asc';
+
     const sessions = await req.prisma.tutorSession.findMany({
       where,
       include: {
@@ -972,7 +1073,7 @@ router.get('/sessions', authenticate, async (req, res, next) => {
           select: { id: true, title: true, slug: true },
         },
       },
-      orderBy: { scheduledAt: 'asc' },
+      orderBy: { scheduledAt: sortOrder },
     });
 
     res.json({
@@ -1304,7 +1405,8 @@ router.get('/:id/slots', async (req, res, next) => {
       select: { scheduledAt: true, duration: true },
     });
 
-    // Generate available slots (10-minute intervals)
+    // Generate available slots at 30-minute intervals (for 20-min sessions + 10-min prep)
+    // Slots start at :00 and :30 (top of hour and half hour)
     // Convert tutor's local availability times to UTC
     const tutorTz = tutor.timezone || 'UTC';
     const slots = [];
@@ -1328,9 +1430,17 @@ router.get('/:id/slots', async (req, res, next) => {
       current = new Date(current.getTime() - tutorOffset * 60 * 1000);
       const endUtc = new Date(new Date(endDateStr).getTime() - tutorOffset * 60 * 1000);
 
+      // Round start time to nearest :00 or :30
+      const currentMinutes = current.getMinutes();
+      if (currentMinutes !== 0 && currentMinutes !== 30) {
+        const roundUp = currentMinutes < 30 ? 30 : 60;
+        current.setMinutes(roundUp === 60 ? 0 : 30, 0, 0);
+        if (roundUp === 60) current.setHours(current.getHours() + 1);
+      }
+
       while (current < endUtc) {
         const slotTime = new Date(current);
-        const slotEnd = new Date(current.getTime() + 10 * 60 * 1000);
+        const slotEnd = new Date(current.getTime() + SLOT_INTERVAL * 60 * 1000);
 
         // Check if slot is in the past
         if (slotTime > new Date()) {
@@ -1348,7 +1458,7 @@ router.get('/:id/slots', async (req, res, next) => {
           }
         }
 
-        current = new Date(current.getTime() + 10 * 60 * 1000);
+        current = new Date(current.getTime() + SLOT_INTERVAL * 60 * 1000);
       }
     }
 
@@ -1370,11 +1480,21 @@ router.get('/:id/slots', async (req, res, next) => {
 /**
  * POST /api/tutors/:id/book
  * Book a session with a tutor (consumes credits)
+ *
+ * Request body:
+ * - scheduledAt: ISO date string for session start
+ * - courseId: (optional) course being tutored
+ * - topic: (optional) session topic
+ * - slotCount: (optional, default 1) number of consecutive 30-min slots (1-4)
+ *   - 1 slot = 20 min session
+ *   - 2 slots = 50 min session (20 + 10 prep + 20)
+ *   - 3 slots = 80 min session
+ *   - 4 slots = 110 min session
  */
 router.post('/:id/book', authenticate, async (req, res, next) => {
   try {
     const { id: tutorProfileId } = req.params;
-    const { scheduledAt, courseId, topic } = req.body;
+    const { scheduledAt, courseId, topic, slotCount = 1 } = req.body;
     const studentId = req.user.id;
 
     if (!scheduledAt) {
@@ -1384,7 +1504,16 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
       });
     }
 
-    // Get tutor profile
+    // Validate slotCount
+    const slots = parseInt(slotCount);
+    if (isNaN(slots) || slots < 1 || slots > MAX_SLOTS) {
+      return res.status(400).json({
+        success: false,
+        message: `slotCount must be between 1 and ${MAX_SLOTS}`,
+      });
+    }
+
+    // Get tutor profile with creditFactor
     const tutor = await req.prisma.tutorProfile.findUnique({
       where: { id: tutorProfileId },
     });
@@ -1404,61 +1533,97 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
       });
     }
 
-    // Get course to determine credit factor
-    let creditsFactor = 1;
+    // Calculate credit requirements
+    // Total credits = slotCount * tutor.creditFactor * course.creditsFactor
+    let courseCreditsFactor = 1;
     if (courseId) {
       const course = await req.prisma.course.findUnique({ where: { id: courseId } });
       if (course) {
-        creditsFactor = course.creditsFactor || 1;
+        courseCreditsFactor = course.creditsFactor || 1;
       }
     }
 
-    // Find a valid tuition pack purchase with enough credits
+    const tutorCreditFactor = tutor.creditFactor || 1;
+    const creditsPerSlot = tutorCreditFactor * courseCreditsFactor;
+    const totalCreditsRequired = slots * creditsPerSlot;
+
+    // Find valid tuition pack purchases with enough total credits
     const now = new Date();
-    const purchase = await req.prisma.tuitionPackPurchase.findFirst({
+
+    // Get all valid purchases ordered by expiry (FIFO)
+    const purchases = await req.prisma.tuitionPackPurchase.findMany({
       where: {
         userId: studentId,
-        creditsRemaining: { gte: creditsFactor },
+        creditsRemaining: { gt: 0 },
         expiresAt: { gt: now },
       },
-      orderBy: { expiresAt: 'asc' }, // Use the one expiring soonest
+      orderBy: { expiresAt: 'asc' },
     });
 
-    if (!purchase) {
-      // Get available credits for better error message
-      const totalCredits = await req.prisma.tuitionPackPurchase.aggregate({
-        where: { userId: studentId, expiresAt: { gt: now } },
-        _sum: { creditsRemaining: true },
-      });
+    // Calculate total available credits
+    const totalAvailable = purchases.reduce((sum, p) => sum + p.creditsRemaining, 0);
 
+    if (totalAvailable < totalCreditsRequired) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient credits. This course requires ${creditsFactor} credit(s) per session.`,
-        creditsRequired: creditsFactor,
-        creditsAvailable: totalCredits._sum.creditsRemaining || 0,
+        message: `Insufficient credits. This session requires ${totalCreditsRequired} credit(s).`,
+        creditsRequired: totalCreditsRequired,
+        creditsAvailable: totalAvailable,
+        breakdown: {
+          slotCount: slots,
+          tutorCreditFactor,
+          courseCreditsFactor,
+          creditsPerSlot,
+        },
       });
     }
 
-    // Check if the slot is still available
+    // Check if all consecutive slots are available
     const scheduledTime = new Date(scheduledAt);
-    const slotEnd = new Date(scheduledTime.getTime() + 10 * 60 * 1000);
+    const totalDuration = calculateTotalDuration(slots);
+    const sessionEnd = new Date(scheduledTime.getTime() + totalDuration * 60 * 1000);
 
-    const conflictingSession = await req.prisma.tutorSession.findFirst({
-      where: {
-        tutorProfileId,
-        scheduledAt: {
-          gte: scheduledTime,
-          lt: slotEnd,
+    // Check each 30-min slot for conflicts
+    for (let i = 0; i < slots; i++) {
+      const slotStart = new Date(scheduledTime.getTime() + (i * SLOT_INTERVAL * 60 * 1000));
+      const slotEnd = new Date(slotStart.getTime() + SLOT_INTERVAL * 60 * 1000);
+
+      const conflictingSession = await req.prisma.tutorSession.findFirst({
+        where: {
+          tutorProfileId,
+          status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+          OR: [
+            // Existing session starts during this slot
+            {
+              scheduledAt: {
+                gte: slotStart,
+                lt: slotEnd,
+              },
+            },
+            // Existing session ends during this slot
+            {
+              AND: [
+                { scheduledAt: { lt: slotStart } },
+                // Check if session extends into this slot
+              ],
+            },
+          ],
         },
-        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
-      },
-    });
-
-    if (conflictingSession) {
-      return res.status(400).json({
-        success: false,
-        message: 'This time slot is no longer available',
       });
+
+      if (conflictingSession) {
+        // Double-check with duration
+        const existingEnd = new Date(
+          conflictingSession.scheduledAt.getTime() + conflictingSession.duration * 60 * 1000
+        );
+        if (slotStart < existingEnd && slotEnd > conflictingSession.scheduledAt) {
+          return res.status(400).json({
+            success: false,
+            message: `Time slot ${i + 1} is no longer available`,
+            conflictAt: slotStart.toISOString(),
+          });
+        }
+      }
     }
 
     // Get student and tutor emails for meeting invite
@@ -1472,29 +1637,46 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
       select: { email: true, firstName: true },
     });
 
-    // Reserve credits and create session
+    // Reserve credits from purchases (FIFO) and create session
     const session = await req.prisma.$transaction(async (prisma) => {
-      // Update purchase - reserve credits
-      await prisma.tuitionPackPurchase.update({
-        where: { id: purchase.id },
-        data: {
-          creditsRemaining: { decrement: creditsFactor },
-          creditsReserved: { increment: creditsFactor },
-        },
-      });
+      let creditsToDeduct = totalCreditsRequired;
+      const purchaseUpdates = [];
 
-      // Create session first to get the ID
+      // Deduct credits from purchases in FIFO order
+      for (const purchase of purchases) {
+        if (creditsToDeduct <= 0) break;
+
+        const deductFromThis = Math.min(purchase.creditsRemaining, creditsToDeduct);
+        purchaseUpdates.push({
+          purchaseId: purchase.id,
+          amount: deductFromThis,
+        });
+        creditsToDeduct -= deductFromThis;
+      }
+
+      // Apply all purchase updates
+      for (const update of purchaseUpdates) {
+        await prisma.tuitionPackPurchase.update({
+          where: { id: update.purchaseId },
+          data: {
+            creditsRemaining: { decrement: update.amount },
+            creditsReserved: { increment: update.amount },
+          },
+        });
+      }
+
+      // Create session with total duration
       const newSession = await prisma.tutorSession.create({
         data: {
           tutorProfileId,
           studentId,
-          purchaseId: purchase.id,
+          purchaseId: purchases[0].id, // Primary purchase for tracking
           courseId,
           scheduledAt: scheduledTime,
-          duration: 10,
+          duration: totalDuration,
           status: 'SCHEDULED',
           topic,
-          creditsConsumed: creditsFactor,
+          creditsConsumed: totalCreditsRequired,
         },
         include: {
           tutorProfile: {
@@ -1515,7 +1697,7 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
         tutorEmail: tutorUser.email,
         studentEmail: student.email,
         scheduledAt: scheduledTime,
-        duration: 10,
+        duration: totalDuration,
         topic: topic || `Tutoring with ${tutorUser.firstName}`,
         sessionId: session.id,
       });
@@ -1539,8 +1721,14 @@ router.post('/:id/book', authenticate, async (req, res, next) => {
     res.status(201).json({
       success: true,
       session,
-      creditsDeducted: creditsFactor,
-      creditsRemaining: purchase.creditsRemaining - creditsFactor,
+      creditsDeducted: totalCreditsRequired,
+      sessionDuration: totalDuration,
+      slotCount: slots,
+      breakdown: {
+        tutorCreditFactor,
+        courseCreditsFactor,
+        creditsPerSlot,
+      },
       message: 'Session booked successfully',
     });
   } catch (error) {
@@ -2190,6 +2378,80 @@ router.get('/sessions/:id/whiteboard/public', async (req, res, next) => {
 });
 
 /**
+ * POST /api/tutors/sessions/:id/whiteboard/images
+ * Upload an image for the whiteboard
+ * Returns a URL that can be used in Excalidraw
+ */
+router.post('/sessions/:id/whiteboard/images', authenticate, (req, res, next) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 5MB.',
+        });
+      }
+      return next(err);
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+    }
+
+    try {
+      const sessionId = req.params.id;
+      const userId = req.user.id;
+
+      // Verify session exists and user is participant
+      const session = await req.prisma.tutorSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          tutorProfile: { select: { userId: true } },
+        },
+      });
+
+      if (!session) {
+        deleteFile(getFileUrl('whiteboard-images', req.file.filename));
+        return res.status(404).json({
+          success: false,
+          message: 'Session not found',
+        });
+      }
+
+      // Check if user is tutor or student
+      const isTutor = session.tutorProfile?.userId === userId;
+      const isStudent = session.studentId === userId;
+
+      if (!isTutor && !isStudent) {
+        deleteFile(getFileUrl('whiteboard-images', req.file.filename));
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied',
+        });
+      }
+
+      // Generate the public URL
+      const imageUrl = getFileUrl('whiteboard-images', req.file.filename);
+      const fullUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:8000'}${imageUrl}`;
+
+      res.json({
+        success: true,
+        url: fullUrl,
+        filename: req.file.filename,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+      });
+    } catch (error) {
+      deleteFile(getFileUrl('whiteboard-images', req.file.filename));
+      next(error);
+    }
+  });
+});
+
+/**
  * GET /api/tutors/student/sessions
  * Get student's tutoring sessions
  */
@@ -2208,6 +2470,9 @@ router.get('/student/sessions', authenticate, async (req, res, next) => {
       where.scheduledAt = { gte: new Date() };
       where.status = { in: ['SCHEDULED', 'IN_PROGRESS'] };
     }
+
+    // Sort completed sessions descending (latest first), others ascending (earliest first)
+    const sortOrder = status === 'COMPLETED' ? 'desc' : 'asc';
 
     const sessions = await req.prisma.tutorSession.findMany({
       where,
@@ -2228,7 +2493,7 @@ router.get('/student/sessions', authenticate, async (req, res, next) => {
           select: { id: true, title: true, slug: true },
         },
       },
-      orderBy: { scheduledAt: 'desc' },
+      orderBy: { scheduledAt: sortOrder },
     });
 
     res.json({
@@ -2239,5 +2504,655 @@ router.get('/student/sessions', authenticate, async (req, res, next) => {
     next(error);
   }
 });
+
+// ============================================
+// RECURRING SESSION CONTRACTS
+// ============================================
+
+/**
+ * POST /api/tutors/:id/recurring-contract
+ * Create a recurring session contract request
+ */
+router.post('/:id/recurring-contract', authenticate, async (req, res, next) => {
+  try {
+    const { id: tutorProfileId } = req.params;
+    const {
+      startDate,
+      endDate,
+      daysOfWeek,
+      timeSlot,
+      slotCount = 1,
+      courseId,
+      topic,
+    } = req.body;
+    const studentId = req.user.id;
+
+    // Validate required fields
+    if (!startDate || !endDate || !daysOfWeek || !timeSlot) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate, endDate, daysOfWeek, and timeSlot are required',
+      });
+    }
+
+    // Validate daysOfWeek array (0-6, where 0 is Sunday)
+    if (!Array.isArray(daysOfWeek) || daysOfWeek.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'daysOfWeek must be a non-empty array of day numbers (0-6)',
+      });
+    }
+
+    // Validate slotCount
+    const slots = parseInt(slotCount);
+    if (isNaN(slots) || slots < 1 || slots > MAX_SLOTS) {
+      return res.status(400).json({
+        success: false,
+        message: `slotCount must be between 1 and ${MAX_SLOTS}`,
+      });
+    }
+
+    // Get tutor profile
+    const tutor = await req.prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+    });
+
+    if (!tutor || tutor.status !== 'APPROVED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor not found',
+      });
+    }
+
+    // Can't contract yourself
+    if (tutor.userId === studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot create a contract with yourself',
+      });
+    }
+
+    // Calculate total sessions in date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (end <= start) {
+      return res.status(400).json({
+        success: false,
+        message: 'endDate must be after startDate',
+      });
+    }
+
+    // Count sessions by iterating through date range
+    let sessionCount = 0;
+    const current = new Date(start);
+    while (current <= end) {
+      const dayOfWeek = current.getDay();
+      if (daysOfWeek.includes(dayOfWeek)) {
+        sessionCount++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    if (sessionCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No sessions found in the specified date range and days',
+      });
+    }
+
+    // Calculate credits required
+    let courseCreditsFactor = 1;
+    if (courseId) {
+      const course = await req.prisma.course.findUnique({ where: { id: courseId } });
+      if (course) {
+        courseCreditsFactor = course.creditsFactor || 1;
+      }
+    }
+
+    const tutorCreditFactor = tutor.creditFactor || 1;
+    const creditsPerSession = slots * tutorCreditFactor * courseCreditsFactor;
+    const totalCredits = sessionCount * creditsPerSession;
+
+    // Check if student has enough credits (but don't reserve yet)
+    const now = new Date();
+    const totalAvailable = await req.prisma.tuitionPackPurchase.aggregate({
+      where: {
+        userId: studentId,
+        creditsRemaining: { gt: 0 },
+        expiresAt: { gt: now },
+      },
+      _sum: { creditsRemaining: true },
+    });
+
+    const availableCredits = totalAvailable._sum.creditsRemaining || 0;
+
+    // Create contract with PENDING status
+    const contract = await req.prisma.recurringSessionContract.create({
+      data: {
+        studentId,
+        tutorProfileId,
+        courseId,
+        startDate: start,
+        endDate: end,
+        daysOfWeek,
+        timeSlot,
+        slotCount: slots,
+        topic,
+        status: 'PENDING',
+        totalCredits,
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        tutorProfile: {
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+        course: { select: { id: true, title: true } },
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      contract,
+      summary: {
+        totalSessions: sessionCount,
+        totalCredits,
+        creditsPerSession,
+        availableCredits,
+        sufficientCredits: availableCredits >= totalCredits,
+      },
+      message: 'Contract request created. Waiting for tutor approval.',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/contracts/pending
+ * Get pending contracts for current tutor
+ */
+router.get('/contracts/pending', authenticate, async (req, res, next) => {
+  try {
+    const tutorProfile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!tutorProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor profile not found',
+      });
+    }
+
+    const contracts = await req.prisma.recurringSessionContract.findMany({
+      where: {
+        tutorProfileId: tutorProfile.id,
+        status: 'PENDING',
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        course: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      contracts,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/contracts/:id
+ * Get contract details
+ */
+router.get('/contracts/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const contract = await req.prisma.recurringSessionContract.findUnique({
+      where: { id },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        tutorProfile: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        course: { select: { id: true, title: true } },
+        sessions: {
+          orderBy: { scheduledAt: 'asc' },
+          select: {
+            id: true,
+            scheduledAt: true,
+            duration: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contract not found',
+      });
+    }
+
+    // Check access
+    const tutorProfile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    const isTutor = tutorProfile && tutorProfile.id === contract.tutorProfileId;
+    const isStudent = req.user.id === contract.studentId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this contract',
+      });
+    }
+
+    res.json({
+      success: true,
+      contract,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/contracts/:id/respond
+ * Tutor responds to contract (accept/reject)
+ */
+router.post('/contracts/:id/respond', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { accept, reason } = req.body;
+
+    const contract = await req.prisma.recurringSessionContract.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: true,
+        course: true,
+      },
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contract not found',
+      });
+    }
+
+    // Verify tutor owns this contract
+    const tutorProfile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!tutorProfile || tutorProfile.id !== contract.tutorProfileId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to respond to this contract',
+      });
+    }
+
+    if (contract.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: 'Contract has already been responded to',
+      });
+    }
+
+    if (accept === false) {
+      // Reject the contract
+      const updatedContract = await req.prisma.recurringSessionContract.update({
+        where: { id },
+        data: {
+          status: 'REJECTED',
+          respondedAt: new Date(),
+          rejectionReason: reason || null,
+        },
+      });
+
+      return res.json({
+        success: true,
+        contract: updatedContract,
+        message: 'Contract rejected',
+      });
+    }
+
+    // Accept the contract - reserve credits and create sessions
+    const now = new Date();
+
+    // Get student's credit purchases (FIFO)
+    const purchases = await req.prisma.tuitionPackPurchase.findMany({
+      where: {
+        userId: contract.studentId,
+        creditsRemaining: { gt: 0 },
+        expiresAt: { gt: now },
+      },
+      orderBy: { expiresAt: 'asc' },
+    });
+
+    const totalAvailable = purchases.reduce((sum, p) => sum + p.creditsRemaining, 0);
+
+    if (totalAvailable < contract.totalCredits) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student no longer has sufficient credits for this contract',
+        required: contract.totalCredits,
+        available: totalAvailable,
+      });
+    }
+
+    // Calculate session dates
+    const sessionDates = [];
+    const current = new Date(contract.startDate);
+    const end = new Date(contract.endDate);
+
+    while (current <= end) {
+      const dayOfWeek = current.getDay();
+      if (contract.daysOfWeek.includes(dayOfWeek)) {
+        // Create scheduled time from date and timeSlot
+        const [hours, minutes] = contract.timeSlot.split(':').map(Number);
+        const sessionTime = new Date(current);
+        sessionTime.setHours(hours, minutes, 0, 0);
+        sessionDates.push(new Date(sessionTime));
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    const sessionDuration = calculateTotalDuration(contract.slotCount);
+    const courseCreditsFactor = contract.course?.creditsFactor || 1;
+    const tutorCreditFactor = contract.tutorProfile.creditFactor || 1;
+    const creditsPerSession = contract.slotCount * tutorCreditFactor * courseCreditsFactor;
+
+    // Create all sessions and reserve credits in a transaction
+    const result = await req.prisma.$transaction(async (prisma) => {
+      let creditsToReserve = contract.totalCredits;
+      const purchaseUpdates = [];
+
+      // Reserve credits from purchases (FIFO)
+      for (const purchase of purchases) {
+        if (creditsToReserve <= 0) break;
+        const reserveFromThis = Math.min(purchase.creditsRemaining, creditsToReserve);
+        purchaseUpdates.push({
+          purchaseId: purchase.id,
+          amount: reserveFromThis,
+        });
+        creditsToReserve -= reserveFromThis;
+      }
+
+      // Apply purchase updates
+      for (const update of purchaseUpdates) {
+        await prisma.tuitionPackPurchase.update({
+          where: { id: update.purchaseId },
+          data: {
+            creditsRemaining: { decrement: update.amount },
+            creditsReserved: { increment: update.amount },
+          },
+        });
+      }
+
+      // Create all sessions
+      const sessions = [];
+      for (const sessionDate of sessionDates) {
+        const session = await prisma.tutorSession.create({
+          data: {
+            tutorProfileId: contract.tutorProfileId,
+            studentId: contract.studentId,
+            purchaseId: purchases[0].id,
+            courseId: contract.courseId,
+            contractId: contract.id,
+            scheduledAt: sessionDate,
+            duration: sessionDuration,
+            status: 'SCHEDULED',
+            topic: contract.topic,
+            creditsConsumed: creditsPerSession,
+          },
+        });
+        sessions.push(session);
+      }
+
+      // Update contract
+      const updatedContract = await prisma.recurringSessionContract.update({
+        where: { id },
+        data: {
+          status: 'ACCEPTED',
+          respondedAt: new Date(),
+          reservedCredits: contract.totalCredits,
+        },
+      });
+
+      return { contract: updatedContract, sessions };
+    });
+
+    res.json({
+      success: true,
+      contract: result.contract,
+      sessionsCreated: result.sessions.length,
+      message: `Contract accepted. ${result.sessions.length} sessions scheduled.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/tutors/contracts/:id/cancel
+ * Cancel an entire contract (refund remaining sessions)
+ */
+router.post('/contracts/:id/cancel', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const contract = await req.prisma.recurringSessionContract.findUnique({
+      where: { id },
+      include: {
+        tutorProfile: true,
+        sessions: {
+          where: { status: 'SCHEDULED' },
+        },
+      },
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contract not found',
+      });
+    }
+
+    // Check access
+    const tutorProfile = await req.prisma.tutorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    const isTutor = tutorProfile && tutorProfile.id === contract.tutorProfileId;
+    const isStudent = req.user.id === contract.studentId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to cancel this contract',
+      });
+    }
+
+    if (!['PENDING', 'ACCEPTED'].includes(contract.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Contract cannot be cancelled in current status',
+      });
+    }
+
+    // Cancel all scheduled sessions and refund credits
+    const result = await req.prisma.$transaction(async (prisma) => {
+      let totalRefunded = 0;
+
+      for (const session of contract.sessions) {
+        // Refund credits for this session
+        if (session.purchaseId) {
+          await prisma.tuitionPackPurchase.update({
+            where: { id: session.purchaseId },
+            data: {
+              creditsReserved: { decrement: session.creditsConsumed },
+              creditsRemaining: { increment: session.creditsConsumed },
+            },
+          });
+          totalRefunded += session.creditsConsumed;
+        }
+
+        // Cancel the session
+        await prisma.tutorSession.update({
+          where: { id: session.id },
+          data: { status: 'CANCELLED' },
+        });
+      }
+
+      // Update contract
+      const updatedContract = await prisma.recurringSessionContract.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancelledBy: req.user.id,
+          cancellationReason: reason || null,
+          refundedCredits: { increment: totalRefunded },
+        },
+      });
+
+      return { contract: updatedContract, refunded: totalRefunded, sessionsCancelled: contract.sessions.length };
+    });
+
+    res.json({
+      success: true,
+      contract: result.contract,
+      sessionsCancelled: result.sessionsCancelled,
+      creditsRefunded: result.refunded,
+      message: 'Contract cancelled successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/tutors/student/contracts
+ * Get student's contracts
+ */
+router.get('/student/contracts', authenticate, async (req, res, next) => {
+  try {
+    const { status } = req.query;
+
+    const where = {
+      studentId: req.user.id,
+    };
+
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    const contracts = await req.prisma.recurringSessionContract.findMany({
+      where,
+      include: {
+        tutorProfile: {
+          include: {
+            user: { select: { firstName: true, lastName: true, avatar: true } },
+          },
+        },
+        course: { select: { id: true, title: true } },
+        _count: {
+          select: {
+            sessions: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      contracts,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PUBLIC SETTINGS (for tutor signup)
+// ============================================
+
+/**
+ * GET /api/tutors/settings/pricing
+ * Get public tutor pricing settings for signup form
+ * No authentication required
+ */
+router.get('/settings/pricing', async (req, res, next) => {
+  try {
+    const settingKeys = [
+      'baseCreditPrice',
+      'freelanceCommissionPercent',
+      'minHourlyRate',
+      'maxHourlyRate',
+    ];
+
+    const settings = await req.prisma.systemSettings.findMany({
+      where: { key: { in: settingKeys } },
+    });
+
+    // Convert to object with parsed values
+    const result = {};
+    settings.forEach(s => {
+      result[s.key] = parseFloat(s.value);
+    });
+
+    // Add calculated values for UI
+    const baseCreditPrice = result.baseCreditPrice || 1;
+    const sessionsPerHour = 3; // 60 min / 20 min per session
+    const baseHourlyRate = baseCreditPrice * sessionsPerHour;
+
+    res.json({
+      success: true,
+      settings: {
+        baseCreditPrice: result.baseCreditPrice || 1,
+        commissionPercent: result.freelanceCommissionPercent || 40,
+        minHourlyRate: result.minHourlyRate || 3,
+        maxHourlyRate: result.maxHourlyRate || 100,
+        baseHourlyRate,
+        sessionsPerHour,
+        sessionDuration: SESSION_DURATION,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Calculate credit factor from hourly rate
+ * creditFactor = hourlyRate / (baseCreditPrice * sessionsPerHour)
+ */
+function calculateCreditFactor(hourlyRate, baseCreditPrice) {
+  const sessionsPerHour = 3;
+  const baseHourlyRate = baseCreditPrice * sessionsPerHour;
+  return Math.ceil(hourlyRate / baseHourlyRate);
+}
 
 module.exports = router;

@@ -293,13 +293,20 @@ function MySessions() {
                       </div>
                     )}
                     {session.status === 'COMPLETED' && (
-                      <Link
-                        to={`/session/${session.id}/recording`}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-xl font-medium hover:bg-indigo-200"
-                      >
-                        <Play size={18} />
-                        Watch Recording
-                      </Link>
+                      session.vimeoVideoUrl ? (
+                        <Link
+                          to={`/session/${session.id}/recording`}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-xl font-medium hover:bg-indigo-200"
+                        >
+                          <Play size={18} />
+                          Watch Recording
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-xl font-medium cursor-not-allowed">
+                          <Loader2 size={18} className="animate-spin" />
+                          Processing Recording
+                        </div>
+                      )
                     )}
                   </div>
                 </div>

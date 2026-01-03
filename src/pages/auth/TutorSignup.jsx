@@ -11,7 +11,8 @@ import apiClient from '../../api/client';
 import {
   GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
   ArrowRight, ArrowLeft, User, Phone, MapPin, Building2, CheckCircle,
-  FileText, Upload, Trash2, Plus, BookOpen, Clock, Check, Camera, X, Filter
+  FileText, Upload, Trash2, Plus, BookOpen, Clock, Check, Camera, X, Filter,
+  Briefcase, DollarSign
 } from 'lucide-react';
 
 const TIMEZONES = [
@@ -28,11 +29,12 @@ const TIMEZONES = [
 const STEPS = [
   { id: 1, title: 'Personal Info', icon: User },
   { id: 2, title: 'Learning Center', icon: Building2 },
-  { id: 3, title: 'Security', icon: Lock },
-  { id: 4, title: 'Profile', icon: GraduationCap },
-  { id: 5, title: 'Certifications', icon: FileText },
-  { id: 6, title: 'Courses', icon: BookOpen },
-  { id: 7, title: 'Review', icon: Check },
+  { id: 3, title: 'Tutor Type', icon: Briefcase },
+  { id: 4, title: 'Security', icon: Lock },
+  { id: 5, title: 'Profile', icon: GraduationCap },
+  { id: 6, title: 'Certifications', icon: FileText },
+  { id: 7, title: 'Courses', icon: BookOpen },
+  { id: 8, title: 'Review', icon: Check },
 ];
 
 function TutorSignup() {
@@ -49,10 +51,12 @@ function TutorSignup() {
   const [courses, setCourses] = useState([]);
   const [countries, setCountries] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [pricingSettings, setPricingSettings] = useState(null);
   const [loadingCenters, setLoadingCenters] = useState(true);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingCountries, setLoadingCountries] = useState(true);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingPricing, setLoadingPricing] = useState(true);
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('');
 
   // Form data
@@ -66,6 +70,9 @@ function TutorSignup() {
     // Learning center
     centerId: '',
     workRemotely: true,
+    // Tutor type (FULLTIME or FREELANCE)
+    tutorType: 'FULLTIME',
+    hourlyRate: '',
     // Security
     password: '',
     confirmPassword: '',
@@ -90,12 +97,13 @@ function TutorSignup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
 
-  // Fetch centers, courses, countries, and subjects on mount
+  // Fetch centers, courses, countries, subjects, and pricing settings on mount
   useEffect(() => {
     fetchCenters();
     fetchCourses();
     fetchCountries();
     fetchSubjects();
+    fetchPricingSettings();
   }, []);
 
   const fetchCenters = async () => {
@@ -144,6 +152,71 @@ function TutorSignup() {
     } finally {
       setLoadingSubjects(false);
     }
+  };
+
+  const fetchPricingSettings = async () => {
+    try {
+      setLoadingPricing(true);
+      const result = await tutorsApi.getPricingSettings();
+      setPricingSettings(result.settings || null);
+    } catch (err) {
+      console.error('Failed to fetch pricing settings:', err);
+      // Set defaults
+      setPricingSettings({
+        baseCreditPrice: 1,
+        commissionPercent: 40,
+        minHourlyRate: 3,
+        maxHourlyRate: 100,
+        baseHourlyRate: 3,
+        sessionsPerHour: 3,
+        sessionDuration: 20,
+      });
+    } finally {
+      setLoadingPricing(false);
+    }
+  };
+
+  // Generate valid hourly rate options (multiples of base hourly rate)
+  const getValidRateOptions = () => {
+    if (!pricingSettings) return [];
+    const { baseHourlyRate, minHourlyRate, maxHourlyRate, commissionPercent, sessionsPerHour } = pricingSettings;
+    const options = [];
+
+    for (let factor = 1; factor <= Math.floor(maxHourlyRate / baseHourlyRate); factor++) {
+      const rate = factor * baseHourlyRate;
+      if (rate >= minHourlyRate && rate <= maxHourlyRate) {
+        const netPerHour = rate * (1 - commissionPercent / 100);
+        options.push({
+          rate,
+          creditFactor: factor,
+          netPerHour: netPerHour.toFixed(2),
+          label: `$${rate}/hour (${factor} credit${factor > 1 ? 's' : ''}/session)`,
+        });
+      }
+    }
+    return options;
+  };
+
+  // Calculate credit factor and earnings from hourly rate
+  const calculateEarnings = (hourlyRate) => {
+    if (!pricingSettings || !hourlyRate) return null;
+    const rate = parseFloat(hourlyRate);
+    if (isNaN(rate) || rate <= 0) return null;
+
+    // Only valid if rate is exact multiple of baseHourlyRate
+    if (rate % pricingSettings.baseHourlyRate !== 0) return null;
+
+    const creditFactor = rate / pricingSettings.baseHourlyRate;
+    const grossPerHour = creditFactor * pricingSettings.baseHourlyRate;
+    const netPerHour = grossPerHour * (1 - pricingSettings.commissionPercent / 100);
+    const netPerSession = netPerHour / pricingSettings.sessionsPerHour;
+
+    return {
+      creditFactor,
+      grossPerHour,
+      netPerHour: netPerHour.toFixed(2),
+      netPerSession: netPerSession.toFixed(2),
+    };
   };
 
   const handleChange = (field, value) => {
@@ -233,6 +306,29 @@ function TutorSignup() {
     }
 
     if (step === 3) {
+      // Tutor type validation
+      if (formData.tutorType === 'FREELANCE') {
+        if (!formData.hourlyRate) {
+          errors.hourlyRate = 'Please select an hourly rate';
+        } else {
+          const rate = parseFloat(formData.hourlyRate);
+          if (isNaN(rate) || rate <= 0) {
+            errors.hourlyRate = 'Please select a valid hourly rate';
+          } else if (pricingSettings) {
+            if (rate < pricingSettings.minHourlyRate) {
+              errors.hourlyRate = `Minimum rate is $${pricingSettings.minHourlyRate}/hour`;
+            } else if (rate > pricingSettings.maxHourlyRate) {
+              errors.hourlyRate = `Maximum rate is $${pricingSettings.maxHourlyRate}/hour`;
+            } else if (rate % pricingSettings.baseHourlyRate !== 0) {
+              // Rate must be an exact multiple of base hourly rate
+              errors.hourlyRate = `Rate must be a multiple of $${pricingSettings.baseHourlyRate}`;
+            }
+          }
+        }
+      }
+    }
+
+    if (step === 4) {
       if (!formData.password) errors.password = 'Password is required';
       else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters';
       else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
@@ -243,12 +339,12 @@ function TutorSignup() {
       if (!formData.agreeTerms) errors.agreeTerms = 'You must agree to the terms';
     }
 
-    if (step === 4) {
+    if (step === 5) {
       if (!formData.headline.trim()) errors.headline = 'Professional headline is required';
       if (!formData.bio.trim()) errors.bio = 'Bio is required';
     }
 
-    if (step === 6) {
+    if (step === 7) {
       if (formData.selectedCourses.length === 0) errors.courses = 'Please select at least one course';
     }
 
@@ -304,12 +400,20 @@ function TutorSignup() {
       }
 
       // Step 4: Register tutor profile
-      const tutorResult = await tutorsApi.register({
+      const tutorData = {
         headline: formData.headline,
         bio: formData.bio,
         timezone: formData.timezone,
         courses: formData.selectedCourses,
-      });
+        tutorType: formData.tutorType,
+      };
+
+      // Add hourly rate for freelance tutors
+      if (formData.tutorType === 'FREELANCE' && formData.hourlyRate) {
+        tutorData.hourlyRate = parseFloat(formData.hourlyRate);
+      }
+
+      const tutorResult = await tutorsApi.register(tutorData);
 
       // Update auth context with new TUTOR role
       if (tutorResult.user) {
@@ -617,8 +721,166 @@ function TutorSignup() {
             </div>
           )}
 
-          {/* Step 3: Security */}
+          {/* Step 3: Tutor Type */}
           {currentStep === 3 && (
+            <div className="space-y-5">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Choose Your Tutor Type</h2>
+              <p className="text-gray-600 mb-6">
+                How would you like to work with TABSERA Academy?
+              </p>
+
+              {loadingPricing ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 size={32} className="animate-spin text-green-600" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <label
+                      className={`flex items-start gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all ${
+                        formData.tutorType === 'FULLTIME'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={formData.tutorType === 'FULLTIME'}
+                        onChange={() => handleChange('tutorType', 'FULLTIME')}
+                        className="w-5 h-5 text-green-600 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building2 size={20} className="text-green-600" />
+                          <p className="font-semibold text-gray-900">Fulltime Tutor</p>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-3">
+                          Get paid directly by TABSERA Academy with guaranteed compensation.
+                        </p>
+                        <ul className="text-sm text-gray-500 space-y-1">
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-green-500" />
+                            Fixed hourly rate set by TABSERA
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-green-500" />
+                            Regular payment schedule
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-green-500" />
+                            Priority session assignments
+                          </li>
+                        </ul>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex items-start gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all ${
+                        formData.tutorType === 'FREELANCE'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={formData.tutorType === 'FREELANCE'}
+                        onChange={() => handleChange('tutorType', 'FREELANCE')}
+                        className="w-5 h-5 text-green-600 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Briefcase size={20} className="text-purple-600" />
+                          <p className="font-semibold text-gray-900">Freelance Tutor</p>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-3">
+                          Set your own hourly rate and work on your terms.
+                        </p>
+                        <ul className="text-sm text-gray-500 space-y-1">
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-purple-500" />
+                            You set your hourly rate
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-purple-500" />
+                            {pricingSettings?.commissionPercent || 40}% platform fee applies
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={14} className="text-purple-500" />
+                            Students pay based on your rate
+                          </li>
+                        </ul>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Freelance Rate Input */}
+                  {formData.tutorType === 'FREELANCE' && pricingSettings && (
+                    <div className="mt-6 p-5 bg-purple-50 rounded-xl border border-purple-200">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Hourly Rate (USD) *
+                      </label>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Rates are based on ${pricingSettings.baseHourlyRate}/hour base rate ({pricingSettings.sessionsPerHour} sessions of {pricingSettings.sessionDuration} min each)
+                      </p>
+                      <div className="relative">
+                        <DollarSign size={18} className="absolute left-4 top-3.5 text-gray-400 z-10" />
+                        <select
+                          value={formData.hourlyRate}
+                          onChange={(e) => handleChange('hourlyRate', e.target.value)}
+                          className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white ${
+                            formErrors.hourlyRate ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                          }`}
+                        >
+                          <option value="">Select your hourly rate</option>
+                          {getValidRateOptions().map(option => (
+                            <option key={option.rate} value={option.rate}>
+                              ${option.rate}/hour — {option.creditFactor} credit{option.creditFactor > 1 ? 's' : ''}/session — You earn ${option.netPerHour}/hr
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {formErrors.hourlyRate && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.hourlyRate}</p>
+                      )}
+
+                      {/* Earnings Preview */}
+                      {formData.hourlyRate && calculateEarnings(formData.hourlyRate) && (
+                        <div className="mt-4 p-4 bg-white rounded-lg border border-purple-100">
+                          <p className="text-sm font-medium text-gray-700 mb-3">Your Earnings Preview</p>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-gray-500">Credit Factor</p>
+                              <p className="text-lg font-bold text-purple-600">
+                                {calculateEarnings(formData.hourlyRate).creditFactor}x
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Per {pricingSettings.sessionDuration} min session</p>
+                              <p className="text-lg font-bold text-green-600">
+                                ${calculateEarnings(formData.hourlyRate).netPerSession}
+                              </p>
+                            </div>
+                            <div className="col-span-2 pt-3 border-t">
+                              <p className="text-gray-500">Net Hourly Rate (after {pricingSettings.commissionPercent}% fee)</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                ${calculateEarnings(formData.hourlyRate).netPerHour}/hour
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-3">
+                            Students will pay {calculateEarnings(formData.hourlyRate).creditFactor} credit(s) per {pricingSettings.sessionDuration}-min session
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Security */}
+          {currentStep === 4 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Create Your Password</h2>
 
@@ -713,8 +975,8 @@ function TutorSignup() {
             </div>
           )}
 
-          {/* Step 4: Tutor Profile */}
-          {currentStep === 4 && (
+          {/* Step 5: Tutor Profile */}
+          {currentStep === 5 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Your Tutor Profile</h2>
 
@@ -805,8 +1067,8 @@ function TutorSignup() {
             </div>
           )}
 
-          {/* Step 5: Certifications */}
-          {currentStep === 5 && (
+          {/* Step 6: Certifications */}
+          {currentStep === 6 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Certifications</h2>
               <p className="text-gray-600 mb-6">
@@ -883,8 +1145,8 @@ function TutorSignup() {
             </div>
           )}
 
-          {/* Step 6: Courses */}
-          {currentStep === 6 && (
+          {/* Step 7: Courses */}
+          {currentStep === 7 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Courses You Can Teach</h2>
               <p className="text-gray-600 mb-4">Select the courses you are proficient in and can teach.</p>
@@ -971,8 +1233,8 @@ function TutorSignup() {
             </div>
           )}
 
-          {/* Step 7: Review */}
-          {currentStep === 7 && (
+          {/* Step 8: Review */}
+          {currentStep === 8 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Review Your Application</h2>
 
@@ -1057,7 +1319,7 @@ function TutorSignup() {
               Back
             </button>
 
-            {currentStep < 7 ? (
+            {currentStep < 8 ? (
               <button
                 onClick={handleNext}
                 className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
