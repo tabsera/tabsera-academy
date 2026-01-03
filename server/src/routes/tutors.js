@@ -267,7 +267,7 @@ router.get('/profile', authenticate, async (req, res, next) => {
  */
 router.put('/profile', authenticate, async (req, res, next) => {
   try {
-    const { bio, headline, timezone, hourlyRate } = req.body;
+    const { bio, headline, timezone, tutorType, hourlyRate } = req.body;
 
     const profile = await req.prisma.tutorProfile.findUnique({
       where: { userId: req.user.id },
@@ -280,15 +280,88 @@ router.put('/profile', authenticate, async (req, res, next) => {
       });
     }
 
+    // Prepare update data
+    const updateData = {
+      bio: bio !== undefined ? bio : profile.bio,
+      headline: headline !== undefined ? headline : profile.headline,
+      timezone: timezone !== undefined ? timezone : profile.timezone,
+    };
+
+    // Handle tutor type change
+    if (tutorType !== undefined) {
+      if (!['FULLTIME', 'FREELANCE'].includes(tutorType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid tutor type. Must be FULLTIME or FREELANCE.',
+        });
+      }
+      updateData.tutorType = tutorType;
+
+      // If changing to FULLTIME, reset hourly rate and credit factor
+      if (tutorType === 'FULLTIME') {
+        updateData.hourlyRate = null;
+        updateData.creditFactor = 1;
+      }
+    }
+
+    // Handle hourly rate change for freelance tutors
+    const effectiveTutorType = tutorType !== undefined ? tutorType : profile.tutorType;
+    if (effectiveTutorType === 'FREELANCE' && hourlyRate !== undefined) {
+      // Get system settings for validation
+      const settings = await req.prisma.systemSettings.findMany({
+        where: { key: { in: ['baseCreditPrice', 'minHourlyRate', 'maxHourlyRate'] } },
+      });
+
+      const settingsMap = {};
+      settings.forEach(s => { settingsMap[s.key] = parseFloat(s.value); });
+
+      const minRate = settingsMap.minHourlyRate || 3;
+      const maxRate = settingsMap.maxHourlyRate || 100;
+      const baseCreditPrice = settingsMap.baseCreditPrice || 1;
+      const sessionsPerHour = 3;
+      const baseHourlyRate = baseCreditPrice * sessionsPerHour;
+
+      const parsedRate = parseFloat(hourlyRate);
+
+      if (isNaN(parsedRate) || parsedRate < minRate || parsedRate > maxRate) {
+        return res.status(400).json({
+          success: false,
+          message: `Hourly rate must be between $${minRate} and $${maxRate}`,
+        });
+      }
+
+      // Validate that hourly rate is an exact multiple of base hourly rate
+      if (parsedRate % baseHourlyRate !== 0) {
+        const lowerRate = Math.floor(parsedRate / baseHourlyRate) * baseHourlyRate;
+        const upperRate = Math.ceil(parsedRate / baseHourlyRate) * baseHourlyRate;
+
+        return res.status(400).json({
+          success: false,
+          message: `Hourly rate must be a multiple of $${baseHourlyRate}. Valid rates near $${parsedRate}: $${lowerRate} or $${upperRate}.`,
+          suggestedRates: { lower: lowerRate, upper: upperRate },
+          baseHourlyRate,
+        });
+      }
+
+      updateData.hourlyRate = parsedRate;
+      updateData.creditFactor = parsedRate / baseHourlyRate;
+    }
+
     const updated = await req.prisma.tutorProfile.update({
       where: { id: profile.id },
-      data: {
-        bio: bio !== undefined ? bio : profile.bio,
-        headline: headline !== undefined ? headline : profile.headline,
-        timezone: timezone !== undefined ? timezone : profile.timezone,
-        hourlyRate: hourlyRate !== undefined ? hourlyRate : profile.hourlyRate,
-      },
+      data: updateData,
       include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            avatar: true,
+            country: true,
+          },
+        },
         courses: {
           include: {
             course: {

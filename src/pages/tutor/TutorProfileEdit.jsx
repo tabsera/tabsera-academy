@@ -1,13 +1,14 @@
 /**
  * Tutor Profile Edit
- * Edit tutor bio, headline, and manage certifications
+ * Edit tutor bio, headline, tutor type, hourly rate, and manage certifications
  */
 
 import React, { useState, useEffect } from 'react';
 import { tutorsApi } from '../../api/tutors';
 import {
   Loader2, AlertCircle, Save, Upload, Trash2, FileText,
-  CheckCircle, User, BookOpen, Award, Camera, X, Mail, Phone, MapPin
+  CheckCircle, User, BookOpen, Award, Camera, X, Mail, Phone, MapPin,
+  Building2, Briefcase, DollarSign
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -15,6 +16,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 function TutorProfileEdit() {
   const [profile, setProfile] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [pricingSettings, setPricingSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -25,6 +27,7 @@ function TutorProfileEdit() {
     bio: '',
     headline: '',
     timezone: '',
+    tutorType: 'FULLTIME',
     hourlyRate: '',
   });
 
@@ -42,17 +45,20 @@ function TutorProfileEdit() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [profileRes, coursesRes] = await Promise.all([
+      const [profileRes, coursesRes, pricingRes] = await Promise.all([
         tutorsApi.getProfile(),
         tutorsApi.getCourses(),
+        tutorsApi.getPricingSettings(),
       ]);
       const tutor = profileRes.profile;
       setProfile(tutor);
       setCourses(coursesRes.courses || []);
+      setPricingSettings(pricingRes.settings || null);
       setFormData({
         bio: tutor?.bio || '',
         headline: tutor?.headline || '',
         timezone: tutor?.timezone || '',
+        tutorType: tutor?.tutorType || 'FULLTIME',
         hourlyRate: tutor?.hourlyRate || '',
       });
     } catch (err) {
@@ -62,11 +68,60 @@ function TutorProfileEdit() {
     }
   };
 
+  // Generate valid hourly rate options (multiples of base hourly rate)
+  const getValidRateOptions = () => {
+    if (!pricingSettings) return [];
+    const { baseHourlyRate, minHourlyRate, maxHourlyRate, commissionPercent } = pricingSettings;
+    const options = [];
+
+    for (let factor = 1; factor <= Math.floor(maxHourlyRate / baseHourlyRate); factor++) {
+      const rate = factor * baseHourlyRate;
+      if (rate >= minHourlyRate && rate <= maxHourlyRate) {
+        const netPerHour = rate * (1 - commissionPercent / 100);
+        options.push({
+          rate,
+          creditFactor: factor,
+          netPerHour: netPerHour.toFixed(2),
+        });
+      }
+    }
+    return options;
+  };
+
+  // Calculate earnings preview
+  const calculateEarnings = (hourlyRate) => {
+    if (!pricingSettings || !hourlyRate) return null;
+    const rate = parseFloat(hourlyRate);
+    if (isNaN(rate) || rate <= 0) return null;
+    if (rate % pricingSettings.baseHourlyRate !== 0) return null;
+
+    const creditFactor = rate / pricingSettings.baseHourlyRate;
+    const netPerHour = rate * (1 - pricingSettings.commissionPercent / 100);
+    const netPerSession = netPerHour / pricingSettings.sessionsPerHour;
+
+    return {
+      creditFactor,
+      netPerHour: netPerHour.toFixed(2),
+      netPerSession: netPerSession.toFixed(2),
+    };
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await tutorsApi.updateProfile(formData);
+      // Prepare data - only send hourlyRate if FREELANCE
+      const dataToSend = {
+        bio: formData.bio,
+        headline: formData.headline,
+        timezone: formData.timezone,
+        tutorType: formData.tutorType,
+      };
+      if (formData.tutorType === 'FREELANCE' && formData.hourlyRate) {
+        dataToSend.hourlyRate = parseFloat(formData.hourlyRate);
+      }
+      await tutorsApi.updateProfile(dataToSend);
+      await fetchData(); // Refresh profile data
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -333,33 +388,21 @@ function TutorProfileEdit() {
               className="w-full px-3 sm:px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 resize-none text-base"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-              <select
-                value={formData.timezone}
-                onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                className="w-full px-3 sm:px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-base"
-              >
-                <option value="">Select timezone</option>
-                <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
-                <option value="Africa/Mogadishu">Africa/Mogadishu (EAT)</option>
-                <option value="Africa/Addis_Ababa">Africa/Addis_Ababa (EAT)</option>
-                <option value="UTC">UTC</option>
-                <option value="Europe/London">Europe/London (GMT)</option>
-                <option value="America/New_York">America/New_York (EST)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (USD)</label>
-              <input
-                type="number"
-                value={formData.hourlyRate}
-                onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
-                placeholder="0.00"
-                className="w-full px-3 sm:px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-base"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+            <select
+              value={formData.timezone}
+              onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+              className="w-full px-3 sm:px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-base"
+            >
+              <option value="">Select timezone</option>
+              <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+              <option value="Africa/Mogadishu">Africa/Mogadishu (EAT)</option>
+              <option value="Africa/Addis_Ababa">Africa/Addis_Ababa (EAT)</option>
+              <option value="UTC">UTC</option>
+              <option value="Europe/London">Europe/London (GMT)</option>
+              <option value="America/New_York">America/New_York (EST)</option>
+            </select>
           </div>
           <button
             onClick={handleSave}
@@ -368,6 +411,146 @@ function TutorProfileEdit() {
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             Save Changes
+          </button>
+        </div>
+      </div>
+
+      {/* Tutor Type & Pricing */}
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+          <Briefcase size={20} /> Tutor Type & Pricing
+        </h2>
+
+        {/* Current Status Badge */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              profile?.tutorType === 'FREELANCE'
+                ? 'bg-purple-100 text-purple-700'
+                : 'bg-blue-100 text-blue-700'
+            }`}>
+              {profile?.tutorType === 'FREELANCE' ? 'Freelance Tutor' : 'Fulltime Tutor'}
+            </div>
+            {profile?.tutorType === 'FREELANCE' && profile?.hourlyRate && (
+              <span className="text-gray-600">
+                ${profile.hourlyRate}/hour • {profile.creditFactor} credit{profile.creditFactor > 1 ? 's' : ''}/session
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Tutor Type Selection */}
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Choose how you want to work with TABSERA:</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label
+              className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                formData.tutorType === 'FULLTIME'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                checked={formData.tutorType === 'FULLTIME'}
+                onChange={() => setFormData({ ...formData, tutorType: 'FULLTIME', hourlyRate: '' })}
+                className="w-4 h-4 text-blue-600 mt-0.5"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 size={16} className="text-blue-600" />
+                  <p className="font-medium text-gray-900 text-sm">Fulltime</p>
+                </div>
+                <p className="text-xs text-gray-500">Fixed rate set by TABSERA</p>
+              </div>
+            </label>
+
+            <label
+              className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                formData.tutorType === 'FREELANCE'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                checked={formData.tutorType === 'FREELANCE'}
+                onChange={() => setFormData({ ...formData, tutorType: 'FREELANCE' })}
+                className="w-4 h-4 text-purple-600 mt-0.5"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Briefcase size={16} className="text-purple-600" />
+                  <p className="font-medium text-gray-900 text-sm">Freelance</p>
+                </div>
+                <p className="text-xs text-gray-500">Set your own hourly rate</p>
+              </div>
+            </label>
+          </div>
+
+          {/* Freelance Rate Selection */}
+          {formData.tutorType === 'FREELANCE' && pricingSettings && (
+            <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Hourly Rate (USD)
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                Rates are multiples of ${pricingSettings.baseHourlyRate}/hour base rate.
+                Platform fee: {pricingSettings.commissionPercent}%
+              </p>
+              <div className="relative">
+                <DollarSign size={18} className="absolute left-3 top-3 text-gray-400 z-10" />
+                <select
+                  value={formData.hourlyRate}
+                  onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-base"
+                >
+                  <option value="">Select your hourly rate</option>
+                  {getValidRateOptions().map(option => (
+                    <option key={option.rate} value={option.rate}>
+                      ${option.rate}/hour — {option.creditFactor} credit{option.creditFactor > 1 ? 's' : ''}/session — You earn ${option.netPerHour}/hr
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Earnings Preview */}
+              {formData.hourlyRate && calculateEarnings(formData.hourlyRate) && (
+                <div className="mt-4 p-3 bg-white rounded-lg border border-purple-100">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Your Earnings</p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-gray-500">Credit Factor</p>
+                      <p className="text-lg font-bold text-purple-600">
+                        {calculateEarnings(formData.hourlyRate).creditFactor}x
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Per Session</p>
+                      <p className="text-lg font-bold text-green-600">
+                        ${calculateEarnings(formData.hourlyRate).netPerSession}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Per Hour</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        ${calculateEarnings(formData.hourlyRate).netPerHour}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={saving || (formData.tutorType === 'FREELANCE' && !formData.hourlyRate)}
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 min-h-[44px] w-full sm:w-auto text-sm sm:text-base"
+          >
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Save Tutor Type
           </button>
         </div>
       </div>
