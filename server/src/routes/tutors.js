@@ -2349,13 +2349,26 @@ router.post('/sessions/:id/recording/check', authenticate, async (req, res, next
       });
     }
 
-    // If no vimeoVideoId, nothing to check
+    // Calculate session end time (use endedAt if available, otherwise scheduledAt + duration)
+    const sessionEndTime = session.endedAt
+      ? new Date(session.endedAt).getTime()
+      : new Date(session.scheduledAt).getTime() + (session.duration || 20) * 60 * 1000;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    const isExpired = sessionEndTime < oneHourAgo;
+
+    // If no vimeoVideoId and 1 hour has passed, mark as not available
     if (!session.vimeoVideoId) {
+      if (isExpired && session.recordingStatus !== 'not_available') {
+        await req.prisma.tutorSession.update({
+          where: { id },
+          data: { recordingStatus: 'not_available' },
+        });
+      }
       return res.json({
         success: true,
-        status: session.recordingStatus || 'not_available',
+        status: isExpired ? 'not_available' : (session.recordingStatus || 'processing'),
         vimeoVideoUrl: null,
-        message: 'No Vimeo video ID found',
+        message: isExpired ? 'Recording not available' : 'No Vimeo video ID found',
       });
     }
 
@@ -2393,6 +2406,20 @@ router.post('/sessions/:id/recording/check', authenticate, async (req, res, next
         }
       }
 
+      // Check if 1 hour has passed - mark as not available
+      if (isExpired) {
+        await req.prisma.tutorSession.update({
+          where: { id },
+          data: { recordingStatus: 'not_available' },
+        });
+        return res.json({
+          success: true,
+          status: 'not_available',
+          vimeoVideoUrl: null,
+          message: 'Recording not available - processing timeout',
+        });
+      }
+
       // Still processing
       return res.json({
         success: true,
@@ -2402,6 +2429,21 @@ router.post('/sessions/:id/recording/check', authenticate, async (req, res, next
       });
     } catch (vimeoError) {
       console.error('Vimeo check failed:', vimeoError.message);
+
+      // If 1 hour has passed and we can't check Vimeo, mark as not available
+      if (isExpired) {
+        await req.prisma.tutorSession.update({
+          where: { id },
+          data: { recordingStatus: 'not_available' },
+        });
+        return res.json({
+          success: true,
+          status: 'not_available',
+          vimeoVideoUrl: null,
+          message: 'Recording not available',
+        });
+      }
+
       return res.json({
         success: true,
         status: 'error',

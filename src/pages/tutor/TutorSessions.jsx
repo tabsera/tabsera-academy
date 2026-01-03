@@ -264,6 +264,11 @@ function TutorSessions() {
                             <Play size={18} />
                             <span className="hidden xs:inline">Recording</span>
                           </Link>
+                        ) : session.recordingStatus === 'not_available' ? (
+                          <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl font-medium min-h-[44px] min-w-[44px] text-sm sm:text-base cursor-not-allowed">
+                            <XCircle size={18} />
+                            <span className="hidden xs:inline">No Recording</span>
+                          </div>
                         ) : checkingRecordings.has(session.id) ? (
                           <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-blue-100 text-blue-600 rounded-xl font-medium min-h-[44px] min-w-[44px] text-sm sm:text-base cursor-not-allowed">
                             <Loader2 size={18} className="animate-spin" />
@@ -278,6 +283,10 @@ function TutorSessions() {
                                 if (result?.vimeoVideoUrl) {
                                   setSessions(prev => prev.map(s =>
                                     s.id === session.id ? { ...s, vimeoVideoUrl: result.vimeoVideoUrl } : s
+                                  ));
+                                } else if (result?.status === 'not_available') {
+                                  setSessions(prev => prev.map(s =>
+                                    s.id === session.id ? { ...s, recordingStatus: 'not_available' } : s
                                   ));
                                 }
                               } catch (err) {

@@ -150,15 +150,23 @@ function MySessions() {
     return styles[status] || 'bg-gray-100 text-gray-700';
   };
 
-  const filteredSessions = sessions.filter(session => {
-    if (activeTab === 'upcoming') {
-      return ['SCHEDULED', 'IN_PROGRESS'].includes(session.status);
-    } else if (activeTab === 'past') {
-      return session.status === 'COMPLETED';
-    } else {
-      return ['CANCELLED', 'NO_SHOW'].includes(session.status);
-    }
-  });
+  const filteredSessions = sessions
+    .filter(session => {
+      if (activeTab === 'upcoming') {
+        return ['SCHEDULED', 'IN_PROGRESS'].includes(session.status);
+      } else if (activeTab === 'past') {
+        return session.status === 'COMPLETED';
+      } else {
+        return ['CANCELLED', 'NO_SHOW'].includes(session.status);
+      }
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.scheduledAt).getTime();
+      const dateB = new Date(b.scheduledAt).getTime();
+      // Upcoming sessions: ascending (earliest first)
+      // Completed/Cancelled sessions: descending (newest first)
+      return activeTab === 'upcoming' ? dateA - dateB : dateB - dateA;
+    });
 
   if (loading) {
     return (
@@ -355,6 +363,11 @@ function MySessions() {
                           <Play size={18} />
                           Watch Recording
                         </Link>
+                      ) : session.recordingStatus === 'not_available' ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-xl font-medium cursor-not-allowed">
+                          <XCircle size={18} />
+                          No Recording
+                        </div>
                       ) : checkingRecordings.has(session.id) ? (
                         <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-medium cursor-not-allowed">
                           <Loader2 size={18} className="animate-spin" />
@@ -369,6 +382,10 @@ function MySessions() {
                               if (result?.vimeoVideoUrl) {
                                 setSessions(prev => prev.map(s =>
                                   s.id === session.id ? { ...s, vimeoVideoUrl: result.vimeoVideoUrl } : s
+                                ));
+                              } else if (result?.status === 'not_available') {
+                                setSessions(prev => prev.map(s =>
+                                  s.id === session.id ? { ...s, recordingStatus: 'not_available' } : s
                                 ));
                               }
                             } catch (err) {
