@@ -1356,6 +1356,11 @@ router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    // Skip if id is a reserved route path (not a UUID)
+    if (['contracts', 'student', 'pending', 'sessions', 'recordings'].includes(id)) {
+      return next();
+    }
+
     const tutor = await req.prisma.tutorProfile.findUnique({
       where: { id },
       include: {
